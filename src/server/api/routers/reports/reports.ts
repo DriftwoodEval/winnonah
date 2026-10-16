@@ -12,10 +12,11 @@ import {
 import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { env } from "~/env";
-import { invalidateCache } from "~/lib/cache";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { REPORT_QUEUE_FOLDER_ID } from "~/lib/constants";
 import {
 	CACHE_KEY_PUNCHLIST,
+	getDriveFolderPath,
 	syncPunchData,
 	updatePunchReportFields,
 	updatePunchSecondReview,
@@ -208,6 +209,7 @@ export const reportsRouter = createTRPCRouter({
 					clientId: reports.clientId,
 					clientFullName: clients.fullName,
 					clientHash: clients.hash,
+					clientDriveId: clients.driveId,
 					clientActive: clients.status,
 					clientAutismStop: clients.autismStop,
 					clientPause: clients.pause,
@@ -258,6 +260,27 @@ export const reportsRouter = createTRPCRouter({
 				canEditBilling: isApprover,
 				isMine: r.writerUserId === ctx.session.user.id,
 			}));
+		}),
+
+	// Full Drive path of a report's client folder, for the folder link's hover.
+	// Looked up from the client's stored folder (never a caller-supplied ID) and
+	// cached, since folder paths rarely change.
+	clientDrivePath: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			assertReportsPage(ctx.session.user);
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { driveId: true },
+			});
+			if (!client?.driveId || client.driveId === "N/A") return null;
+			const { driveId } = client;
+			return fetchWithCache(
+				ctx,
+				`google:drive:path:${driveId}`,
+				() => getDriveFolderPath(ctx.session, driveId),
+				60 * 60 * 24,
+			);
 		}),
 
 	myReports: protectedProcedure.query(async ({ ctx }) => {
