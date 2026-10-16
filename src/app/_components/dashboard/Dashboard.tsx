@@ -15,21 +15,7 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@ui/tooltip";
-import {
-	AlertTriangle,
-	CalendarCheck,
-	CalendarPlus,
-	Loader2,
-	MapIcon,
-	Pin,
-	PinOff,
-} from "lucide-react";
+import { AlertTriangle, Loader2, MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -39,9 +25,7 @@ import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
-	SECTION_DA_QS_DONE,
-	SECTION_DAEVAL_QS_DONE,
-	SECTION_EVAL_QS_DONE,
+	isQsDoneSection,
 	SECTION_NEEDS_OUTREACH,
 	SECTION_REACHED_OUT_NEEDS_REVIEW,
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
@@ -50,6 +34,7 @@ import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { AddToSchedulingButton } from "./AddToSchedulingButton";
 import {
 	DismissButton,
 	DismissedBadge,
@@ -164,22 +149,7 @@ function PunchListAccordionItem({
 		},
 	});
 
-	const addScheduling = api.scheduling.add.useMutation({
-		onSuccess: () => {
-			toast.success("Added to scheduling");
-			utils.scheduling.get.invalidate();
-		},
-		onError: (error) => {
-			toast.error("Failed to add to scheduling", {
-				description: error.message,
-			});
-		},
-	});
-
-	const isQsBackSection =
-		title === SECTION_DA_QS_DONE ||
-		title === SECTION_EVAL_QS_DONE ||
-		title === SECTION_DAEVAL_QS_DONE;
+	const isQsBackSection = isQsDoneSection(title);
 
 	const schedulingAddedCount =
 		isQsBackSection && scheduledClientIds
@@ -452,45 +422,13 @@ function PunchListAccordionItem({
 												)}
 											</Button>
 										)}
-										{isQsBackSection &&
-											(onSchedulingTable ? (
-												<TooltipProvider>
-													<Tooltip>
-														<TooltipTrigger asChild>
-															<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center">
-																<CalendarCheck className="h-4 w-4 text-muted-foreground opacity-50" />
-															</span>
-														</TooltipTrigger>
-														<TooltipContent>
-															Already on scheduling page
-														</TooltipContent>
-													</Tooltip>
-												</TooltipProvider>
-											) : (
-												<Button
-													className="shrink-0"
-													disabled={addScheduling.isPending}
-													onClick={() =>
-														addScheduling.mutate({
-															clientId: client.id,
-															code:
-																title === SECTION_DA_QS_DONE
-																	? "90791"
-																	: "96136",
-														})
-													}
-													size="icon-sm"
-													title="Add to Scheduling"
-													variant="ghost"
-												>
-													{addScheduling.isPending &&
-													addScheduling.variables?.clientId === client.id ? (
-														<Loader2 className="h-4 w-4 animate-spin" />
-													) : (
-														<CalendarPlus className="h-4 w-4" />
-													)}
-												</Button>
-											))}
+										{isQsBackSection && (
+											<AddToSchedulingButton
+												clientId={client.id}
+												onSchedulingTable={!!onSchedulingTable}
+												sectionTitle={title}
+											/>
+										)}
 									</div>
 									{isSavedClient(client.hash) && (
 										<button

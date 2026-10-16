@@ -1,20 +1,32 @@
 "use client";
 
+import { AddToSchedulingButton } from "@components/dashboard/AddToSchedulingButton";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import { Route } from "lucide-react";
 import {
+	isQsDoneSection,
 	SECTION_ACTIVE_NOT_ON_PUNCHLIST,
 	SECTION_JUST_ADDED,
 } from "~/lib/dashboard";
 import { api } from "~/trpc/react";
 
-export function DashboardStatus({ clientId }: { clientId: number }) {
+export function DashboardStatus({
+	clientId,
+	readOnly,
+}: {
+	clientId: number;
+	readOnly?: boolean;
+}) {
 	const { data: dashboardData, isLoading } =
 		api.google.getDashboardData.useQuery(undefined, {
 			staleTime: 5 * 60 * 1000,
 			refetchInterval: 5 * 60 * 1000,
 		});
+	const { data: schedulingData } = api.scheduling.get.useQuery(
+		{},
+		{ staleTime: 60000 },
+	);
 
 	if (isLoading) {
 		return <Skeleton className="h-6 w-32" />;
@@ -28,6 +40,10 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 	if (matchedSections.length === 0) {
 		return null;
 	}
+
+	const qsDoneSection = matchedSections.find(isQsDoneSection);
+	const onSchedulingTable =
+		schedulingData?.clients.some((c) => c.clientId === clientId) ?? false;
 
 	return (
 		<div className="flex flex-wrap items-center gap-2">
@@ -45,6 +61,13 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 					{section}
 				</Badge>
 			))}
+			{!readOnly && qsDoneSection && (
+				<AddToSchedulingButton
+					clientId={clientId}
+					onSchedulingTable={onSchedulingTable}
+					sectionTitle={qsDoneSection}
+				/>
+			)}
 		</div>
 	);
 }

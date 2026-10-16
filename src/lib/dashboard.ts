@@ -73,6 +73,20 @@ export const SECTION_EVAL_SCHEDULED = "Eval Scheduled";
 export const SECTION_POST_EVAL = "Post-Eval";
 export const SECTION_NEEDS_PROTOCOLS_SCANNED = "Needs protocols scanned";
 
+/** Sections where questionnaires are back and the client can be scheduled. */
+export function isQsDoneSection(title: string): boolean {
+	return (
+		title === SECTION_DA_QS_DONE ||
+		title === SECTION_EVAL_QS_DONE ||
+		title === SECTION_DAEVAL_QS_DONE
+	);
+}
+
+/** Scheduling code used when adding a client from a questionnaires-done section. */
+export function schedulingCodeForSection(title: string): string {
+	return title === SECTION_DA_QS_DONE ? "90791" : "96136";
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

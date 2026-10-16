@@ -363,7 +363,7 @@ export function ClientHeader({
 					/>
 				) : null}
 			</div>
-			<DashboardStatus clientId={client.id} />
+			<DashboardStatus clientId={client.id} readOnly={readOnly} />
 		</div>
 	);
 }
