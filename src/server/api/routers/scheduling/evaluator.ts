@@ -1,7 +1,9 @@
-import { eq, ne, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, eq, ne, sql } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { USER_COLOR_COUNT } from "~/lib/user-colors";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/clients/client";
 import {
@@ -76,6 +78,51 @@ export const evaluatorRouter = createTRPCRouter({
 			}));
 		});
 	}),
+
+	// Lightweight list for color lookups and pickers.
+	getColors: protectedProcedure.query(async ({ ctx }) => {
+		return ctx.db.query.evaluators.findMany({
+			where: ne(evaluators.archived, true),
+			columns: { npi: true, providerName: true, email: true, color: true },
+		});
+	}),
+
+	// Colors are assigned by admins.
+	setColor: protectedProcedure
+		.input(
+			z.object({
+				npi: z.number().int(),
+				color: z
+					.number()
+					.int()
+					.min(0)
+					.max(USER_COLOR_COUNT - 1)
+					.nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+			if (input.color !== null) {
+				const holder = await ctx.db.query.evaluators.findFirst({
+					where: and(
+						eq(evaluators.color, input.color),
+						ne(evaluators.npi, input.npi),
+					),
+					columns: { providerName: true },
+				});
+				if (holder) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: `That color is already used by ${holder.providerName}`,
+					});
+				}
+			}
+			await ctx.db
+				.update(evaluators)
+				.set({ color: input.color })
+				.where(eq(evaluators.npi, input.npi));
+			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+		}),
 
 	getArchived: protectedProcedure.query(async ({ ctx }) => {
 		const rows = await ctx.db.query.evaluators.findMany({

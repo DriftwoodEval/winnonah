@@ -8,6 +8,7 @@ import { DoorOpen, LogIn, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
+import { USER_COLORS } from "~/lib/user-colors";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
@@ -29,16 +30,7 @@ export const GRID_HOURS = Array.from(
 	(_, i) => DAY_START + i,
 );
 
-export const EVAL_COLORS = [
-	"border-l-category-1 bg-category-1/10",
-	"border-l-category-2 bg-category-2/10",
-	"border-l-category-3 bg-category-3/10",
-	"border-l-category-4 bg-category-4/10",
-	"border-l-category-5 bg-category-5/10",
-	"border-l-category-6 bg-category-6/10",
-	"border-l-category-7 bg-category-7/10",
-	"border-l-category-8 bg-category-8/10",
-];
+export const EVAL_COLORS = USER_COLORS.map((c) => c.lane);
 export const FALLBACK_COLOR = EVAL_COLORS[0] ?? "";
 
 // ─── Shared type ──────────────────────────────────────────────────────────────
@@ -121,8 +113,35 @@ function minutesFromMidnightAtY(clientY: number, column: HTMLElement): number {
 
 // ─── Color map ────────────────────────────────────────────────────────────────
 
-export function buildColorMap(data: CalAppt[]): Map<number, string> {
+/**
+ * Chosen colors (evaluator NPI to EVAL_COLORS index) win. Everyone else gets
+ * the remaining colors in the given order.
+ */
+export function assignColors(
+	npis: number[],
+	chosen: Map<number, number> = new Map(),
+): Map<number, string> {
 	const map = new Map<number, string>();
+	const unchosen: number[] = [];
+	for (const npi of npis) {
+		const index = chosen.get(npi);
+		if (index === undefined) unchosen.push(npi);
+		else map.set(npi, EVAL_COLORS[index] ?? FALLBACK_COLOR);
+	}
+	const taken = new Set(chosen.values());
+	const all = EVAL_COLORS.map((_, i) => i);
+	const free = all.filter((i) => !taken.has(i));
+	const pool = free.length > 0 ? free : all;
+	unchosen.forEach((npi, i) => {
+		map.set(npi, EVAL_COLORS[pool[i % pool.length] ?? 0] ?? FALLBACK_COLOR);
+	});
+	return map;
+}
+
+export function buildColorMap(
+	data: CalAppt[],
+	chosen?: Map<number, number>,
+): Map<number, string> {
 	const byNpi = new Map<number, boolean>();
 	for (const a of data) {
 		if (!byNpi.has(a.evaluatorNpi)) byNpi.set(a.evaluatorNpi, a.isCurrentUser);
@@ -134,10 +153,10 @@ export function buildColorMap(data: CalAppt[]): Map<number, string> {
 			return npiA - npiB;
 		},
 	);
-	sorted.forEach(([npi], i) => {
-		map.set(npi, EVAL_COLORS[i % EVAL_COLORS.length] ?? FALLBACK_COLOR);
-	});
-	return map;
+	return assignColors(
+		sorted.map(([npi]) => npi),
+		chosen,
+	);
 }
 
 // ─── Lane assignment ──────────────────────────────────────────────────────────

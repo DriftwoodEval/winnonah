@@ -5,11 +5,11 @@ import { fromZonedTime } from "date-fns-tz";
 import { Star, X } from "lucide-react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
+	assignColors,
 	blockHeight,
 	blockTop,
 	DAY_END,
 	DAY_START,
-	EVAL_COLORS,
 	GRID_PADDING,
 	GridLines,
 	HOUR_HEIGHT,
@@ -17,6 +17,7 @@ import {
 	TOTAL_HEIGHT,
 } from "~/app/_components/day-ahead/CalendarGrid";
 import { Redact } from "~/app/_components/redaction/Redact";
+import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { TimeRange } from "~/lib/scheduling-slots";
 import { cn, formatInBusinessTime } from "~/lib/utils";
@@ -313,11 +314,10 @@ export function SchedulingCalendar({
 		});
 	}
 
-	const colorByNpi = new Map(
-		evaluators.map((ev, i) => [
-			ev.npi,
-			EVAL_COLORS[i % EVAL_COLORS.length] ?? "",
-		]),
+	const chosenColors = useEvaluatorColors();
+	const colorByNpi = assignColors(
+		evaluators.map((ev) => ev.npi),
+		chosenColors,
 	);
 	const shown = evaluators.filter((ev) => !hiddenNpis.has(ev.npi));
 	// Unless "show all" is on, a day only gets columns for evaluators who have
@@ -558,17 +558,15 @@ export function SchedulingCalendar({
 														</div>
 													)}
 													{isPlaceholder && (
-														<>
-															<button
-																aria-label="Delete placeholder"
-																className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
-																onClick={() => onDelete(appt.id)}
-																onPointerDown={(e) => e.stopPropagation()}
-																type="button"
-															>
-																<X className="h-3 w-3" />
-															</button>
-														</>
+														<button
+															aria-label="Delete placeholder"
+															className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
+															onClick={() => onDelete(appt.id)}
+															onPointerDown={(e) => e.stopPropagation()}
+															type="button"
+														>
+															<X className="h-3 w-3" />
+														</button>
 													)}
 												</div>
 											);

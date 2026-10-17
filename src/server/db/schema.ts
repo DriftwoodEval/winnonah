@@ -49,6 +49,8 @@ export const evaluators = createTable("evaluator", (d) => ({
 	evaluatorDashboard: d.boolean().notNull().default(false),
 	driveFolderId: d.varchar({ length: 255 }),
 	evalDriveFolderId: d.varchar({ length: 255 }),
+	// Index into USER_COLORS; unique so no two evaluators share a color.
+	color: d.tinyint().unique(),
 }));
 
 export const insurances = createTable("insurance", (d) => ({

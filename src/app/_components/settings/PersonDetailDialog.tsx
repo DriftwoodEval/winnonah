@@ -1,5 +1,6 @@
 "use client";
 
+import { ColorPicker } from "@components/layout/ColorPicker";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	AlertDialog,
@@ -592,6 +593,7 @@ function EvaluatorSection({
 			{showHeading && (
 				<h4 className="font-semibold text-base">Evaluator Profile</h4>
 			)}
+			{canEdit && <ColorPicker npi={evaluator.npi} />}
 			<EvaluatorForm
 				archiveButton={archiveButton}
 				canManageDashboard={canManageDashboard}

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { minutesToTimeString } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -138,7 +139,11 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 			endDate: dateRange.at(-1) ?? todayStr,
 		});
 
-	const colorMap = useMemo(() => buildColorMap(data ?? []), [data]);
+	const chosenColors = useEvaluatorColors();
+	const colorMap = useMemo(
+		() => buildColorMap(data ?? [], chosenColors),
+		[data, chosenColors],
+	);
 
 	const can = useCheckPermission();
 	const canSchedule = can("pages:scheduling");

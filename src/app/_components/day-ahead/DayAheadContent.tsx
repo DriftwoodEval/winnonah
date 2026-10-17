@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV, minutesToTimeString } from "~/lib/utils";
@@ -474,7 +475,11 @@ export function DayAheadContent() {
 		return map;
 	}, [evaluatorCheckinsData]);
 
-	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
+	const chosenColors = useEvaluatorColors();
+	const colorMap = useMemo(
+		() => buildColorMap(calData ?? [], chosenColors),
+		[calData, chosenColors],
+	);
 
 	const canSchedule = can("pages:scheduling");
 

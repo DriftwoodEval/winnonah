@@ -1,5 +1,6 @@
 "use client";
 
+import { ColorCell } from "@components/layout/ColorPicker";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
@@ -165,6 +166,7 @@ function PeopleList({
 						<TableRow>
 							<TableHead className="w-[20px]" />
 							<TableHead>Name</TableHead>
+							<TableHead>Color</TableHead>
 							<TableHead>Email</TableHead>
 							<TableHead>Phone</TableHead>
 							<TableHead>Insurances</TableHead>
@@ -181,6 +183,9 @@ function PeopleList({
 									</TableCell>
 									<TableCell>
 										<Skeleton className="h-4 w-32" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-5 rounded-full" />
 									</TableCell>
 									<TableCell>
 										<Skeleton className="h-4 w-48" />
@@ -230,6 +235,17 @@ function PeopleList({
 											</div>
 										</div>
 									</TableCell>
+									<TableCell onClick={(e) => e.stopPropagation()}>
+										{person.evaluator ? (
+											<ColorCell
+												canEdit={canEditEvaluators}
+												color={person.evaluator.color}
+												npi={person.evaluator.npi}
+											/>
+										) : (
+											<span className="text-muted-foreground">—</span>
+										)}
+									</TableCell>
 									<TableCell className="text-muted-foreground">
 										{person.email}
 									</TableCell>
@@ -274,7 +290,7 @@ function PeopleList({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6}>
+								<TableCell colSpan={7}>
 									<EmptyState title={emptyMessage} />
 								</TableCell>
 							</TableRow>

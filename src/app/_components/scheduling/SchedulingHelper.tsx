@@ -64,6 +64,7 @@ import {
 	type CalendarNote,
 	SchedulingCalendar,
 } from "~/app/_components/scheduling/SchedulingCalendar";
+import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/integrations/google";
@@ -732,25 +733,30 @@ function SchedulingHelperGrid({
 		);
 	}
 
-	// Earliest open slot across the eligible evaluators in the fetched window.
+	// Earliest open slot in the fetched window, preferring the client's assigned
+	// evaluator and falling back to the eligible evaluators.
 	const nextAvailable = (() => {
 		if (isLoadingAvailability || isLoadingAppointments) return null;
 		const dayCount = Math.round(
 			(rangeEnd.getTime() - rangeStart.getTime()) / 86400000,
 		);
-		for (let i = 0; i < dayCount; i++) {
-			const day = dateToDayString(addDays(rangeStart, i));
-			let best: { evaluator: Evaluator; day: string; start: number } | null =
-				null;
-			for (const evaluator of eligibleList) {
-				const start = openStartsFor(evaluator, day)[0];
-				if (start !== undefined && (!best || start < best.start)) {
-					best = { evaluator, day, start };
+		function earliest(candidates: Evaluator[]) {
+			for (let i = 0; i < dayCount; i++) {
+				const day = dateToDayString(addDays(rangeStart, i));
+				let best: { evaluator: Evaluator; day: string; start: number } | null =
+					null;
+				for (const evaluator of candidates) {
+					const start = openStartsFor(evaluator, day)[0];
+					if (start !== undefined && (!best || start < best.start)) {
+						best = { evaluator, day, start };
+					}
 				}
+				if (best) return best;
 			}
-			if (best) return best;
+			return null;
 		}
-		return null;
+		const assigned = eligibleList.filter((e) => e.npi === assignedNpi);
+		return earliest(assigned) ?? earliest(eligibleList);
 	})();
 
 	function pickSlot(evaluator: Evaluator, day: string, start: number) {
@@ -816,9 +822,10 @@ function SchedulingHelperGrid({
 		return previewAppointment ? [...real, previewAppointment] : real;
 	}, [officeCalendarData, selectedCell, previewAppointment]);
 
+	const chosenColors = useEvaluatorColors();
 	const evaluatorDayColorMap = useMemo(
-		() => buildColorMap(evaluatorDayAppointments),
-		[evaluatorDayAppointments],
+		() => buildColorMap(evaluatorDayAppointments, chosenColors),
+		[evaluatorDayAppointments, chosenColors],
 	);
 
 	// Low-opacity layer behind the appointment blocks, showing the selected
