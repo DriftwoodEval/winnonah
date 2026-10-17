@@ -323,7 +323,7 @@ export const PERMISSIONS = {
 					},
 					{
 						id: "issues:dds-requests",
-						title: "DDS Records to Approve",
+						title: "DDS Records to Send",
 					},
 					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
 					{

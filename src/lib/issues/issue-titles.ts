@@ -24,7 +24,7 @@ export const ISSUE_TITLES = {
 	charterSchoolConfirm: "Charter School Awaiting Confirmation",
 	insuranceMismatch: "Insurance Doesn't Match",
 	specialAccommodations: "Interpreter Notices to Approve",
-	ddsRequests: "DDS Records to Approve",
+	ddsRequests: "DDS Records to Send",
 	medicaidNotFound: "Not Found on Medicaid",
 	medicaidIneligible: "Medicaid Ineligible",
 	duplicateDriveFolders: "Duplicate Drive Folders",
@@ -96,4 +96,21 @@ export function mergeIssueListOrder(stored: unknown) {
 	);
 	const missing = DEFAULT_ISSUE_LIST_ORDER.filter((id) => !seen.has(id));
 	return [...saved, ...missing];
+}
+
+/** Lists staff act on (approve, send, deny) rather than fix; shown in their own section. */
+export const ACTION_ITEM_IDS: IssueListId[] = [
+	"specialAccommodations",
+	"ddsRequests",
+	"missingAppointments",
+	"charterSchoolConfirm",
+	"dropList",
+];
+
+/** Splits an ordered list of ids into action items and issues, keeping each group's order. */
+export function splitActionItems(order: IssueListId[]) {
+	return {
+		actionItems: order.filter((id) => ACTION_ITEM_IDS.includes(id)),
+		issues: order.filter((id) => !ACTION_ITEM_IDS.includes(id)),
+	};
 }

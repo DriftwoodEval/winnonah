@@ -243,7 +243,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 	},
 	{
 		id: "dds-requests",
-		label: "DDS Records to Approve",
+		label: "DDS Records to Send",
 		permission: "issues:dds-requests",
 		category: "issues",
 		sizing: "content",

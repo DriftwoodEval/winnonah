@@ -34,10 +34,12 @@ import type {
 	SharedQuestionnaireData,
 } from "~/lib/api-types";
 import {
+	ACTION_ITEM_IDS,
 	ISSUE_LIST_PERMISSIONS,
 	ISSUE_TITLES,
 	type IssueListId,
 	mergeIssueListOrder,
+	splitActionItems,
 } from "~/lib/issues/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
@@ -181,9 +183,9 @@ export const IssueList = ({
 	};
 
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96 w-full sm:w-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-xs"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`[&>[data-slot=scroll-area-viewport]>div]:!block h-full w-full rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -223,13 +225,13 @@ export const IssueList = ({
 							key={client.hash}
 							ref={isSavedClient(client.hash) ? savedClientRef : null}
 						>
-							<div className="flex items-center justify-between">
+							<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
 								<Link
-									className="flex-1"
+									className="min-w-40 flex-1"
 									href={`/clients/${client.hash}`}
 									key={client.hash}
 								>
-									<div className="text-sm" key={client.hash}>
+									<div className="break-words text-sm" key={client.hash}>
 										<Redact>{client.fullName}</Redact>{" "}
 										{client.additionalInfo && (
 											<span className="text-muted-foreground">
@@ -237,14 +239,14 @@ export const IssueList = ({
 											</span>
 										)}
 										{client.initialFailureDate && (
-											<span className="ml-1 text-muted-foreground">
+											<div className="text-muted-foreground text-xs">
 												(first failed{" "}
 												{format(
 													new Date(client.initialFailureDate),
 													"MM/dd/yy",
 												)}
 												)
-											</span>
+											</div>
 										)}
 										{showOutreachLog &&
 											(() => {
@@ -553,9 +555,9 @@ export const SuggestionIssueList = ({
 	};
 
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "h-full w-full sm:w-96"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -735,9 +737,9 @@ export const DuplicateNamesList = ({
 	const totalPairs = groups.reduce((sum, g) => sum + g.pairs.length, 0);
 
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "h-full w-full sm:w-96"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -814,7 +816,7 @@ export const DuplicateNamesList = ({
 };
 
 export const IssueListSkeleton = () => (
-	<div className="flex max-h-80 w-80 animate-pulse">
+	<div className="flex h-96 w-80 animate-pulse">
 		<div className="w-full rounded-md border bg-card p-4 shadow-sm">
 			<div className="flex items-center justify-between gap-4">
 				<div className="mb-4 h-6 w-3/4 rounded bg-muted-foreground/20" />
@@ -854,9 +856,9 @@ export const DuplicateDriveFoldersList = ({
 	};
 
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "h-full w-full sm:w-96"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -961,9 +963,9 @@ export const ClientsSharingQuestionnaires = ({
 	fill?: boolean;
 }) => {
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "h-full w-full sm:w-96"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -1069,9 +1071,9 @@ export const PartialBatteryList = ({
 	});
 
 	return (
-		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+		<div className={fill ? "flex h-full w-full" : "flex h-96"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "h-full w-full sm:w-96"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -1173,7 +1175,7 @@ const EmptyListsCard = ({ titles }: { titles: string[] }) => {
 	const sortedTitles = titles.toSorted((a, b) => a.localeCompare(b));
 
 	return (
-		<Card className="w-full max-w-md gap-3 py-4">
+		<Card className="h-96 w-full gap-3 rounded-md border py-4 shadow-sm ring-0 sm:w-96">
 			<CardHeader className="px-4">
 				<CardTitle className="font-bold text-lg leading-none">
 					Empty Lists{" "}
@@ -1512,13 +1514,28 @@ export function IssuesList() {
 	});
 
 	// Lists the user can see that finished loading with no items.
-	const emptyLists = useIssueCounts({ refetchInterval: 60_000 })
+	const counts = useIssueCounts({ refetchInterval: 60_000 });
+	const actionItemTitles: string[] = ACTION_ITEM_IDS.map(
+		(id) => ISSUE_TITLES[id],
+	);
+	const actionItemCounts = counts.filter(
+		({ title, count }) =>
+			actionItemTitles.includes(title) && count !== undefined,
+	);
+	const emptyActionItems = actionItemCounts
 		.filter(({ count }) => count === 0)
+		.map(({ title }) => title);
+	const emptyLists = counts
+		.filter(
+			({ title, count }) => count === 0 && !actionItemTitles.includes(title),
+		)
 		.map(({ title }) => title);
 
 	const { data: savedOrder } = api.users.getIssueListOrder.useQuery();
 	const { mutate: updateOrder } = api.users.updateIssueListOrder.useMutation();
 	const order = mergeIssueListOrder(savedOrder);
+	const { actionItems: actionItemIds, issues: issueIds } =
+		splitActionItems(order);
 
 	const handleOrderChange = async (next: IssueListId[]) => {
 		// Cancel any in-flight fetch so it can't land after this optimistic
@@ -2074,8 +2091,20 @@ export function IssuesList() {
 			<div className="flex items-center justify-end">
 				<IssueListCustomizer onChange={handleOrderChange} order={order} />
 			</div>
+			{actionItemCounts.length > 0 && (
+				<>
+					<h2 className="font-semibold text-xl">Action Items</h2>
+					<div className="flex flex-wrap justify-center gap-10">
+						{actionItemIds.map((id) => (
+							<Fragment key={id}>{issueBlocks[id]}</Fragment>
+						))}
+						<EmptyListsCard titles={emptyActionItems} />
+					</div>
+					<h2 className="font-semibold text-xl">Issues</h2>
+				</>
+			)}
 			<div className="flex flex-wrap justify-center gap-10">
-				{order.map((id) => (
+				{issueIds.map((id) => (
 					<Fragment key={id}>{issueBlocks[id]}</Fragment>
 				))}
 				<EmptyListsCard titles={emptyLists} />

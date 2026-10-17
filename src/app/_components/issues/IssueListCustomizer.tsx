@@ -9,6 +9,7 @@ import {
 	ISSUE_LIST_PERMISSIONS,
 	ISSUE_TITLES,
 	type IssueListId,
+	splitActionItems,
 } from "~/lib/issues/issue-titles";
 
 interface IssueListCustomizerProps {
@@ -22,16 +23,21 @@ export function IssueListCustomizer({
 }: IssueListCustomizerProps) {
 	const can = useCheckPermission();
 	const visibleOrder = order.filter((id) => can(ISSUE_LIST_PERMISSIONS[id]));
+	const { actionItems, issues } = splitActionItems(visibleOrder);
 
-	const moveList = (id: IssueListId, dir: -1 | 1) => {
-		const idx = visibleOrder.indexOf(id);
+	// Lists move within their own section: action items never swap with issues.
+	const moveList = (group: IssueListId[], id: IssueListId, dir: -1 | 1) => {
+		const idx = group.indexOf(id);
 		const next = idx + dir;
-		if (idx === -1 || next < 0 || next >= visibleOrder.length) return;
+		if (idx === -1 || next < 0 || next >= group.length) return;
 
-		const reordered = [...visibleOrder];
-		const tmp = reordered[idx];
-		reordered[idx] = reordered[next] as IssueListId;
-		reordered[next] = tmp as IssueListId;
+		const a = group[idx] as IssueListId;
+		const b = group[next] as IssueListId;
+		const swapped = visibleOrder.map((orderedId) => {
+			if (orderedId === a) return b;
+			if (orderedId === b) return a;
+			return orderedId;
+		});
 
 		// Lists the user can't see keep their saved spots in the full order,
 		// so splice the reordered visible ids back into place.
@@ -39,11 +45,44 @@ export function IssueListCustomizer({
 		onChange(
 			order.map((orderedId) =>
 				can(ISSUE_LIST_PERMISSIONS[orderedId])
-					? (reordered[visibleIndex++] as IssueListId)
+					? (swapped[visibleIndex++] as IssueListId)
 					: orderedId,
 			),
 		);
 	};
+
+	const renderGroup = (label: string, group: IssueListId[]) =>
+		group.length > 0 && (
+			<div className="space-y-1">
+				<p className="mb-2 font-medium text-sm">{label}</p>
+				{group.map((id, idx) => (
+					<div
+						className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 p-2"
+						key={id}
+					>
+						<span className="flex-1 text-sm">{ISSUE_TITLES[id]}</span>
+						<div className="flex items-center gap-0.5">
+							<Button
+								disabled={idx === 0}
+								onClick={() => moveList(group, id, -1)}
+								size="icon-sm"
+								variant="ghost"
+							>
+								<ArrowUp className="h-3 w-3" />
+							</Button>
+							<Button
+								disabled={idx === group.length - 1}
+								onClick={() => moveList(group, id, 1)}
+								size="icon-sm"
+								variant="ghost"
+							>
+								<ArrowDown className="h-3 w-3" />
+							</Button>
+						</div>
+					</div>
+				))}
+			</div>
+		);
 
 	return (
 		<Popover>
@@ -60,34 +99,9 @@ export function IssueListCustomizer({
 				</TooltipContent>
 			</Tooltip>
 			<PopoverContent align="end" className="w-72">
-				<div className="max-h-[70vh] space-y-1 overflow-y-auto">
-					<p className="mb-2 font-medium text-sm">Issue List Order</p>
-					{visibleOrder.map((id, idx) => (
-						<div
-							className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 p-2"
-							key={id}
-						>
-							<span className="flex-1 text-sm">{ISSUE_TITLES[id]}</span>
-							<div className="flex items-center gap-0.5">
-								<Button
-									disabled={idx === 0}
-									onClick={() => moveList(id, -1)}
-									size="icon-sm"
-									variant="ghost"
-								>
-									<ArrowUp className="h-3 w-3" />
-								</Button>
-								<Button
-									disabled={idx === visibleOrder.length - 1}
-									onClick={() => moveList(id, 1)}
-									size="icon-sm"
-									variant="ghost"
-								>
-									<ArrowDown className="h-3 w-3" />
-								</Button>
-							</div>
-						</div>
-					))}
+				<div className="max-h-[70vh] space-y-4 overflow-y-auto">
+					{renderGroup("Action Item Order", actionItems)}
+					{renderGroup("Issue List Order", issues)}
 				</div>
 			</PopoverContent>
 		</Popover>

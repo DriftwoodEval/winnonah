@@ -81,9 +81,11 @@ function ChangePdfDialog({
 function ApproveDialog({
 	requestId,
 	onClose,
+	onChangePdf,
 }: {
 	requestId: number;
 	onClose: () => void;
+	onChangePdf: () => void;
 }) {
 	const utils = api.useUtils();
 	const [previewError, setPreviewError] = useState<string>();
@@ -115,16 +117,22 @@ function ApproveDialog({
 
 	return (
 		<ResponsiveDialog
+			className="sm:max-w-5xl"
 			open
 			setOpen={(open) => !open && onClose()}
 			title="Review the fax before sending"
 		>
 			<div className="flex flex-col gap-3">
 				{previewError ? (
-					<p className="text-destructive text-sm">{previewError}</p>
+					<div className="flex flex-col items-start gap-2">
+						<p className="text-destructive text-sm">{previewError}</p>
+						<Button onClick={onChangePdf} size="sm" variant="outline">
+							Choose a PDF
+						</Button>
+					</div>
 				) : pdfUrl ? (
 					<iframe
-						className="h-[70vh] w-full rounded border"
+						className="h-[80vh] w-full rounded border"
 						src={pdfUrl}
 						title="Completed DDS fax"
 					/>
@@ -165,7 +173,7 @@ export const DdsRequestActions = ({
 	if (requestId === undefined) return null;
 
 	return (
-		<div className="flex gap-1">
+		<div className="flex flex-wrap gap-1">
 			<Button onClick={() => setReviewing(true)} size="sm" variant="outline">
 				Review and approve
 			</Button>
@@ -182,6 +190,10 @@ export const DdsRequestActions = ({
 			</Button>
 			{reviewing && (
 				<ApproveDialog
+					onChangePdf={() => {
+						setReviewing(false);
+						setChanging(true);
+					}}
 					onClose={() => setReviewing(false)}
 					requestId={requestId}
 				/>
