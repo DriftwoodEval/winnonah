@@ -59,6 +59,11 @@ import {
 	DAY_END,
 	DAY_START,
 } from "~/app/_components/day-ahead/CalendarGrid";
+import {
+	type CalendarBooking,
+	type CalendarNote,
+	SchedulingCalendar,
+} from "~/app/_components/scheduling/SchedulingCalendar";
 import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/integrations/google";
@@ -68,7 +73,7 @@ import {
 	slotStarts,
 	type TimeRange,
 } from "~/lib/scheduling-slots";
-import { formatInBusinessTime, IS_DEV } from "~/lib/utils";
+import { cn, formatInBusinessTime, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -363,7 +368,9 @@ function SchedulingHelperGrid({
 		durationMinutes: number;
 	} | null>(null);
 	const [showDebug, setShowDebug] = useState(false);
-	const [view, setView] = useState<"evaluator" | "date">("evaluator");
+	const [view, setView] = useState<"calendar" | "evaluator" | "date">(
+		"calendar",
+	);
 
 	// Pre-fill office/type from whatever was already set on the /scheduling
 	// queue row, once per client, after it loads. Picking a different client
@@ -396,20 +403,23 @@ function SchedulingHelperGrid({
 	// that evaluator's rows, unless the user opts back into everyone.
 	const assignedNpi = queueInfo?.evaluatorNpi ?? null;
 	const [showAllEvaluators, setShowAllEvaluators] = useState(false);
+	// The calendar always shows every evaluator side by side.
+	const filterToAssigned =
+		!!assignedNpi && !showAllEvaluators && view !== "calendar";
 
 	const typeAllowedEvaluators = useMemo(
 		() =>
 			(evaluators ?? [])
 				.filter(
 					(e) =>
-						(showAllEvaluators || !assignedNpi || e.npi === assignedNpi) &&
+						(!filterToAssigned || e.npi === assignedNpi) &&
 						isTypeAllowed(
 							e.allowedAppointmentTypes as string[],
 							appointmentType,
 						),
 				)
 				.toSorted((a, b) => a.providerName.localeCompare(b.providerName)),
-		[evaluators, appointmentType, assignedNpi, showAllEvaluators],
+		[evaluators, appointmentType, assignedNpi, filterToAssigned],
 	);
 
 	const evaluatorNpis = useMemo(
@@ -1137,6 +1147,113 @@ function SchedulingHelperGrid({
 		});
 	}
 
+	function defaultDurationMinutesFor(npi: number) {
+		const evaluator = evaluatorByNpi.get(npi);
+		return evaluator
+			? durationMsFor(evaluator, appointmentType) / MINUTE_MS
+			: DEFAULT_DURATION_MINUTES;
+	}
+
+	function calendarWindowsFor(npi: number, day: string): TimeRange[] {
+		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
+			eventCoversDay(e, day),
+		);
+		return availabilityRanges(dayEvents, day, office);
+	}
+
+	function calendarNoteFor(npi: number, day: string): CalendarNote | null {
+		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
+			eventCoversDay(e, day),
+		);
+		if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
+		const planned = dayEvents.find((e) => e.isPlanned);
+		if (!planned) return null;
+		return {
+			kind: "planned",
+			label:
+				officeKeyToLabel.get(planned.officeKeys?.[0] ?? "") ??
+				planned.summary?.replace(/^Planned:\s*/i, "") ??
+				"Office",
+		};
+	}
+
+	const calendarPreview =
+		selectedSlot && selectedCell
+			? {
+					npi: selectedCell.npi,
+					start: selectedSlot.start,
+					end: new Date(
+						selectedSlot.start.getTime() + selectedSlot.durationMinutes * 60000,
+					),
+				}
+			: null;
+
+	// Points the sidebar at an evaluator-day, the same as clicking a grid cell.
+	function handleCalendarSelect(npi: number, day: string) {
+		setSelectedCell({ npi, date: day });
+		const resolved = resolveOfficeForCell(npi, day);
+		if (resolved) setOfficeFilter(resolved);
+	}
+
+	function overlapsBooking(
+		npi: number,
+		start: Date,
+		end: Date,
+		ignoreId?: string,
+	) {
+		return (appointmentsByNpi?.[npi] ?? []).some(
+			(a) =>
+				a.id !== ignoreId &&
+				start.getTime() < a.endTime.getTime() &&
+				end.getTime() > a.startTime.getTime(),
+		);
+	}
+
+	// Drag (or click) on empty calendar space stages a new slot for the sidebar
+	// confirm button.
+	function handleCalendarCreate(
+		npi: number,
+		day: string,
+		start: Date,
+		end: Date,
+	) {
+		if (overlapsBooking(npi, start, end)) {
+			toast.error("Overlaps an existing appointment");
+			return;
+		}
+		handleCalendarSelect(npi, day);
+		setManualTime(formatInBusinessTime(start, "HH:mm"));
+		setSelectedSlot({
+			start,
+			durationMinutes: (end.getTime() - start.getTime()) / MINUTE_MS,
+		});
+	}
+
+	// Dragging or resizing a placeholder block in the calendar. Only opens the
+	// confirmation, the move happens once the user confirms it.
+	function handleCalendarMove(
+		appt: CalendarBooking,
+		npi: number,
+		_day: string,
+		newStart: Date,
+		newEnd: Date,
+	) {
+		if (overlapsBooking(npi, newStart, newEnd, appt.id)) {
+			toast.error("Overlaps an existing appointment");
+			return;
+		}
+		setPendingMove({
+			appointmentId: appt.id,
+			clientName: appt.clientName,
+			evaluatorName: evaluatorByNpi.get(npi)?.providerName ?? "this evaluator",
+			evaluatorNpi: npi,
+			locationKey: appt.locationKey ?? office ?? "",
+			oldStart: appt.startTime,
+			newStart,
+			newEnd,
+		});
+	}
+
 	function handleConfirmMove() {
 		if (!pendingMove) return;
 		movePlaceholder.mutate({
@@ -1201,7 +1318,12 @@ function SchedulingHelperGrid({
 	};
 
 	return (
-		<div className="mx-auto flex max-w-7xl flex-col gap-4 pb-10">
+		<div
+			className={cn(
+				"mx-auto flex w-full flex-col gap-4 pb-10",
+				view !== "calendar" && "max-w-7xl",
+			)}
+		>
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex-1">
 					{lockedClient ? (
@@ -1215,7 +1337,12 @@ function SchedulingHelperGrid({
 				</Button>
 			</div>
 
-			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px] lg:items-start">
+			<div
+				className={cn(
+					"grid grid-cols-1 gap-4 lg:items-start",
+					view !== "calendar" && "lg:grid-cols-[1fr_380px]",
+				)}
+			>
 				<div className="flex flex-col gap-4">
 					<Card className="flex flex-col gap-3 overflow-visible p-4">
 						<div className="flex flex-row flex-wrap items-center gap-x-6 gap-y-3">
@@ -1311,6 +1438,13 @@ function SchedulingHelperGrid({
 
 							<div className="flex items-center gap-1">
 								<Button
+									onClick={() => setView("calendar")}
+									size="sm"
+									variant={view === "calendar" ? "default" : "outline"}
+								>
+									Calendar
+								</Button>
+								<Button
 									onClick={() => setView("evaluator")}
 									size="sm"
 									variant={view === "evaluator" ? "default" : "outline"}
@@ -1361,7 +1495,7 @@ function SchedulingHelperGrid({
 							</div>
 						</div>
 					</Card>
-					{(nextAvailable || (assignedNpi && !showAllEvaluators)) && (
+					{(nextAvailable || filterToAssigned) && (
 						<Card className="flex flex-row flex-wrap items-center gap-x-3 gap-y-2 p-3 text-sm">
 							{nextAvailable && (
 								<>
@@ -1389,7 +1523,7 @@ function SchedulingHelperGrid({
 									</Button>
 								</>
 							)}
-							{assignedNpi && !showAllEvaluators && (
+							{filterToAssigned && (
 								<button
 									className="ml-auto text-muted-foreground text-xs underline"
 									onClick={() => setShowAllEvaluators(true)}
@@ -1425,9 +1559,36 @@ function SchedulingHelperGrid({
 					</div>
 					<TooltipProvider>
 						<Card className="overflow-x-auto p-0">
-							{view === "date" &&
+							{view === "calendar" &&
 							!isLoadingEvaluators &&
 							typeAllowedEvaluators.length > 0 ? (
+								<SchedulingCalendar
+									appointmentsByNpi={appointmentsByNpi}
+									assignedNpi={assignedNpi}
+									days={visibleDays}
+									defaultDurationMinutes={defaultDurationMinutesFor}
+									evaluators={[...eligibleList, ...ineligibleList]}
+									noteFor={calendarNoteFor}
+									onCreate={handleCalendarCreate}
+									onDelete={setPendingDeleteId}
+									onMove={handleCalendarMove}
+									onSelect={handleCalendarSelect}
+									pendingMove={
+										pendingMove
+											? {
+													appointmentId: pendingMove.appointmentId,
+													npi: pendingMove.evaluatorNpi,
+													start: pendingMove.newStart,
+													end: pendingMove.newEnd,
+												}
+											: null
+									}
+									preview={calendarPreview}
+									windowsFor={calendarWindowsFor}
+								/>
+							) : view === "date" &&
+								!isLoadingEvaluators &&
+								typeAllowedEvaluators.length > 0 ? (
 								<DateFirstView
 									evaluators={eligibleList}
 									loading={isLoadingAvailability || isLoadingAppointments}
