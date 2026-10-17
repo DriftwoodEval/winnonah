@@ -13,10 +13,13 @@ import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { REPORT_QUEUE_FOLDER_ID } from "~/lib/constants";
+import {
+	REPORT_QUEUE_FOLDER_ID,
+	REPORT_WRITERS_FOLDER_ID,
+} from "~/lib/constants";
 import {
 	CACHE_KEY_PUNCHLIST,
-	getDriveFolderPath,
+	getDriveFolder,
 	syncPunchData,
 	updatePunchReportFields,
 	updatePunchSecondReview,
@@ -139,6 +142,9 @@ async function reconcileReportQueueState(ctx: AuthedContext) {
 		ctx.logger.error(error, "Report queue reconcile call failed");
 	}
 }
+
+const MAX_FOLDER_DEPTH = 15;
+const FOLDER_CACHE_SECONDS = 15 * 60;
 
 export const reportsRouter = createTRPCRouter({
 	list: protectedProcedure
@@ -263,8 +269,7 @@ export const reportsRouter = createTRPCRouter({
 		}),
 
 	// Full Drive path of a report's client folder, for the folder link's hover.
-	// Looked up from the client's stored folder (never a caller-supplied ID) and
-	// cached, since folder paths rarely change.
+	// Looked up from the client's stored folder (never a caller-supplied ID).
 	clientDrivePath: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {
@@ -275,12 +280,68 @@ export const reportsRouter = createTRPCRouter({
 			});
 			if (!client?.driveId || client.driveId === "N/A") return null;
 			const { driveId } = client;
-			return fetchWithCache(
-				ctx,
-				`google:drive:path:${driveId}`,
-				() => getDriveFolderPath(ctx.session, driveId),
-				60 * 60 * 24,
+			// Each folder is cached on its own so clients share the upper levels.
+			const ancestors: { id: string; name: string }[] = [];
+			let currentId: string | undefined = driveId;
+			while (currentId && ancestors.length < MAX_FOLDER_DEPTH) {
+				const id: string = currentId;
+				const folder = await fetchWithCache(
+					ctx,
+					`google:drive:folder:${id}`,
+					() => getDriveFolder(ctx.session, id),
+					FOLDER_CACHE_SECONDS,
+				);
+				ancestors.unshift({ id, name: folder.name });
+				currentId = folder.parentId;
+			}
+			// The writer's folder is the direct child of the writers folder, named
+			// after the writer (same match the claim flow uses to find it).
+			const writersIndex = ancestors.findIndex(
+				(a) => a.id === REPORT_WRITERS_FOLDER_ID,
 			);
+			const writerFolderName = ancestors[writersIndex + 1]?.name.toLowerCase();
+			let inferredWriter: {
+				id: string;
+				name: string | null;
+				email: string;
+			} | null = null;
+			if (writersIndex >= 0 && writerFolderName) {
+				const candidates = await ctx.db.query.users.findMany({
+					columns: { id: true, name: true, email: true },
+				});
+				inferredWriter =
+					candidates.find(
+						(u) => u.name && writerFolderName.includes(u.name.toLowerCase()),
+					) ?? null;
+			}
+			return {
+				path: ancestors.map((a) => a.name).join(" / "),
+				inferredWriter,
+			};
+		}),
+
+	// Sets the writer on an unclaimed report, e.g. after confirming the writer
+	// inferred from the client's Drive folder. Approvers only.
+	confirmWriter: protectedProcedure
+		.input(z.object({ id: z.number(), writerUserId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertReportsPage(ctx.session.user);
+			if (
+				!hasPermission(ctx.session.user.permissions, "reports:approve") &&
+				!hasPermission(ctx.session.user.permissions, "reports:billing")
+			) {
+				throw new TRPCError({ code: "FORBIDDEN" });
+			}
+			const writer = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.writerUserId),
+				columns: { email: true },
+			});
+			if (!writer) throw new TRPCError({ code: "NOT_FOUND" });
+			await ctx.db
+				.update(reports)
+				.set({ writerUserId: input.writerUserId, writerEmail: writer.email })
+				.where(and(eq(reports.id, input.id), isNull(reports.writerUserId)));
+			return { success: true };
 		}),
 
 	myReports: protectedProcedure.query(async ({ ctx }) => {

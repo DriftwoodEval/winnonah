@@ -126,34 +126,23 @@ export const renameDriveFolder = async (
 };
 
 // Safety stop for the parent walk; real folder trees are far shallower.
-const MAX_FOLDER_DEPTH = 15;
-
-/** The folder's path from the top of its drive, e.g. "Clients / A / Jane Doe [123]". */
-export const getDriveFolderPath = async (
-	session: Session,
-	folderId: string,
-) => {
-	const driveApi = getDriveClient(session);
-	const names: string[] = [];
-	let currentId: string | undefined = folderId;
-
-	while (currentId && names.length < MAX_FOLDER_DEPTH) {
-		const id: string = currentId;
-		const folder = await googleApiCall(
-			"google-drive",
-			"files.get",
-			"Get Drive folder path segment",
-			() =>
-				driveApi.files.get({
-					fileId: id,
-					fields: "name,parents",
-					supportsAllDrives: true,
-				}),
-		);
-		if (folder.data.name) names.unshift(folder.data.name);
-		currentId = folder.data.parents?.[0];
-	}
-	return names.join(" / ");
+/** A Drive folder's name and its first parent (undefined at the top of the drive). */
+export const getDriveFolder = async (session: Session, folderId: string) => {
+	const folder = await googleApiCall(
+		"google-drive",
+		"files.get",
+		"Get Drive folder name and parent",
+		() =>
+			getDriveClient(session).files.get({
+				fileId: folderId,
+				fields: "name,parents",
+				supportsAllDrives: true,
+			}),
+	);
+	return {
+		name: folder.data.name ?? "",
+		parentId: folder.data.parents?.[0],
+	};
 };
 
 // Google Sheets

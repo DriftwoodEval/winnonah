@@ -44,17 +44,18 @@ import {
 	StatusBadge,
 	statusLabel,
 	useReportMutations,
+	WriterCell,
 	writerDisplay,
 } from "./report-shared";
 
 interface SavedFilters {
 	status: string[];
+	source: string[];
 	writer: string[];
 	type: string[];
 	evaluator: string[];
 	writerDone: string[];
-	secondReviewNeeded: string[];
-	secondReviewDone: string[];
+	secondReview: string[];
 	billed: string[];
 	firstReviewDone: string[];
 }
@@ -67,12 +68,12 @@ const HEAD_CLASS = "h-auto whitespace-normal align-bottom py-2";
 
 const EMPTY_FILTERS: SavedFilters = {
 	status: [],
+	source: [],
 	writer: [],
 	type: [],
 	evaluator: [],
 	writerDone: [],
-	secondReviewNeeded: [],
-	secondReviewDone: [],
+	secondReview: [],
 	billed: [],
 	firstReviewDone: [],
 };
@@ -89,12 +90,17 @@ function filterValue(r: Report, key: FilterKey) {
 	switch (key) {
 		case "status":
 			return statusLabel(r.status);
+		case "source":
+			return r.selfWritten ? "Self-written" : "Pool";
 		case "writer":
 			return writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed";
 		case "type":
 			return r.asdAdhd ?? "None";
 		case "evaluator":
 			return r.evalEvaluatorName ?? "None";
+		case "secondReview":
+			if (r.secondReviewDone) return "Done";
+			return r.secondReviewNeeded ? "Needed" : "Not needed";
 		case "writerDone":
 			return r.writerCompletedAt ? "Yes" : "No";
 		default:
@@ -119,15 +125,14 @@ export function ReportsTable({
 		{ key: "secondReviewNeeded" as const, label: `${secondReview} needed` },
 		{ key: "secondReviewDone" as const, label: `${secondReview} done` },
 	];
-	const billingFields = [
-		...secondReviewFields,
+	const otherBillingFields = [
 		{ key: "billed" as const, label: "Billed" },
 		{
 			key: "firstReviewDone" as const,
 			label: config?.firstReviewLabel ?? "First review",
 		},
 	];
-	const otherBillingFields = billingFields.slice(secondReviewFields.length);
+	const billingFields = [...secondReviewFields, ...otherBillingFields];
 	// Matches Tailwind's `lg` breakpoint; the table's many columns need the width.
 	const isMobile = useMediaQuery("(max-width: 1023px)");
 	const { markComplete, setBilling, approve, unapprove, archive, unarchive } =
@@ -167,12 +172,30 @@ export function ReportsTable({
 		persistViews(views.filter((v) => v.name !== name));
 	}
 
-	const hasActiveFilters = Object.values(filters).some((v) => v.length > 0);
+	const hasActiveFilters = FILTER_KEYS.some((k) => filters[k].length > 0);
 
 	function filterOptions(key: FilterKey): FilterOption[] {
 		return toFilterOptions(
 			[...new Set(reports.map((r) => filterValue(r, key)))].sort(),
 		);
+	}
+
+	// Counts reflect the other active filters, so each option shows how many
+	// reports it would leave.
+	function filterCounts(key: FilterKey) {
+		const counts: Record<string, number> = {};
+		for (const r of reports) {
+			const matchesOthers = FILTER_KEYS.every(
+				(k) =>
+					k === key ||
+					filters[k].length === 0 ||
+					filters[k].includes(filterValue(r, k)),
+			);
+			if (!matchesOthers) continue;
+			const value = filterValue(r, key);
+			counts[value] = (counts[value] ?? 0) + 1;
+		}
+		return counts;
 	}
 
 	const filteredReports = reports.filter((r) =>
@@ -182,17 +205,24 @@ export function ReportsTable({
 		),
 	);
 
+	function filterButton(key: FilterKey, label: string) {
+		return (
+			<ColumnFilter
+				columnName={label}
+				counts={filterCounts(key)}
+				onFilterChange={(v) => setFilters((f) => ({ ...f, [key]: v }))}
+				options={filterOptions(key)}
+				selectedValues={filters[key]}
+			/>
+		);
+	}
+
 	function filterHead(key: FilterKey, label: string) {
 		return (
 			<TableHead className={HEAD_CLASS} key={key}>
 				<div className="flex items-end gap-1">
 					{label}
-					<ColumnFilter
-						columnName={label}
-						onFilterChange={(v) => setFilters((f) => ({ ...f, [key]: v }))}
-						options={filterOptions(key)}
-						selectedValues={filters[key]}
-					/>
+					{filterButton(key, label)}
 				</div>
 			</TableHead>
 		);
@@ -283,13 +313,17 @@ export function ReportsTable({
 	}
 
 	return (
-		<div className="flex w-full flex-col gap-2">
+		<div className="flex w-full min-w-0 flex-col gap-2">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<span className="text-muted-foreground text-sm">
 					Showing {filteredReports.length} of {reports.length} report
 					{reports.length === 1 ? "" : "s"}
 				</span>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="flex items-center text-muted-foreground text-sm">
+						Source
+						{filterButton("source", "Source")}
+					</span>
 					{isApprover && (
 						<Button
 							onClick={toggleSelectMode}
@@ -437,6 +471,28 @@ export function ReportsTable({
 
 			<ReportsLegend />
 
+			{isMobile && (
+				<div className="flex flex-wrap gap-x-3 gap-y-1">
+					{[
+						{ key: "type" as const, label: "Type" },
+						{ key: "evaluator" as const, label: "Evaluator" },
+						{ key: "writer" as const, label: "Writer" },
+						{ key: "writerDone" as const, label: "Writer done" },
+						{ key: "status" as const, label: "Status" },
+						{ key: "secondReview" as const, label: secondReview },
+						...otherBillingFields,
+					].map(({ key, label }) => (
+						<span
+							className="flex items-center gap-0.5 text-muted-foreground text-xs"
+							key={key}
+						>
+							{label}
+							{filterButton(key, label)}
+						</span>
+					))}
+				</div>
+			)}
+
 			{isMobile ? (
 				<div className="flex flex-col gap-2">
 					{filteredReports.map((r) => (
@@ -471,23 +527,13 @@ export function ReportsTable({
 								{filterHead("writer", "Writer")}
 								<TableHead className={HEAD_CLASS}>Claimed on</TableHead>
 								{filterHead("writerDone", "Writer done")}
-								{filterHead("status", "Status")}
 								<TableHead className={HEAD_CLASS}>
 									<div className="flex items-end gap-1">
-										{secondReview}
-										{secondReviewFields.map((f) => (
-											<ColumnFilter
-												columnName={f.label}
-												key={f.key}
-												onFilterChange={(v) =>
-													setFilters((cur) => ({ ...cur, [f.key]: v }))
-												}
-												options={filterOptions(f.key)}
-												selectedValues={filters[f.key]}
-											/>
-										))}
+										Status
+										{filterButton("status", "Status")}
 									</div>
 								</TableHead>
+								{filterHead("secondReview", secondReview)}
 								{otherBillingFields.map((f) => filterHead(f.key, f.label))}
 								<TableHead className={HEAD_CLASS}>Notes</TableHead>
 								{isApprover && <TableHead className={HEAD_CLASS} />}
@@ -559,9 +605,7 @@ export function ReportsTable({
 											)}
 										</TableCell>
 										<TableCell className="whitespace-nowrap text-sm">
-											{writerDisplay(r.writerName, r.writerEmail) ?? (
-												<span className="text-muted-foreground">Unclaimed</span>
-											)}
+											<WriterCell report={r} />
 										</TableCell>
 										<TableCell className="whitespace-nowrap text-sm">
 											{r.claimedAt ? formatReportDate(r.claimedAt) : "-"}

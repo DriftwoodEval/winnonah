@@ -10,20 +10,15 @@ import { ErrorState } from "../shared/ErrorState";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
 
-type Kind = "pool" | "self" | "all";
-
 function TabContent({
 	tab,
-	kind,
 	isApprover,
 }: {
 	tab: "active" | "archived";
-	kind: Kind;
 	isApprover: boolean;
 }) {
 	const { data, isLoading, isError, refetch } = api.reports.list.useQuery({
 		tab,
-		kind,
 	});
 
 	if (isLoading) {
@@ -48,36 +43,12 @@ export function ReportsView() {
 	const canClaim = (session?.user?.maxClaimedReports ?? 0) !== 0 || canApprove;
 
 	const [tab, setTab] = useState<"active" | "archived">("active");
-	const [kind, setKind] = useState<Kind>(isApprover ? "all" : "pool");
 
 	return (
-		<div className="flex w-full flex-col gap-4">
+		<div className="flex w-full min-w-0 flex-col gap-4">
 			<h1 className="font-semibold text-xl">Reports</h1>
 
 			{canClaim && <ReportQueue className="w-full" />}
-
-			<div
-				className={`flex-wrap items-center gap-2 ${isApprover ? "flex" : "hidden"}`}
-			>
-				{(["pool", "self", "all"] as const).map((k) => (
-					<button
-						className={`rounded-full border px-3 py-1 text-sm ${
-							kind === k
-								? "border-primary bg-primary text-primary-foreground"
-								: "border-input text-muted-foreground"
-						}`}
-						key={k}
-						onClick={() => setKind(k)}
-						type="button"
-					>
-						{k === "pool"
-							? "Pool reports"
-							: k === "self"
-								? "Self-written"
-								: "All"}
-					</button>
-				))}
-			</div>
 
 			{canApprove ? (
 				<Tabs
@@ -89,14 +60,14 @@ export function ReportsView() {
 						<TabsTrigger value="archived">Archived</TabsTrigger>
 					</TabsList>
 					<TabsContent value="active">
-						<TabContent isApprover={isApprover} kind={kind} tab="active" />
+						<TabContent isApprover={isApprover} tab="active" />
 					</TabsContent>
 					<TabsContent value="archived">
-						<TabContent isApprover={isApprover} kind={kind} tab="archived" />
+						<TabContent isApprover={isApprover} tab="archived" />
 					</TabsContent>
 				</Tabs>
 			) : (
-				<TabContent isApprover={isApprover} kind={kind} tab="active" />
+				<TabContent isApprover={isApprover} tab="active" />
 			)}
 		</div>
 	);

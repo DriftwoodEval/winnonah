@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@ui/badge";
+import { Button } from "@ui/button";
 import Image from "next/image";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -167,6 +168,7 @@ export function useReportMutations() {
 		unapprove: api.reports.unapprove.useMutation(options),
 		archive: api.reports.archive.useMutation(options),
 		unarchive: api.reports.unarchive.useMutation(options),
+		confirmWriter: api.reports.confirmWriter.useMutation(options),
 	};
 }
 
@@ -174,7 +176,7 @@ export function useReportMutations() {
 // shows the folder's full path. Renders nothing when no folder is linked.
 export function ClientDriveLink({ report: r }: { report: Report }) {
 	const [hovered, setHovered] = useState(false);
-	const { data: path } = api.reports.clientDrivePath.useQuery(
+	const { data: drive } = api.reports.clientDrivePath.useQuery(
 		{ clientId: r.clientId },
 		{ enabled: hovered, staleTime: Number.POSITIVE_INFINITY },
 	);
@@ -187,7 +189,7 @@ export function ClientDriveLink({ report: r }: { report: Report }) {
 			onMouseEnter={() => setHovered(true)}
 			rel="noreferrer"
 			target="_blank"
-			title={path ?? `Open ${r.clientFullName}'s Drive folder`}
+			title={drive?.path ?? `Open ${r.clientFullName}'s Drive folder`}
 		>
 			<Image
 				alt="Open Google Drive folder"
@@ -197,5 +199,40 @@ export function ClientDriveLink({ report: r }: { report: Report }) {
 				width={14}
 			/>
 		</a>
+	);
+}
+
+// The report's writer. With no writer, approvers see the writer inferred from
+// the client's Drive folder with a button to confirm it; nothing is saved until
+// they do.
+export function WriterCell({ report: r }: { report: Report }) {
+	const { confirmWriter } = useReportMutations();
+	const writer = writerDisplay(r.writerName, r.writerEmail);
+	const { data: drive } = api.reports.clientDrivePath.useQuery(
+		{ clientId: r.clientId },
+		{
+			enabled: !writer && r.canEditBilling,
+			staleTime: Number.POSITIVE_INFINITY,
+		},
+	);
+	if (writer) return <>{writer}</>;
+	const suggested = drive?.inferredWriter;
+	if (!suggested)
+		return <span className="text-muted-foreground">Unclaimed</span>;
+	return (
+		<span className="inline-flex flex-col items-start gap-0.5">
+			<span className="text-muted-foreground text-xs italic">
+				Likely {writerDisplay(suggested.name, suggested.email)}
+			</span>
+			<Button
+				disabled={confirmWriter.isPending}
+				onClick={() =>
+					confirmWriter.mutate({ id: r.id, writerUserId: suggested.id })
+				}
+				size="xs"
+			>
+				Confirm writer
+			</Button>
+		</span>
 	);
 }

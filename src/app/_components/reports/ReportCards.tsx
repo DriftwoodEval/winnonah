@@ -20,7 +20,7 @@ import {
 	type Report,
 	StatusBadge,
 	useReportMutations,
-	writerDisplay,
+	WriterCell,
 } from "./report-shared";
 
 export type BillingField =
@@ -266,7 +266,7 @@ export function ReportCard({
 				</Field>
 				<Field label="Evaluator">{r.evalEvaluatorName ?? "-"}</Field>
 				<Field label="Writer">
-					{writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed"}
+					<WriterCell report={r} />
 				</Field>
 				<Field label="Claimed on">
 					{r.claimedAt ? formatReportDate(r.claimedAt) : "-"}
