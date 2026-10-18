@@ -36,6 +36,7 @@ import {
 } from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
+import { appendMissingLines } from "~/lib/insurance-notes-merge";
 import {
 	renameDriveFolder,
 	syncPunchData,
@@ -80,6 +81,7 @@ import {
 	splitNoneValue,
 } from "~/server/api/filters";
 import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
+import { saveNoteInternal } from "~/server/api/routers/clients/notes";
 import {
 	assertPermission,
 	assertPermissionOrBabyNetLimited,
@@ -2137,6 +2139,52 @@ export const clientRouter = createTRPCRouter({
 			if (newAttempts.length >= 3) {
 				await invalidateCache(ctx, CACHE_KEY_DROP_LIST);
 			}
+		}),
+
+	appendOutreachToNotes: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			assertPermissionOrBabyNetLimited(
+				ctx.session.user,
+				"clients:referral:fillout",
+				client,
+			);
+
+			const attempts = client.referralData?.outreachAttempts ?? [];
+			const lines = attempts.map((attempt, i) => {
+				const date = formatInBusinessTime(
+					attempt.attemptedAt,
+					"MMM d, yyyy h:mm a",
+				);
+				const by = attempt.attemptedBy ? ` - ${attempt.attemptedBy}` : "";
+				const detail = attempt.notes ? `: ${attempt.notes}` : "";
+				return `Outreach attempt ${i + 1}: ${date}${by}${detail}`;
+			});
+
+			const existingNote = await ctx.db.query.notes.findFirst({
+				where: eq(notes.clientId, input.clientId),
+			});
+			const existingContent = (existingNote?.content as JSONContent | null) ?? {
+				type: "doc",
+				content: [],
+			};
+
+			const merged = appendMissingLines(existingContent, lines);
+			if (!merged) return { added: false };
+
+			await saveNoteInternal(ctx, {
+				clientId: input.clientId,
+				contentJson: merged,
+			});
+			return { added: true };
 		}),
 
 	logPrivatePayOutreachAttempt: protectedProcedure

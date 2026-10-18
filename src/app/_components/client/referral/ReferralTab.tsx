@@ -29,6 +29,7 @@ import {
 	ArrowUpCircle,
 	Check,
 	Copy,
+	FileText,
 	InfoIcon,
 	Loader2,
 	LockIcon,
@@ -177,6 +178,19 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			},
 		},
 	);
+
+	const appendOutreachToNotesMutation =
+		api.clients.appendOutreachToNotes.useMutation({
+			onSuccess: ({ added }) => {
+				toast.success(
+					added ? "Added to notes" : "Notes already include these attempts",
+				);
+				void utils.notes.getNoteByClientId.invalidate(client.id);
+			},
+			onError: (error) => {
+				toast.error("Failed to add to notes", { description: error.message });
+			},
+		});
 
 	const pushToPunchMutation = api.google.pushToPunch.useMutation({
 		onSuccess: () => {
@@ -507,6 +521,23 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										</li>
 									))}
 								</ul>
+								<Button
+									disabled={appendOutreachToNotesMutation.isPending}
+									onClick={() =>
+										appendOutreachToNotesMutation.mutate({
+											clientId: client.id,
+										})
+									}
+									size="sm"
+									variant="outline"
+								>
+									{appendOutreachToNotesMutation.isPending ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										<FileText className="mr-2 h-4 w-4" />
+									)}
+									Copy to Main Notes
+								</Button>
 							</div>
 						)}
 					<div className="space-y-2">

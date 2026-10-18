@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
 import {
+	appendMissingLines,
 	buildReviewBlock,
 	extractTextFromContent,
 	findBlankLineInsertionPoints,
@@ -202,5 +203,33 @@ describe("mergeNotesContent", () => {
 			type: "doc",
 			content: [paragraph([text("review")])],
 		});
+	});
+});
+
+describe("appendMissingLines", () => {
+	const doc = (...nodes: JSONContent[]): JSONContent => ({
+		type: "doc",
+		content: nodes,
+	});
+
+	it("appends every line to the end of the note", () => {
+		const result = appendMissingLines(doc(paragraph([text("old")])), [
+			"a",
+			"b",
+		]);
+		expect(result?.content?.map(extractTextFromContent)).toEqual([
+			"old",
+			"a",
+			"b",
+		]);
+	});
+
+	it("skips lines already present and adds only new ones", () => {
+		const result = appendMissingLines(doc(paragraph([text("a")])), ["a", "b"]);
+		expect(result?.content?.map(extractTextFromContent)).toEqual(["a", "b"]);
+	});
+
+	it("returns null when everything is already present", () => {
+		expect(appendMissingLines(doc(paragraph([text("a")])), ["a"])).toBeNull();
 	});
 });

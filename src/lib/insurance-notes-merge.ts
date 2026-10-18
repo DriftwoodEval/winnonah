@@ -115,3 +115,28 @@ export function mergeNotesContent(
 		content: [...before, ...reviewBlock, ...after],
 	};
 }
+
+/**
+ * Appends one paragraph per line to the end of the note, skipping any line whose
+ * exact text already appears as a paragraph. Returns null when nothing is new.
+ */
+export function appendMissingLines(
+	existing: JSONContent,
+	lines: string[],
+): JSONContent | null {
+	const nodes = existing.content ?? [];
+	const present = new Set(nodes.map(extractTextFromContent));
+	const missing = lines.filter((line) => !present.has(line));
+	if (missing.length === 0) return null;
+	return {
+		...existing,
+		type: "doc",
+		content: [
+			...nodes,
+			...missing.map((line) => ({
+				type: "paragraph",
+				content: [{ type: "text", text: line }],
+			})),
+		],
+	};
+}
