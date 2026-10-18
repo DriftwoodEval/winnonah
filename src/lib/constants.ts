@@ -243,6 +243,10 @@ export const PERMISSIONS = {
 						title: "View Audit Log",
 					},
 					{
+						id: "settings:run-logs:view",
+						title: "View Script Run Logs",
+					},
+					{
 						id: "settings:babynet-report:view",
 						title: "View BabyNet Report",
 					},

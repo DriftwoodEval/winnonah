@@ -1971,3 +1971,43 @@ export const auditLogRelations = relations(auditLogs, ({ one }) => ({
 		references: [clients.id],
 	}),
 }));
+
+/**
+ * One invocation of a questionnaires script (qsend, qreceive, records-request,
+ * piecework). The script generates the id and creates the row implicitly by
+ * posting its first log batch. Not a foreign key target for the log lines'
+ * client ids: history must outlive the client.
+ */
+export const scriptRuns = createTable(
+	"script_run",
+	(d) => ({
+		id: d.varchar({ length: 36 }).primaryKey(),
+		app: d.varchar({ length: 32 }).notNull(),
+		startedAt: d.timestamp({ fsp: 3 }).notNull(),
+		lastLogAt: d.timestamp({ fsp: 3 }).notNull(),
+	}),
+	(t) => [
+		index("script_run_app_started_idx").on(t.app, t.startedAt),
+		index("script_run_started_idx").on(t.startedAt),
+	],
+);
+
+/** A single log line from a script run, tagged with the client being worked on when it was emitted (if any). */
+export const scriptRunLogs = createTable(
+	"script_run_log",
+	(d) => ({
+		id: d.bigint({ mode: "number" }).notNull().autoincrement().primaryKey(),
+		runId: d.varchar({ length: 36 }).notNull(),
+		clientId: d.int(),
+		time: d.timestamp({ fsp: 3 }).notNull(),
+		level: d.varchar({ length: 16 }).notNull(),
+		source: d.varchar({ length: 255 }).notNull(),
+		message: d.text().notNull(),
+		exception: d.text(),
+	}),
+	(t) => [
+		index("script_run_log_run_idx").on(t.runId, t.id),
+		index("script_run_log_client_idx").on(t.clientId, t.time),
+		index("script_run_log_time_idx").on(t.time),
+	],
+);

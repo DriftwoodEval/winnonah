@@ -33,11 +33,16 @@ function safeEqual(a: string, b: string): boolean {
  * `action` names the endpoint for the audit row (e.g. "internal.pyConfig").
  * `clientId` is the client the call concerns, when the endpoint is
  * client-scoped (e.g. client-info's `id` query param).
+ *
+ * `auditSuccess` can be turned off for high-frequency endpoints (log
+ * batches) so successful calls don't flood the audit log; failures are
+ * always audited.
  */
 export async function checkInternalApiAuth(
 	req: NextRequest,
 	action: string,
 	clientId: number | null = null,
+	auditSuccess = true,
 ): Promise<{ ok: true } | { ok: false; status: number }> {
 	const ip =
 		req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -79,6 +84,8 @@ export async function checkInternalApiAuth(
 		return { ok: false, status: 401 };
 	}
 
-	await recordInternalApiAudit({ action, clientId, success: true, ip });
+	if (auditSuccess) {
+		await recordInternalApiAudit({ action, clientId, success: true, ip });
+	}
 	return { ok: true };
 }

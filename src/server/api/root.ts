@@ -5,6 +5,7 @@ import { listDismissalsRouter } from "./routers/admin/listDismissals";
 import { postVisitAttachmentRouter } from "./routers/admin/postVisitAttachment";
 import { pyConfigRouter } from "./routers/admin/py-config";
 import { rolesRouter } from "./routers/admin/roles";
+import { runLogsRouter } from "./routers/admin/runLogs";
 import { systemRouter } from "./routers/admin/system";
 import { taskRouter } from "./routers/admin/tasks";
 import { userRouter } from "./routers/admin/users";
@@ -40,6 +41,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
 export const appRouter = createTRPCRouter({
 	appointments: appointmentRouter,
 	auditLog: auditLogRouter,
+	runLogs: runLogsRouter,
 	babynetReport: babynetReportRouter,
 	evaluatorDashboard: evaluatorDashboardRouter,
 	clients: clientRouter,

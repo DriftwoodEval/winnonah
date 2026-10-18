@@ -12,6 +12,7 @@ import PostVisitAttachmentSettings from "@components/settings/PostVisitAttachmen
 import QuestionnaireRemindersSettings from "@components/settings/QuestionnaireRemindersSettings";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
 import RolesTable from "@components/settings/RolesTable";
+import RunLogsTable from "@components/settings/RunLogsTable";
 import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
 import {
 	Command,
@@ -170,6 +171,11 @@ const SEARCH_ENTRIES: SearchEntry[] = [
 	{ label: "Downloads", keywords: "billing downloads", tab: "downloads" },
 	{ label: "Audit Log", keywords: "audit log history", tab: "audit-log" },
 	{
+		label: "Run Logs",
+		keywords: "run logs qsend qreceive records scripts",
+		tab: "run-logs",
+	},
+	{
 		label: "BabyNet Report",
 		keywords: "babynet weekly report",
 		tab: "babynet-report",
@@ -278,6 +284,7 @@ export function SettingsTabs() {
 		can("settings:qsuite:records") ||
 		can("settings:qsuite:piecework");
 	const canViewAuditLog = can("settings:audit-log:view");
+	const canViewRunLogs = can("settings:run-logs:view");
 	const canViewBabynetReport = can("settings:babynet-report:view");
 	const canViewPostVisitAttachment = can("settings:post-visit-attachment:edit");
 
@@ -330,6 +337,11 @@ export function SettingsTabs() {
 					{canViewAuditLog && (
 						<TabsTrigger className="h-8 grow-0" value="audit-log">
 							Audit Log
+						</TabsTrigger>
+					)}
+					{canViewRunLogs && (
+						<TabsTrigger className="h-8 grow-0" value="run-logs">
+							Run Logs
 						</TabsTrigger>
 					)}
 					{canViewBabynetReport && (
@@ -440,6 +452,11 @@ export function SettingsTabs() {
 				{canViewAuditLog && (
 					<TabsContent value="audit-log">
 						<AuditLogTable />
+					</TabsContent>
+				)}
+				{canViewRunLogs && (
+					<TabsContent value="run-logs">
+						<RunLogsTable />
 					</TabsContent>
 				)}
 				{canViewBabynetReport && (
