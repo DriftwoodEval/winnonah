@@ -259,9 +259,14 @@ function RunLines({
 	);
 }
 
-export default function RunLogsTable() {
+export default function RunLogsTable({
+	lockedClient = null,
+}: {
+	/** Pins the list to one client (client page): hides the heading and client filter. */
+	lockedClient?: ClientFilter;
+}) {
 	const [app, setApp] = useState<string | undefined>(undefined);
-	const [client, setClient] = useState<ClientFilter>(null);
+	const [client, setClient] = useState<ClientFilter>(lockedClient);
 	const [offset, setOffset] = useState(0);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
@@ -287,7 +292,7 @@ export default function RunLogsTable() {
 
 	return (
 		<div className="space-y-4 px-4">
-			<h3 className="font-bold text-lg">Run Logs</h3>
+			{!lockedClient && <h3 className="font-bold text-lg">Run Logs</h3>}
 
 			<div className="flex flex-wrap gap-2">
 				<Select
@@ -309,13 +314,15 @@ export default function RunLogsTable() {
 						))}
 					</SelectContent>
 				</Select>
-				<ClientFilterControl
-					client={client}
-					onChange={(next) => {
-						setOffset(0);
-						setClient(next);
-					}}
-				/>
+				{!lockedClient && (
+					<ClientFilterControl
+						client={client}
+						onChange={(next) => {
+							setOffset(0);
+							setClient(next);
+						}}
+					/>
+				)}
 			</div>
 
 			<div className="overflow-x-auto">

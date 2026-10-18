@@ -46,6 +46,7 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import RunLogsTable from "../settings/RunLogsTable";
 import { AdminReviewSection } from "./admin-review/AdminReviewSection";
 import { ClientAppointments } from "./appointments/ClientAppointments";
 import { EligibleEvaluatorsList } from "./appointments/EligibleEvaluatorsList";
@@ -591,6 +592,9 @@ export function Client({
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
 									)}
+									{can("settings:run-logs:view") && (
+										<TabsTrigger value="run-history">Run History</TabsTrigger>
+									)}
 								</TabsList>
 							)}
 
@@ -731,6 +735,13 @@ export function Client({
 									<ReferralTab client={client} readOnly={readOnly} />
 								</div>
 							</TabsContent>
+							{can("settings:run-logs:view") && (
+								<TabsContent value="run-history">
+									<RunLogsTable
+										lockedClient={{ id: client.id, fullName: client.fullName }}
+									/>
+								</TabsContent>
+							)}
 						</Tabs>
 					</>
 				)}
