@@ -94,7 +94,8 @@ export function AddClientToScheduling({
 		<div className="max-w-md">
 			<ClientSearchAndAdd
 				addButtonLabel="Add"
-				excludeIds={scheduledClientIds}
+				alreadyAddedIds={scheduledClientIds}
+				alreadyAddedLabel="Already on sheet"
 				floating={true}
 				isAdding={addClientMutation.isPending}
 				onAdd={(client) =>
