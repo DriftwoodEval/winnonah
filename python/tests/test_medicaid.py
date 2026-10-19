@@ -78,6 +78,20 @@ class TestReadEligibility:
         assert result["medicaidBeneficiaryStatus"] == "INELIGIBLE"
 
 
+class TestPageShowsMedicaidId:
+    @pytest.mark.parametrize(
+        ("searched", "expected"),
+        [("1234567890", True), ("0987654321", False)],
+    )
+    def test_matches_only_the_id_on_the_page(self, driver, searched, expected):
+        html = RESULTS_PAGE.replace(
+            "<ul>", "<ul><li><label>Medicaid ID:</label><p>1234567890</p></li>"
+        ).format(carriers="")
+        driver.get("data:text/html," + quote(html))
+
+        assert medicaid.page_shows_medicaid_id(driver, searched) is expected
+
+
 CLIENT = {
     "id": 7,
     "firstName": "A",
@@ -120,6 +134,18 @@ class TestRunLookup:
         update = self._run([TimeoutException(), TimeoutException()])
 
         update.assert_called_once_with(7, None, "policy-1")
+
+    @pytest.mark.parametrize(
+        "side_effect",
+        [
+            [medicaid.MedicaidIdMismatchError()],
+            [TimeoutException(), medicaid.MedicaidIdMismatchError()],
+        ],
+    )
+    def test_id_mismatch_is_skipped_not_stored(self, side_effect):
+        update = self._run(side_effect)
+
+        update.assert_not_called()
 
     def test_other_failure_after_retry_is_skipped_not_stamped(self):
         update = self._run([TimeoutException(), RuntimeError("driver died")])
