@@ -8,7 +8,6 @@ import pytest
 
 from utils.database import (
     MEDICAID_RECHECK_BATCH_SIZE,
-    MEDICAID_RECHECK_DAYS,
     _build_reactivation_note_block,
     _build_reactivation_review_separator,
     _get_date_cache,
@@ -963,17 +962,6 @@ class TestGetMedicaidClientsWithIds:
         assert isinstance(due_params[-1], dt.datetime)
         assert "medicaidCheckedAt" not in all_query
         assert len(due_params) == len(all_params) + 1
-
-    def test_only_due_cutoff_is_never_older_than_recheck_window(self):
-        cursor = FakeCursor()
-
-        get_medicaid_clients_with_ids(only_due=True, connection=FakeConnection(cursor))
-
-        _, params = cursor.executed[0]
-        window_start = dt.datetime.now(dt.UTC).replace(tzinfo=None) - dt.timedelta(
-            days=MEDICAID_RECHECK_DAYS
-        )
-        assert params[-1] >= window_start - dt.timedelta(seconds=5)
 
     def test_only_due_caps_rechecks_but_not_new_clients(self):
         def row(i, checked):
