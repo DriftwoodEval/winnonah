@@ -497,18 +497,6 @@ def main(
             help="Check if logged in to SC Medicaid Portal and log in if not",
         ),
     ] = False,
-    medicaid_stale_days: Annotated[
-        int | None,
-        typer.Option(
-            "--medicaid-stale-days",
-            min=1,
-            help=(
-                "Recheck SC Medicaid eligibility for every client never checked "
-                "or last checked more than this many days ago, in one run with "
-                "no batch cap"
-            ),
-        ),
-    ] = None,
     medicaid_preview: Annotated[
         str | None,
         typer.Option(
@@ -596,10 +584,6 @@ def main(
         logger.info("Syncing outstanding balances")
         with utils.database.db_session() as conn:
             sync_outstanding_balances(conn)
-        return
-
-    if medicaid_stale_days is not None:
-        utils.medicaid.lookup_medicaid_eligibility(stale_days=medicaid_stale_days)
         return
 
     if medicaid:

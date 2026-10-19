@@ -8,7 +8,7 @@ import re
 import time
 from collections.abc import Callable, Iterable
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from functools import wraps
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
@@ -1328,30 +1328,22 @@ def update_client_medicaid_eligibility(
 @provide_connection
 def get_medicaid_clients_with_ids(
     only_due: bool = True,
-    stale_days: int | None = None,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
     """Returns active clients with a Medicaid-portal insurance as primary or secondary.
 
     Only policy numbers the portal accepts (exactly 10 digits) are considered.
     Each client appears once with the policy number to search, preferring the
-    primary policy. With only_due, restricts to clients never checked, plus a
-    batch of MEDICAID_RECHECK_BATCH_SIZE (oldest first) last checked before the
-    start of this calendar month. With stale_days, restricts instead to every
-    client never checked or last checked more than stale_days ago, with no batch
-    cap. This catches clients whose last check predates a mid-month change.
+    primary policy. With only_due, restricts to clients never checked or last
+    checked more than MEDICAID_RECHECK_DAYS ago.
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
-    if stale_days is not None:
-        only_due = True
-        checked_before = now_utc().replace(tzinfo=None) - timedelta(days=stale_days)
-    else:
-        checked_before = business_to_utc(
-            now_business().replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
-            )
-        ).replace(tzinfo=None)
+    month_start_utc = business_to_utc(
+        now_business().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
+    ).replace(tzinfo=None)
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1380,7 +1372,7 @@ def get_medicaid_clients_with_ids(
             }
             ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            MEDICAID_SHORT_NAMES * 2 + ([checked_before] if only_due else []),
+            MEDICAID_SHORT_NAMES * 2 + ([month_start_utc] if only_due else []),
         )
         rows = cursor.fetchall()
 
@@ -1390,9 +1382,6 @@ def get_medicaid_clients_with_ids(
         clients_by_id.setdefault(row["id"], row)
     result = list(clients_by_id.values())
     if not only_due:
-        return result
-
-    if stale_days is not None:
         return result
 
     new_clients = [c for c in result if c["medicaidCheckedAt"] is None]
