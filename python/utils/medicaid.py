@@ -3,9 +3,9 @@
 Runs as part of the normal cron pipeline (cron/main.py) every CRON_SCHEDULE
 interval (every 4 hours by default, see python/Dockerfile), checking clients on
 the insurances in MEDICAID_SHORT_NAMES that were never checked right away, and
-rechecking everyone else once per calendar month in batches of
-MEDICAID_RECHECK_BATCH_SIZE per run. A full recheck of a specific
-client, or of every client, can be forced with
+rechecking everyone else once per calendar month, or sooner once their last
+check is MEDICAID_RECHECK_DAYS old, in batches of MEDICAID_RECHECK_BATCH_SIZE
+per run. A full recheck of a specific client, or of every client, can be forced with
 `python -m cron.main --medicaid [--client <name-or-id>]`. Portal credentials
 come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
@@ -87,7 +87,7 @@ def check_and_login_medicaid(first_time: bool = False) -> WebDriver:
 
 
 def lookup_due_medicaid_eligibility() -> None:
-    """Look up eligibility for clients never checked, plus a batch not yet checked this calendar month."""
+    """Look up eligibility for clients never checked, plus a batch whose last check is stale."""
     _run_medicaid_eligibility_lookup(only_due=True)
 
 

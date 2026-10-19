@@ -8,7 +8,7 @@ import re
 import time
 from collections.abc import Callable, Iterable
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
@@ -1106,9 +1106,12 @@ MEDICAID_SHORT_NAMES = [
     "Molina",
     "MolinaMarketplace",
 ]
-# Clients are rechecked once per calendar month (business time). Each cron run
-# rechecks at most this many of them, oldest first, so the portal isn't hit with
-# every active client at once on the 1st. Clients never checked are not capped.
+# Clients are rechecked once per calendar month (business time), and sooner if
+# their last check is more than MEDICAID_RECHECK_DAYS old, so a change that lands
+# mid-month is picked up without waiting for the 1st. Each cron run rechecks at
+# most MEDICAID_RECHECK_BATCH_SIZE of them, oldest first, so the portal isn't hit
+# with every active client at once. Clients never checked are not capped.
+MEDICAID_RECHECK_DAYS = 14
 MEDICAID_RECHECK_BATCH_SIZE = 30
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
@@ -1335,7 +1338,8 @@ def get_medicaid_clients_with_ids(
     Only policy numbers the portal accepts (exactly 10 digits) are considered.
     Each client appears once with the policy number to search, preferring the
     primary policy. With only_due, restricts to clients never checked or last
-    checked more than MEDICAID_RECHECK_DAYS ago.
+    checked before the start of this calendar month or more than
+    MEDICAID_RECHECK_DAYS ago, whichever is later.
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
@@ -1344,6 +1348,10 @@ def get_medicaid_clients_with_ids(
             day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
         )
     ).replace(tzinfo=None)
+    window_start_utc = now_utc().replace(tzinfo=None) - timedelta(
+        days=MEDICAID_RECHECK_DAYS
+    )
+    checked_before = max(month_start_utc, window_start_utc)
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1372,7 +1380,7 @@ def get_medicaid_clients_with_ids(
             }
             ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            MEDICAID_SHORT_NAMES * 2 + ([month_start_utc] if only_due else []),
+            MEDICAID_SHORT_NAMES * 2 + ([checked_before] if only_due else []),
         )
         rows = cursor.fetchall()
 
