@@ -985,7 +985,7 @@ class TestGetMedicaidClientsWithIds:
         assert [c["id"] for c in result[:2]] == [1000, 1001]
         assert [c["id"] for c in result[2:]] == list(range(MEDICAID_RECHECK_BATCH_SIZE))
 
-    def test_stale_days_uses_day_cutoff_and_does_not_cap(self):
+    def test_stale_days_uses_day_cutoff_and_does_not_cap_by_default(self):
         def row(i):
             return {
                 "id": i,
@@ -1012,6 +1012,30 @@ class TestGetMedicaidClientsWithIds:
             <= before - dt.timedelta(days=14) + dt.timedelta(seconds=5)
         )
         assert len(result) == MEDICAID_RECHECK_BATCH_SIZE + 5
+
+    def test_stale_days_limit_takes_never_checked_then_oldest(self):
+        def row(i, checked):
+            return {
+                "id": i,
+                "medicaidCheckedAt": checked,
+                "firstName": "A",
+                "lastName": "B",
+                "insuranceNumber": "1111111111",
+            }
+
+        rows = [
+            row(1, dt.datetime(2020, 3, 1)),
+            row(2, dt.datetime(2020, 1, 1)),
+            row(3, None),
+            row(4, dt.datetime(2020, 2, 1)),
+        ]
+        conn = FakeConnection(FakeCursor(fetchall_result=rows))
+
+        result = get_medicaid_clients_with_ids(
+            only_due=False, stale_days=14, limit=3, connection=conn
+        )
+
+        assert [c["id"] for c in result] == [3, 2, 4]
 
 
 FIELDS = {

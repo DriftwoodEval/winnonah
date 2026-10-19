@@ -1329,6 +1329,7 @@ def update_client_medicaid_eligibility(
 def get_medicaid_clients_with_ids(
     only_due: bool = True,
     stale_days: int | None = None,
+    limit: int | None = None,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
     """Returns active clients with a Medicaid-portal insurance as primary or secondary.
@@ -1338,8 +1339,9 @@ def get_medicaid_clients_with_ids(
     primary policy. With only_due, restricts to clients never checked, plus a
     batch of MEDICAID_RECHECK_BATCH_SIZE (oldest first) last checked before the
     start of this calendar month. With stale_days, restricts instead to every
-    client never checked or last checked more than stale_days ago, with no batch
-    cap. This catches clients whose last check predates a mid-month change.
+    client never checked or last checked more than stale_days ago, never checked
+    first and then oldest first, capped at limit when given (no cap otherwise).
+    This catches clients whose last check predates a mid-month change.
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
@@ -1393,7 +1395,13 @@ def get_medicaid_clients_with_ids(
         return result
 
     if stale_days is not None:
-        return result
+        result.sort(
+            key=lambda c: (
+                c["medicaidCheckedAt"] is not None,
+                c["medicaidCheckedAt"] or datetime.min,
+            )
+        )
+        return result[:limit]
 
     new_clients = [c for c in result if c["medicaidCheckedAt"] is None]
     stale = sorted(

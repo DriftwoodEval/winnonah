@@ -504,11 +504,25 @@ def main(
             min=1,
             help=(
                 "Recheck SC Medicaid eligibility for every client never checked "
-                "or last checked more than this many days ago, in one run with "
-                "no batch cap"
+                "or last checked more than this many days ago, oldest first"
             ),
         ),
     ] = None,
+    medicaid_limit: Annotated[
+        int | None,
+        typer.Option(
+            "--medicaid-limit",
+            min=1,
+            help="With --medicaid-stale-days, check at most this many clients",
+        ),
+    ] = None,
+    medicaid_dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--medicaid-dry-run",
+            help="With --medicaid-stale-days, list who would be checked without searching",
+        ),
+    ] = False,
     medicaid_preview: Annotated[
         str | None,
         typer.Option(
@@ -599,7 +613,11 @@ def main(
         return
 
     if medicaid_stale_days is not None:
-        utils.medicaid.lookup_medicaid_eligibility(stale_days=medicaid_stale_days)
+        utils.medicaid.lookup_medicaid_eligibility(
+            stale_days=medicaid_stale_days,
+            limit=medicaid_limit,
+            dry_run=medicaid_dry_run,
+        )
         return
 
     if medicaid:

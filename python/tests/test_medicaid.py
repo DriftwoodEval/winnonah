@@ -4,6 +4,7 @@ from urllib.parse import quote
 import pytest
 from selenium.common.exceptions import TimeoutException
 
+import utils.database
 from utils import medicaid
 from utils.webdriving import initialize_selenium
 
@@ -124,3 +125,17 @@ class TestRunLookup:
         update = self._run([TimeoutException(), RuntimeError("driver died")])
 
         update.assert_not_called()
+
+
+class TestDryRun:
+    def test_dry_run_lists_clients_without_logging_in(self, monkeypatch):
+        clients = [{"id": 7, "medicaidCheckedAt": None}]
+        monkeypatch.setattr(
+            utils.database, "get_medicaid_clients_with_ids", lambda **_: clients
+        )
+        login = MagicMock()
+        monkeypatch.setattr(medicaid, "check_and_login_medicaid", login)
+
+        medicaid.lookup_medicaid_eligibility(stale_days=14, dry_run=True)
+
+        login.assert_not_called()
