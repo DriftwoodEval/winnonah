@@ -6,7 +6,9 @@ the insurances in MEDICAID_SHORT_NAMES that were never checked right away, and
 rechecking everyone else once per calendar month in batches of
 MEDICAID_RECHECK_BATCH_SIZE per run. A full recheck of a specific
 client, or of every client, can be forced with
-`python -m cron.main --medicaid [--client <name-or-id>]`. Portal credentials
+`python -m cron.main --medicaid [--client <name-or-id>]`. To catch up clients
+whose last check predates a mid-month change, `--medicaid-stale-days N` rechecks
+everyone last checked more than N days ago in one uncapped run. Portal credentials
 come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
 """
@@ -95,10 +97,18 @@ def lookup_medicaid_eligibility(
     only_due: bool = False,
     names: list[str] | None = None,
     client_ids: list[str] | None = None,
+    stale_days: int | None = None,
 ) -> None:
-    """Force eligibility lookup for all Medicaid-portal clients, or filter by name/ID strings."""
+    """Force eligibility lookup for all Medicaid-portal clients, or filter by name/ID strings.
+
+    With stale_days, only clients never checked or last checked more than that
+    many days ago are looked up, all in one run.
+    """
     _run_medicaid_eligibility_lookup(
-        only_due=only_due, names=names, client_ids=client_ids
+        only_due=only_due,
+        names=names,
+        client_ids=client_ids,
+        stale_days=stale_days,
     )
 
 
@@ -119,8 +129,11 @@ def _run_medicaid_eligibility_lookup(
     only_due: bool,
     names: list[str] | None = None,
     client_ids: list[str] | None = None,
+    stale_days: int | None = None,
 ) -> None:
-    clients = utils.database.get_medicaid_clients_with_ids(only_due=only_due)
+    clients = utils.database.get_medicaid_clients_with_ids(
+        only_due=only_due, stale_days=stale_days
+    )
 
     if client_ids:
         str_ids = {str(cid) for cid in client_ids}
