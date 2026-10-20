@@ -26,6 +26,9 @@ function useDebounce<T>(value: T, delay: number): T {
 interface ClientSearchAndAddProps {
 	onAdd: (client: SortedClient) => void;
 	excludeIds?: number[];
+	/** Clients still shown in results, but with `alreadyAddedLabel` in place of the add button. */
+	alreadyAddedIds?: number[];
+	alreadyAddedLabel?: string;
 	placeholder?: string;
 	addButtonLabel?: string;
 	isAdding?: boolean;
@@ -41,6 +44,8 @@ interface ClientSearchAndAddProps {
 export function ClientSearchAndAdd({
 	onAdd,
 	excludeIds,
+	alreadyAddedIds,
+	alreadyAddedLabel = "Already added",
 	placeholder = "Search for a client...",
 	addButtonLabel = "Add",
 	isAdding = false,
@@ -78,6 +83,11 @@ export function ClientSearchAndAdd({
 			setSearchTerm("");
 		}
 	};
+
+	const alreadyAdded = useMemo(
+		() => new Set(alreadyAddedIds),
+		[alreadyAddedIds],
+	);
 
 	const showResults =
 		(!floating || isFocused) &&
@@ -161,13 +171,19 @@ export function ClientSearchAndAdd({
 											</span>
 										)}
 									</div>
-									<Button
-										disabled={isAdding || isFetching}
-										onClick={() => handleAdd(client)}
-										size="sm"
-									>
-										{addButtonLabel}
-									</Button>
+									{alreadyAdded.has(client.id) ? (
+										<span className="text-muted-foreground text-xs">
+											{alreadyAddedLabel}
+										</span>
+									) : (
+										<Button
+											disabled={isAdding || isFetching}
+											onClick={() => handleAdd(client)}
+											size="sm"
+										>
+											{addButtonLabel}
+										</Button>
+									)}
 								</li>
 							))}
 						</ul>
