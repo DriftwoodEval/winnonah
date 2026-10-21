@@ -252,7 +252,7 @@ def _open_query_form(driver: WebDriver, max_attempts: int = 3) -> WebElement:
 
 def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | None]:
     """Search for a single client in SC Medicaid Portal and return the scraped fields."""
-    logger.info("Searching for client")
+    logger.info(f"Searching for client {client_id}")
     _open_query_form(driver).send_keys(client_id)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
