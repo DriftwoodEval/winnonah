@@ -18,26 +18,10 @@ import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
 type Contact = ClientGetOneOutput["contacts"][number];
 
-function ContactCard({ contact }: { contact: Contact }) {
-	const name = [contact.firstName, contact.middleName, contact.lastName]
+function contactName(contact: Contact) {
+	return [contact.firstName, contact.middleName, contact.lastName]
 		.filter(Boolean)
 		.join(" ");
-
-	return (
-		<div className="min-w-48 rounded-md border bg-background p-3 text-sm">
-			<p className="font-semibold">
-				<Redact>{name}</Redact>
-				{contact.relationship && (
-					<span className="font-normal"> ({contact.relationship})</span>
-				)}
-			</p>
-			{contact.phone && (
-				<Link className="block hover:underline" href={`tel:${contact.phone}`}>
-					<Redact>{formatPhoneNumber(contact.phone)}</Redact>
-				</Link>
-			)}
-		</div>
-	);
 }
 
 interface ClientDetailsCardProps {
@@ -213,11 +197,11 @@ export function ClientDetailsCard({
 					<p className="font-bold">
 						{client.contacts.length === 1 ? "Contact" : "Contacts"}
 					</p>
-					<div className="mt-1 flex flex-wrap gap-4">
-						{client.contacts.map((contact) => (
-							<ContactCard contact={contact} key={contact.id} />
-						))}
-					</div>
+					{client.contacts.map((contact) => (
+						<div key={contact.id}>
+							<Redact>{contactName(contact)}</Redact>
+						</div>
+					))}
 				</div>
 			)}
 
