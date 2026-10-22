@@ -172,6 +172,8 @@ def _export_data(driver: WebDriver, npi: str | None = None):  # noqa: ARG001 Nee
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
     _helper(driver, "Insurance Policies and Benefits")
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
+    _helper(driver, "Client Contacts")
+    w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
 
 
 def _download_data(driver: WebDriver, npi: str):
@@ -210,6 +212,7 @@ def _download_data(driver: WebDriver, npi: str):
     _helper(driver, "Client Charts")
     _helper(driver, "Clients")
     _helper(driver, "Insurance Policies and Benefits")
+    _helper(driver, "Client Contacts")
 
 
 def _loop_therapists(driver: WebDriver, func: Callable):
@@ -329,6 +332,11 @@ def _combine_files():
     _read_and_concat_files(
         "dataExport-chart*.csv",
         INPUT_DIR / "clients-chart.csv",
+    )
+
+    _read_and_concat_files(
+        "dataExport-contacts*.csv",
+        INPUT_DIR / "clients-contacts.csv",
     )
 
     missing = REQUIRED_INPUT_FILES - written_files
