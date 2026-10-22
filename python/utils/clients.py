@@ -225,6 +225,13 @@ def get_raw_insurance_data(should_download_csvs: bool | None = True) -> pd.DataF
     )
 
 
+def get_raw_contacts_data() -> pd.DataFrame:
+    """Returns the client contacts CSV, which has one row per client contact."""
+    return utils.spreadsheets.open_local(
+        Path("temp/input/clients-contacts.csv"), dtype=str
+    )
+
+
 def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     """Downloads CSVs from TherapyAppointment, cleans them, and returns a DataFrame of clients."""
     if not os.getenv("DEV_TOGGLE") and should_download_csvs:

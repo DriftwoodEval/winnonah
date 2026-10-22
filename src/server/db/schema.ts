@@ -1047,6 +1047,7 @@ export const failures = createTable(
 );
 
 export const clientRelations = relations(clients, ({ many, one }) => ({
+	contacts: many(clientContacts),
 	relatedConnections: many(clientRelated, {
 		relationName: "client_to_related",
 	}),
@@ -1585,6 +1586,39 @@ export const clientInsurancePoliciesRelations = relations(
 		}),
 	}),
 );
+
+export const clientContacts = createTable(
+	"client_contact",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		isResponsibleParty: d.boolean().notNull().default(false),
+		isEmergencyContact: d.boolean().notNull().default(false),
+		relationship: d.varchar({ length: 255 }),
+		addedDate: d.date({ mode: "string" }),
+		lastName: d.varchar({ length: 255 }),
+		firstName: d.varchar({ length: 255 }),
+		middleName: d.varchar({ length: 255 }),
+		address1: d.varchar({ length: 255 }),
+		address2: d.varchar({ length: 255 }),
+		city: d.varchar({ length: 255 }),
+		state: d.varchar({ length: 50 }),
+		zip: d.varchar({ length: 20 }),
+		phone: d.varchar({ length: 50 }),
+		email: d.varchar({ length: 255 }),
+	}),
+	(t) => [index("cc_client_idx").on(t.clientId)],
+);
+
+export const clientContactsRelations = relations(clientContacts, ({ one }) => ({
+	client: one(clients, {
+		fields: [clientContacts.clientId],
+		references: [clients.id],
+	}),
+}));
 
 export const questionnaireMsgLogs = createTable(
 	"questionnaire_msg_logs",

@@ -237,6 +237,9 @@ def import_from_ta(
                         raw_insurance, connection=conn
                     )
                 )
+                utils.database.put_client_contacts_in_db(
+                    utils.clients.get_raw_contacts_data(), connection=conn
+                )
                 task.set_summary(
                     {
                         "new_clients": client_counts["new_clients"],

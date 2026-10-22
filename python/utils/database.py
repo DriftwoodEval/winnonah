@@ -41,6 +41,7 @@ from utils.constants import (
     TABLE_BLOCKED_SCHOOL_DISTRICT,
     TABLE_BLOCKED_ZIP_CODE,
     TABLE_CLIENT,
+    TABLE_CLIENT_CONTACT,
     TABLE_CLIENT_EVAL,
     TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_EVALUATOR,
@@ -1561,6 +1562,98 @@ def mark_special_accommodations_notice_sent(
     connection.commit()
 
 
+def _parse_date(val) -> str | None:
+    """Formats a CSV date cell as YYYY-MM-DD, or None if blank or unparseable."""
+    if pd.isna(val) or val == "":
+        return None
+    try:
+        return format_date(val)
+    except Exception:
+        return None
+
+
+def _parse_bool(val) -> bool | None:
+    """Parses a CSV boolean cell, or None if blank."""
+    if pd.isna(val) or val == "":
+        return None
+    if isinstance(val, bool):
+        return val
+    return str(val).strip().upper() in ("TRUE", "YES", "1", "Y")
+
+
+def put_client_contacts_in_db(
+    contacts_df: pd.DataFrame, connection: Connection[DictCursor]
+) -> int:
+    """Replaces the stored contacts of every client in the contacts CSV.
+
+    Contacts have no stable id in the export, so each client's rows are deleted
+    and re-inserted. A client whose contacts were all removed in TA has no rows
+    in the export and keeps its old contacts until it gains one again.
+    Returns the number of contacts inserted.
+    """
+    logger.debug("Inserting client contacts into database")
+
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT id FROM `{TABLE_CLIENT}`")
+        existing_ids = {r["id"] for r in cursor.fetchall()}
+
+    rows = []
+    for _, row in contacts_df.iterrows():
+        try:
+            client_id = int(str(get_column(row, "CLIENT_ID")))
+        except ValueError:
+            continue
+        first = get_column(row, "CONTACT_FIRSTNAME")
+        last = get_column(row, "CONTACT_LASTNAME")
+        if client_id not in existing_ids or not (first or last):
+            continue
+        rows.append(
+            (
+                client_id,
+                _parse_bool(get_column(row, "IS_RESPONSIBLE_PARTY")) or False,
+                _parse_bool(get_column(row, "IS_EMERGENCY_CONTACT")) or False,
+                get_column(row, "RELATIONSHIP"),
+                _parse_date(get_column(row, "CONTACT_ADDED_DATE")),
+                last,
+                first,
+                get_column(row, "CONTACT_MIDDLE"),
+                get_column(row, "ADDRESS1"),
+                get_column(row, "ADDRESS2"),
+                get_column(row, "CITY"),
+                get_column(row, "STATE"),
+                get_column(row, "ZIP"),
+                format_phone_number(get_column(row, "PHONE")),
+                get_column(row, "EMAIL"),
+            )
+        )
+
+    if not rows:
+        logger.info("No client contacts to insert.")
+        return 0
+
+    client_ids = sorted({r[0] for r in rows})
+    id_placeholders = ", ".join(["%s"] * len(client_ids))
+    row_placeholders = ", ".join(["%s"] * len(rows[0]))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"DELETE FROM `{TABLE_CLIENT_CONTACT}` WHERE clientId IN ({id_placeholders})",
+            client_ids,
+        )
+        cursor.executemany(
+            f"""
+            INSERT INTO `{TABLE_CLIENT_CONTACT}` (
+                clientId, isResponsibleParty, isEmergencyContact, relationship,
+                addedDate, lastName, firstName, middleName,
+                address1, address2, city, state, zip, phone, email
+            ) VALUES ({row_placeholders})
+            """,
+            rows,
+        )
+    connection.commit()
+    logger.info(f"Inserted {len(rows)} contacts for {len(client_ids)} clients.")
+    return len(rows)
+
+
 @provide_connection
 def put_client_insurance_policies_in_db(
     insurance_df: pd.DataFrame, connection: Connection[DictCursor]
@@ -1571,21 +1664,6 @@ def put_client_insurance_policies_in_db(
     run summary shown in the app.
     """
     logger.debug("Inserting client insurance policies into database")
-
-    def _parse_date(val) -> str | None:
-        if pd.isna(val) or val == "":
-            return None
-        try:
-            return format_date(val)
-        except Exception:
-            return None
-
-    def _parse_bool(val) -> bool | None:
-        if pd.isna(val) or val == "":
-            return None
-        if isinstance(val, bool):
-            return val
-        return str(val).strip().upper() in ("TRUE", "YES", "1", "Y")
 
     values_to_insert = []
 

@@ -1148,6 +1148,7 @@ export const clientRouter = createTRPCRouter({
 						with: { insurance: true },
 					},
 					eiContact: true,
+					contacts: true,
 				},
 			});
 
