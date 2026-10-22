@@ -15,6 +15,7 @@ from ratelimit import RateLimitException, limits
 from tenacity import (
     RetryCallState,
     retry,
+    retry_if_exception,
     retry_if_exception_type,
     retry_if_result,
     stop_after_attempt,
@@ -127,6 +128,15 @@ class QuoClient:
         before_sleep=before_sleep_loguru,
     )
 
+    # Retries idempotent reads on transient errors.
+    _retry_read = retry(
+        retry=retry_if_exception(is_transient_error),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(3),
+        reraise=True,
+        before_sleep=before_sleep_loguru,
+    )
+
     _retry_poll_delivery = retry(
         retry=retry_if_result(should_continue_polling),
         wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -135,7 +145,7 @@ class QuoClient:
     )
 
     @limits(calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
-    @_retry_network
+    @_retry_read
     def get_text_info(self, message_id: str) -> dict:
         """Retrieves raw info dict. Retries only on network errors."""
         url = f"{API_BASE}messages/{message_id}"
@@ -171,7 +181,7 @@ class QuoClient:
             return False
 
     @limits(calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
-    @_retry_network
+    @_retry_read
     def _fetch_phone_number_id(self) -> str | None:
         """Fetch the Quo phone number ID for the main number."""
         url = f"{API_BASE}phone-numbers"
@@ -232,6 +242,16 @@ class QuoClient:
         """
         return self._get_messages(client_phone, None, since)
 
+    @limits(calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
+    @_retry_read
+    def _fetch_messages(self, params: dict) -> list[dict]:
+        """Fetch raw message data. Retries only on network errors."""
+        response = self.session.get(
+            f"{API_BASE}messages", params=params, timeout=REQUEST_TIMEOUT_SECONDS
+        )
+        response.raise_for_status()
+        return response.json().get("data", [])
+
     def _get_messages(
         self,
         client_phone: str,
@@ -266,12 +286,9 @@ class QuoClient:
             params = build_messages_query(
                 phone_number_id, clean_phone, direction=direction, since=since_dt
             )
-            response = self.session.get(
-                f"{API_BASE}messages", params=params, timeout=REQUEST_TIMEOUT_SECONDS
-            )
-            response.raise_for_status()
+            data = self._fetch_messages(params)
             # Client-side filter as a fallback in case the API ignores createdAfter
-            return parse_messages(response.json().get("data", []), since_dt)
+            return parse_messages(data, since_dt)
         except Exception as e:
             logger.error(
                 f"Failed to check {direction or 'all'} messages for {client_phone}: {e}"

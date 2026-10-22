@@ -14,6 +14,12 @@ from driftwood_common.timezone import now_business
 from ratelimit import RateLimitException
 
 
+@pytest.fixture(autouse=True)
+def no_retry_backoff(monkeypatch):
+    """Skip tenacity backoff sleeps so retry paths run instantly."""
+    monkeypatch.setattr("tenacity.nap.time.sleep", lambda _: None)
+
+
 def make_client(**overrides) -> tuple[QuoClient, MagicMock]:
     """A client whose HTTP session is a mock, so no request is made."""
     options = {"main_number": "+15551230000", "phone_number_id": "PN1"}
@@ -187,6 +193,14 @@ class TestGetMessages:
         client, session = make_client()
         session.get.side_effect = requests.ConnectionError("down")
         assert client.get_messages("8435550100") == []
+
+    def test_a_dropped_connection_is_retried_before_giving_up(self):
+        client, session = make_client()
+        ok = MagicMock()
+        ok.json.return_value = {"data": []}
+        session.get.side_effect = [requests.ConnectionError("reset"), ok]
+        client.get_messages("8435550100")
+        assert session.get.call_count == 2
 
 
 class TestHasSentMessage:

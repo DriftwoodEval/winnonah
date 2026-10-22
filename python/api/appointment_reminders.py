@@ -847,6 +847,20 @@ async def handle_incoming_reply(
             else "unknown date"
         )
 
+        # Only the first reply can confirm. Our own record of earlier replies
+        # does not depend on the Quo lookup below, which can fail open.
+        cursor.execute(
+            f"SELECT 1 FROM {TABLE_APPOINTMENT_REMINDER_REPLIES} "
+            "WHERE appointmentId = %s AND (openphoneMessageId IS NULL OR openphoneMessageId != %s) "
+            "LIMIT 1",
+            (context["appointment_id"], message_id or ""),
+        )
+        if cursor.fetchone():
+            logger.info(
+                f"Reply from {phone_number} ignored: appt {context['appointment_id']} already has a reply."
+            )
+            return
+
         should_handle = await should_handle_reply(
             message_id, context["lastReminderSentAt"], clean_phone, connection
         )
