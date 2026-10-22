@@ -66,6 +66,7 @@ from utils.constants import (
     TEST_NAMES_LOWER,
 )
 from utils.misc import (
+    capitalize_name_with_exceptions,
     format_date,
     format_gender,
     format_phone_number,
@@ -1581,6 +1582,48 @@ def _parse_bool(val) -> bool | None:
     return str(val).strip().upper() in ("TRUE", "YES", "1", "Y")
 
 
+# Contact rows are only ever duplicates within the same client (checked on the
+# client id at position 0 in dedupe_contact_rows), so the field key starts after
+# it. The added date varies between duplicate entries, so it is ignored too.
+_CONTACT_COMPARE_FROM = 1
+_CONTACT_ADDED_DATE = 4
+
+
+def _contact_key(row: tuple) -> tuple:
+    """Case-insensitive comparable fields of a contact row; blanks become None."""
+    return tuple(
+        None if i == _CONTACT_ADDED_DATE or not value else str(value).strip().casefold()
+        for i, value in enumerate(row)
+        if i >= _CONTACT_COMPARE_FROM
+    )
+
+
+def _is_subsumed(key: tuple, kept_key: tuple) -> bool:
+    """True if every filled field in key matches the same field in kept_key."""
+    return all(v is None or v == k for v, k in zip(key, kept_key, strict=True))
+
+
+def dedupe_contact_rows(rows: list[tuple]) -> list[tuple]:
+    """Drops contact rows that only repeat another row of the same client with
+    less information. Rows that differ in any field both of them fill (a
+    different phone, say) are kept as separate contacts."""
+    kept: list[tuple] = []
+    kept_keys: list[tuple] = []
+    by_info = sorted(
+        rows, key=lambda r: sum(1 for k in _contact_key(r) if k), reverse=True
+    )
+    for row in by_info:
+        key = _contact_key(row)
+        if any(
+            row[0] == other[0] and _is_subsumed(key, other_key)
+            for other, other_key in zip(kept, kept_keys, strict=True)
+        ):
+            continue
+        kept.append(row)
+        kept_keys.append(key)
+    return kept
+
+
 def put_client_contacts_in_db(
     contacts_df: pd.DataFrame, connection: Connection[DictCursor]
 ) -> int:
@@ -1614,9 +1657,10 @@ def put_client_contacts_in_db(
                 _parse_bool(get_column(row, "IS_EMERGENCY_CONTACT")) or False,
                 get_column(row, "RELATIONSHIP"),
                 _parse_date(get_column(row, "CONTACT_ADDED_DATE")),
-                last,
-                first,
-                get_column(row, "CONTACT_MIDDLE"),
+                capitalize_name_with_exceptions(last) or None,
+                capitalize_name_with_exceptions(first) or None,
+                capitalize_name_with_exceptions(get_column(row, "CONTACT_MIDDLE"))
+                or None,
                 get_column(row, "ADDRESS1"),
                 get_column(row, "ADDRESS2"),
                 get_column(row, "CITY"),
@@ -1627,6 +1671,7 @@ def put_client_contacts_in_db(
             )
         )
 
+    rows = dedupe_contact_rows(rows)
     if not rows:
         logger.info("No client contacts to insert.")
         return 0

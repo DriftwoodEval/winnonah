@@ -1,6 +1,5 @@
 "use client";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
@@ -23,15 +22,6 @@ function ContactCard({ contact }: { contact: Contact }) {
 	const name = [contact.firstName, contact.middleName, contact.lastName]
 		.filter(Boolean)
 		.join(" ");
-	const cityStateZip = [
-		[contact.city, contact.state].filter(Boolean).join(", "),
-		contact.zip,
-	]
-		.filter(Boolean)
-		.join(" ");
-	const address = [contact.address1, contact.address2, cityStateZip]
-		.filter(Boolean)
-		.join(", ");
 
 	return (
 		<div className="min-w-48 rounded-md border bg-background p-3 text-sm">
@@ -41,36 +31,9 @@ function ContactCard({ contact }: { contact: Contact }) {
 					<span className="font-normal"> ({contact.relationship})</span>
 				)}
 			</p>
-			{(contact.isResponsibleParty || contact.isEmergencyContact) && (
-				<div className="my-1 flex gap-1">
-					{contact.isResponsibleParty && (
-						<Badge variant="secondary">Responsible Party</Badge>
-					)}
-					{contact.isEmergencyContact && (
-						<Badge variant="secondary">Emergency Contact</Badge>
-					)}
-				</div>
-			)}
 			{contact.phone && (
 				<Link className="block hover:underline" href={`tel:${contact.phone}`}>
 					<Redact>{formatPhoneNumber(contact.phone)}</Redact>
-				</Link>
-			)}
-			{contact.email && (
-				<Link
-					className="block hover:underline"
-					href={`mailto:${contact.email}`}
-				>
-					<Redact>{contact.email}</Redact>
-				</Link>
-			)}
-			{address && (
-				<Link
-					className="block hover:underline"
-					href={`https://maps.google.com/?q=${encodeURIComponent(address)}`}
-					target="_blank"
-				>
-					<Redact>{address}</Redact>
 				</Link>
 			)}
 		</div>
@@ -247,7 +210,9 @@ export function ClientDetailsCard({
 
 			{!truncated && client.contacts.length > 0 && (
 				<div className="w-full">
-					<p className="font-bold">Contacts</p>
+					<p className="font-bold">
+						{client.contacts.length === 1 ? "Contact" : "Contacts"}
+					</p>
 					<div className="mt-1 flex flex-wrap gap-4">
 						{client.contacts.map((contact) => (
 							<ContactCard contact={contact} key={contact.id} />

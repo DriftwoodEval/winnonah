@@ -15,6 +15,7 @@ from utils.database import (
     _reactivation_review_note_text,
     _set_date_cache,
     activate_reactivation_admin_review,
+    dedupe_contact_rows,
     filter_clients_with_changed_address,
     get_medicaid_clients_with_ids,
     get_open_balances,
@@ -1176,3 +1177,39 @@ class TestGetOpenBalances:
             }
         )
         assert get_open_balances(billing, set()) == {"jane doe": 35.0}
+
+
+def _contact(**overrides):
+    """Contact row tuple in put_client_contacts_in_db column order."""
+    fields = {
+        "client_id": 1,
+        "resp": False,
+        "emerg": False,
+        "rel": None,
+        "added": None,
+        "last": "Smith",
+        "first": "Ann",
+        "middle": None,
+        "a1": None,
+        "a2": None,
+        "city": None,
+        "state": None,
+        "zip": None,
+        "phone": None,
+        "email": None,
+    }
+    fields.update(overrides)
+    return tuple(fields.values())
+
+
+def test_dedupe_contact_rows_keeps_most_complete_duplicate():
+    sparse = _contact()
+    full = _contact(rel="Mother", phone="(843) 555-0100", added="2024-01-01")
+    assert dedupe_contact_rows([sparse, full]) == [full]
+
+
+def test_dedupe_contact_rows_keeps_genuinely_different_rows():
+    a = _contact(phone="(843) 555-0100")
+    b = _contact(phone="(843) 555-0199")
+    other_client = _contact(client_id=2)
+    assert len(dedupe_contact_rows([a, b, other_client])) == 3
