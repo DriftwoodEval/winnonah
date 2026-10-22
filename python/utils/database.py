@@ -1336,7 +1336,7 @@ def get_medicaid_clients_with_ids(
 ) -> list[dict]:
     """Returns active clients with a Medicaid-portal insurance as primary or secondary.
 
-    Only policy numbers the portal accepts (exactly 10 digits) are considered.
+    Only policy numbers made of letters and digits are considered.
     Each client appears once with the policy number to search, preferring the
     primary policy. With only_due, restricts to clients never checked, plus a
     batch of MEDICAID_RECHECK_BATCH_SIZE (oldest first) last checked before the
@@ -1376,7 +1376,7 @@ def get_medicaid_clients_with_ids(
               AND c.status = 1
               AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
-              AND TRIM(p.insuranceNumber) REGEXP '^[0-9]{{10}}$'
+              AND TRIM(p.insuranceNumber) REGEXP '^[0-9A-Za-z]+$'
               {
                 " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < %s)"
                 if only_due

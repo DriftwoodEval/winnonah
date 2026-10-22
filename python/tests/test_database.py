@@ -944,7 +944,7 @@ class TestGetMedicaidClientsWithIds:
         query, _ = cursor.executed[0]
         assert "COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN" in query
         assert "p.policyType IN ('PRIMARY', 'SECONDARY')" in query
-        assert "REGEXP '^[0-9]{10}$'" in query
+        assert "REGEXP '^[0-9A-Za-z]+$'" in query
 
     def test_only_due_adds_recheck_window_parameter(self):
         due_cursor = FakeCursor()
