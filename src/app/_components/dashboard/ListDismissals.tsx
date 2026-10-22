@@ -13,7 +13,7 @@ import { api } from "~/trpc/react";
 
 /**
  * Per-user "mute" marks for one dashboard list. Dismissed clients
- * are hidden from the list (while `hide` is on, the default) until they leave
+ * are hidden from the list (while `hide` is on) until they leave
  * it, at which point the mark is pruned. Pass `ready: false` until
  * `clientIds` reflects the fully loaded list, so a partial list never prunes.
  */
@@ -23,7 +23,24 @@ export function useListDismissals(
 	ready = true,
 ) {
 	const utils = api.useUtils();
-	const [hide, setHide] = useState(true);
+	const [hide, setHideState] = useState(false);
+	const storageKey = `list-dismissals-hide:${listKey}`;
+	// Read after mount so server and client render the same first pass.
+	useEffect(() => {
+		try {
+			if (localStorage.getItem(storageKey) === "true") setHideState(true);
+		} catch {
+			// Storage unavailable: keep the default.
+		}
+	}, [storageKey]);
+	const setHide = (value: boolean) => {
+		setHideState(value);
+		try {
+			localStorage.setItem(storageKey, String(value));
+		} catch {
+			// Storage unavailable: the choice just won't persist.
+		}
+	};
 	const { data } = api.listDismissals.list.useQuery();
 	const onSuccess = () => utils.listDismissals.list.invalidate();
 	const onError = (error: { message: string }) =>
