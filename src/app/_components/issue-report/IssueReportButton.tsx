@@ -107,12 +107,16 @@ export function IssueReportButton() {
 		</Button>
 	);
 
+	// The report dialog has its own overlay, so the button goes back under it
+	// and blurs with the rest of the page.
+	const floating = !!slotRect && !open;
+
 	return (
 		<>
 			<span className="inline-flex size-8" ref={slotRef}>
-				{!slotRect && button}
+				{!floating && button}
 			</span>
-			{slotRect &&
+			{floating &&
 				createPortal(
 					<div
 						className="pointer-events-auto fixed z-[100] rounded-full bg-background"
