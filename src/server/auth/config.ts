@@ -83,7 +83,7 @@ export const authConfig = {
 					response_type: "code",
 					include_granted_scopes: "true",
 					scope:
-						"openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar",
+						"openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send",
 				},
 			},
 		}),

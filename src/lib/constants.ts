@@ -479,3 +479,6 @@ export const DEFAULT_POST_VISIT_MESSAGE = {
 	subject: "Thank you for visiting us",
 	body: "It was nice to meet you, here is an attachment with info like we discussed.",
 };
+
+// Issue reports are emailed to this address from the reporting user's account.
+export const ISSUE_REPORT_EMAIL = "tech@driftwoodeval.com";

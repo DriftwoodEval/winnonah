@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { env } from "~/env";
+import { ISSUE_REPORT_EMAIL } from "~/lib/constants";
+import { GmailScopeError, sendGmailAsUser } from "~/lib/integrations/gmail";
 import { hasPermission } from "~/lib/utils";
 import {
 	issueReportRecipientsSchema,
@@ -43,33 +44,43 @@ export const issueReportRouter = createTRPCRouter({
 	send: protectedProcedure
 		.input(issueReportSubmissionSchema)
 		.mutation(async ({ ctx, input }) => {
+			const { user } = ctx.session;
+			if (user.isImpersonating) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Stop viewing as another user before sending a report.",
+				});
+			}
+
 			const { recipients } = await loadRecipients(ctx.db);
 			const allowedEmails = new Set(recipients.map((r) => r.email));
 			const ccEmails = input.ccEmails.filter((email) =>
 				allowedEmails.has(email),
 			);
 
-			const response = await fetch(`${env.PY_API}/notifications/issue-report`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Cookie: ctx.headers.get("cookie") ?? "",
-				},
-				body: JSON.stringify({
-					subject: input.subject,
-					body: input.body,
-					page_url: input.pageUrl,
-					cc_emails: ccEmails,
-					screenshot_base64: input.screenshotBase64,
-				}),
-			}).catch(() => {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Could not reach the email service",
+			try {
+				await sendGmailAsUser(ctx.session, {
+					to: ISSUE_REPORT_EMAIL,
+					cc: ccEmails,
+					subject: `[EMR Issue] ${input.subject}`,
+					text: `Page: ${input.pageUrl}\n\n${input.body}`,
+					attachment: input.screenshotBase64
+						? {
+								filename: "screenshot.png",
+								contentType: "image/png",
+								base64: input.screenshotBase64,
+							}
+						: undefined,
 				});
-			});
-
-			if (!response.ok) {
+			} catch (error) {
+				ctx.logger.error(error, "Failed to send issue report");
+				if (error instanceof GmailScopeError) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message:
+							"Sign out and sign back in, then allow sending email when Google asks.",
+					});
+				}
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: "Failed to send the report",
