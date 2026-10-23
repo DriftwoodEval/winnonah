@@ -244,13 +244,22 @@ export const issueReportRecipientsSchema = z.object({
 	recipients: z.array(issueReportRecipientSchema).max(50),
 });
 
-// The screenshot is a PNG as base64, capped at roughly 10 MB.
+export const MAX_ISSUE_REPORT_SCREENSHOTS = 5;
+
+// Each screenshot is a PNG as base64, capped at roughly 3 MB. Five of them stay
+// under Gmail's message size limit.
 export const issueReportSubmissionSchema = z.object({
 	subject: z.string().trim().min(1).max(200),
 	body: z.string().trim().min(1).max(5000),
-	pageUrl: z.string().max(2000),
 	ccEmails: z.array(z.string()).max(50),
-	screenshotBase64: z.string().max(14_000_000).optional(),
+	screenshots: z
+		.array(
+			z.object({
+				pageUrl: z.string().max(2000),
+				base64: z.string().max(4_000_000),
+			}),
+		)
+		.max(MAX_ISSUE_REPORT_SCREENSHOTS),
 });
 
 export type IssueReportRecipient = z.infer<typeof issueReportRecipientSchema>;

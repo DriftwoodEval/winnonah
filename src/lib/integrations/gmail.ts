@@ -2,12 +2,18 @@ import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
 
+interface EmailAttachment {
+	filename: string;
+	contentType: string;
+	base64: string;
+}
+
 interface OutgoingEmail {
 	to: string;
 	cc: string[];
 	subject: string;
 	text: string;
-	attachment?: { filename: string; contentType: string; base64: string };
+	attachments?: EmailAttachment[];
 }
 
 /** Encodes a header value that may contain non-ASCII characters (RFC 2047). */
@@ -38,8 +44,7 @@ function buildMime(email: OutgoingEmail) {
 			wrapBase64(Buffer.from(email.text, "utf8").toString("base64")),
 		].join("\r\n"),
 	];
-	if (email.attachment) {
-		const { filename, contentType, base64 } = email.attachment;
+	for (const { filename, contentType, base64 } of email.attachments ?? []) {
 		parts.push(
 			[
 				`--${boundary}`,

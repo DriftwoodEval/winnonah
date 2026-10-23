@@ -5,7 +5,9 @@ import { Bug, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { IssueReportDialog } from "./IssueReportDialog";
+import { MAX_ISSUE_REPORT_SCREENSHOTS } from "~/lib/validations/config";
+import { IssueReportDialog, type IssueReportForm } from "./IssueReportDialog";
+import type { DraftImage, Shape } from "./ScreenshotEditor";
 
 // Screenshots are scaled down to this width so the email stays small.
 const MAX_SCREENSHOT_WIDTH = 1600;
@@ -26,11 +28,16 @@ async function capturePage(): Promise<string | null> {
 			pixelRatio: 1,
 			backgroundColor: getComputedStyle(document.body).backgroundColor,
 			cacheBust: true,
+			// The draft bar is not part of the page being reported.
+			filter: (node) =>
+				!(node instanceof HTMLElement && "issueReportIgnore" in node.dataset),
 		});
 	} catch {
 		return null;
 	}
 }
+
+const EMPTY_FORM: IssueReportForm = { subject: "", body: "", ccEmails: [] };
 
 /** Whether a modal dialog or menu currently blocks clicks on the page. */
 function isPageBlocked() {
@@ -62,9 +69,10 @@ export function IssueReportButton() {
 	const pageBlocked = useIsPageBlocked();
 	const [slotRect, setSlotRect] = useState<DOMRect | null>(null);
 	const [capturing, setCapturing] = useState(false);
-	const [screenshot, setScreenshot] = useState<string | null>(null);
+	const [images, setImages] = useState<DraftImage[]>([]);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [form, setForm] = useState<IssueReportForm>(EMPTY_FORM);
 	const [open, setOpen] = useState(false);
-	const [pageUrl, setPageUrl] = useState("");
 
 	// While a modal blocks the header, the button is drawn from a portal on top
 	// of the overlay at the header slot's position.
@@ -74,18 +82,60 @@ export function IssueReportButton() {
 		);
 	}, [pageBlocked]);
 
+	// The draft lives here, in the header, so it survives client-side
+	// navigation. That lets a report collect screenshots from several pages.
 	const startReport = async () => {
+		if (images.length >= MAX_ISSUE_REPORT_SCREENSHOTS) {
+			toast.warning(
+				`A report can include up to ${MAX_ISSUE_REPORT_SCREENSHOTS} screenshots`,
+			);
+			setOpen(true);
+			return;
+		}
+
 		setCapturing(true);
-		const image = await capturePage();
+		const src = await capturePage();
 		setCapturing(false);
-		if (!image) {
+		if (src) {
+			const id = crypto.randomUUID();
+			setImages((current) => [
+				...current,
+				{ id, src, pageUrl: window.location.href, shapes: [] },
+			]);
+			setSelectedId(id);
+		} else {
 			toast.warning("Could not capture a screenshot", {
 				description: "You can still send the report without one.",
 			});
 		}
-		setScreenshot(image);
-		setPageUrl(window.location.href);
 		setOpen(true);
+	};
+
+	const addAnother = () => {
+		setOpen(false);
+		toast.info("Go to another page, then add its screenshot", {
+			description:
+				"Use the bug icon or the Add screenshot button at the bottom of the page.",
+		});
+	};
+
+	const discard = () => {
+		setOpen(false);
+		setImages([]);
+		setSelectedId(null);
+		setForm(EMPTY_FORM);
+	};
+
+	const removeImage = (id: string) => {
+		const remaining = images.filter((image) => image.id !== id);
+		setImages(remaining);
+		if (id === selectedId) setSelectedId(remaining.at(-1)?.id ?? null);
+	};
+
+	const updateShapes = (id: string, shapes: Shape[]) => {
+		setImages((current) =>
+			current.map((image) => (image.id === id ? { ...image, shapes } : image)),
+		);
 	};
 
 	// Pressing the button must not dismiss an open menu, popover, or dialog, so
@@ -126,11 +176,46 @@ export function IssueReportButton() {
 					</div>,
 					document.body,
 				)}
+			{!open && images.length > 0 && (
+				<div
+					className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover px-4 py-2 text-popover-foreground text-sm shadow-md"
+					data-issue-report-ignore
+				>
+					<span>
+						Report in progress ({images.length}{" "}
+						{images.length === 1 ? "screenshot" : "screenshots"})
+					</span>
+					<Button
+						disabled={capturing}
+						onClick={startReport}
+						size="sm"
+						variant="outline"
+					>
+						Add screenshot
+					</Button>
+					<Button onClick={() => setOpen(true)} size="sm">
+						Resume
+					</Button>
+					<Button onClick={discard} size="sm" variant="ghost">
+						Discard
+					</Button>
+				</div>
+			)}
 			<IssueReportDialog
+				form={form}
+				images={images}
+				onAddAnother={addAnother}
+				onDiscard={discard}
+				onFormChange={(patch) =>
+					setForm((current) => ({ ...current, ...patch }))
+				}
 				onOpenChange={setOpen}
+				onRemoveImage={removeImage}
+				onSelect={setSelectedId}
+				onSent={discard}
+				onShapesChange={updateShapes}
 				open={open}
-				pageUrl={pageUrl}
-				screenshot={screenshot}
+				selectedId={selectedId}
 			/>
 		</>
 	);

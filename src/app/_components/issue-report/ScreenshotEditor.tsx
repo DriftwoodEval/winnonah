@@ -12,9 +12,18 @@ interface Point {
 	y: number;
 }
 
-type Shape =
+export type Shape =
 	| { tool: "pen"; color: string; points: Point[] }
 	| { tool: "rectangle" | "arrow"; color: string; start: Point; end: Point };
+
+/** A captured page plus the markup drawn on it so far. */
+export interface DraftImage {
+	id: string;
+	/** Data URL of the unmarked screenshot. */
+	src: string;
+	pageUrl: string;
+	shapes: Shape[];
+}
 
 // Drawing colors are canvas pixel data, so they are literal values.
 const COLORS = ["#e11d48", "#2563eb", "#16a34a", "#111827"];
@@ -71,59 +80,72 @@ function drawShape(
 	}
 }
 
-export interface ScreenshotEditorHandle {
-	toPngBase64: () => string | null;
+function loadImage(src: string) {
+	return new Promise<HTMLImageElement>((resolve, reject) => {
+		const image = new Image();
+		image.onload = () => resolve(image);
+		image.onerror = () => reject(new Error("Could not load the screenshot"));
+		image.src = src;
+	});
+}
+
+/** Draws the screenshot and its markup onto a canvas, sized to the screenshot. */
+function paint(
+	canvas: HTMLCanvasElement,
+	image: HTMLImageElement,
+	shapes: Shape[],
+) {
+	const ctx = canvas.getContext("2d");
+	if (!ctx) return;
+	canvas.width = image.naturalWidth;
+	canvas.height = image.naturalHeight;
+	ctx.drawImage(image, 0, 0);
+
+	const lineWidth = Math.max(3, Math.round(canvas.width / 400));
+	for (const shape of shapes) drawShape(ctx, shape, lineWidth);
+}
+
+/** The screenshot with its markup burned in, as base64 PNG without the prefix. */
+export async function renderMarkedUpPng({ src, shapes }: DraftImage) {
+	const canvas = document.createElement("canvas");
+	paint(canvas, await loadImage(src), shapes);
+	return canvas.toDataURL("image/png").split(",")[1] ?? "";
 }
 
 interface ScreenshotEditorProps {
-	/** Data URL of the screenshot to mark up. */
-	imageSrc: string;
-	onReady: (handle: ScreenshotEditorHandle) => void;
+	image: DraftImage;
+	onShapesChange: (shapes: Shape[]) => void;
 }
 
-export function ScreenshotEditor({ imageSrc, onReady }: ScreenshotEditorProps) {
+/** Mount with `key={image.id}` so switching screenshots resets the tool state. */
+export function ScreenshotEditor({
+	image,
+	onShapesChange,
+}: ScreenshotEditorProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const imageRef = useRef<HTMLImageElement | null>(null);
-	const [shapes, setShapes] = useState<Shape[]>([]);
+	const loadedImageRef = useRef<HTMLImageElement | null>(null);
 	const [draft, setDraft] = useState<Shape | null>(null);
 	const [tool, setTool] = useState<Tool>("pen");
 	const [color, setColor] = useState(COLORS[0] ?? "#e11d48");
 	const [imageLoaded, setImageLoaded] = useState(false);
+	const shapes = image.shapes;
 
 	useEffect(() => {
-		const image = new Image();
-		image.onload = () => {
-			imageRef.current = image;
+		loadImage(image.src).then((loaded) => {
+			loadedImageRef.current = loaded;
 			setImageLoaded(true);
-		};
-		image.src = imageSrc;
-	}, [imageSrc]);
+		});
+	}, [image.src]);
 
 	const redraw = useCallback(() => {
 		const canvas = canvasRef.current;
-		const image = imageRef.current;
-		const ctx = canvas?.getContext("2d");
-		if (!canvas || !image || !ctx) return;
-
-		canvas.width = image.naturalWidth;
-		canvas.height = image.naturalHeight;
-		ctx.drawImage(image, 0, 0);
-
-		const lineWidth = Math.max(3, Math.round(canvas.width / 400));
-		for (const shape of draft ? [...shapes, draft] : shapes) {
-			drawShape(ctx, shape, lineWidth);
-		}
+		const loaded = loadedImageRef.current;
+		if (!canvas || !loaded) return;
+		paint(canvas, loaded, draft ? [...shapes, draft] : shapes);
 	}, [shapes, draft]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: redraw when the image finishes loading
 	useEffect(redraw, [redraw, imageLoaded]);
-
-	useEffect(() => {
-		onReady({
-			toPngBase64: () =>
-				canvasRef.current?.toDataURL("image/png").split(",")[1] ?? null,
-		});
-	}, [onReady]);
 
 	const toCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
 		const canvas = event.currentTarget;
@@ -155,7 +177,7 @@ export function ScreenshotEditor({ imageSrc, onReady }: ScreenshotEditorProps) {
 	};
 
 	const finishDraft = () => {
-		if (draft) setShapes((current) => [...current, draft]);
+		if (draft) onShapesChange([...shapes, draft]);
 		setDraft(null);
 	};
 
@@ -193,7 +215,7 @@ export function ScreenshotEditor({ imageSrc, onReady }: ScreenshotEditorProps) {
 				<div className="ml-auto flex gap-2">
 					<Button
 						disabled={shapes.length === 0}
-						onClick={() => setShapes((current) => current.slice(0, -1))}
+						onClick={() => onShapesChange(shapes.slice(0, -1))}
 						size="sm"
 						type="button"
 						variant="outline"
@@ -203,7 +225,7 @@ export function ScreenshotEditor({ imageSrc, onReady }: ScreenshotEditorProps) {
 					</Button>
 					<Button
 						disabled={shapes.length === 0}
-						onClick={() => setShapes([])}
+						onClick={() => onShapesChange([])}
 						size="sm"
 						type="button"
 						variant="outline"
