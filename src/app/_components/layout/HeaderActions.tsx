@@ -87,7 +87,7 @@ export function HeaderActions() {
 			{checkPermission("settings:pii-redaction") &&
 				!isHidden("redaction-toggle") && <RedactionToggle />}
 
-			{!isHidden("issue-form") && <IssueReportButton />}
+			{session && !isHidden("issue-form") && <IssueReportButton />}
 
 			{isDesktop && !isHidden("theme-switcher") && <ThemeSwitcher />}
 

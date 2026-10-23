@@ -53,10 +53,20 @@ export function IssueReportButton() {
 
 	return (
 		<>
+			{/*
+			 * Pressing this button must not dismiss an open menu, popover, or
+			 * dialog, so the screenshot can include it. Stopping the pointer event
+			 * keeps Radix from seeing an outside click, and preventing the mouse
+			 * down keeps focus where it was. `data-keep-clickable` lifts the button
+			 * above a modal's overlay (see globals.css).
+			 */}
 			<Button
-				className="cursor-pointer rounded-full"
+				className="pointer-events-auto cursor-pointer rounded-full"
+				data-keep-clickable
 				disabled={capturing}
 				onClick={startReport}
+				onMouseDown={(event) => event.preventDefault()}
+				onPointerDown={(event) => event.stopPropagation()}
 				size="icon"
 				variant="ghost"
 			>

@@ -367,3 +367,10 @@
 	color: var(--shiki-dark);
 	background-color: var(--shiki-dark-bg);
 }
+
+/* While a modal dialog or menu locks the page, the header rises above its
+   overlay so the issue report button stays reachable. The rest of the header
+   is still inert because the body blocks pointer events. */
+body[data-scroll-locked] header {
+	z-index: 60;
+}
