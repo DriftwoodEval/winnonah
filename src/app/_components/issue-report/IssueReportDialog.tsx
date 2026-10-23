@@ -13,6 +13,7 @@ import {
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Textarea } from "@ui/textarea";
+import { useSession } from "next-auth/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
@@ -34,6 +35,7 @@ export function IssueReportDialog({
 	pageUrl,
 	screenshot,
 }: IssueReportDialogProps) {
+	const { data: session } = useSession();
 	const editorRef = useRef<ScreenshotEditorHandle | null>(null);
 	const [subject, setSubject] = useState("");
 	const [body, setBody] = useState("");
@@ -73,7 +75,11 @@ export function IssueReportDialog({
 		});
 	};
 
-	const recipients = recipientConfig?.recipients ?? [];
+	// The sender is already on the email, so they are not offered as a recipient.
+	const ownEmail = session?.user.email?.toLowerCase();
+	const recipients = (recipientConfig?.recipients ?? []).filter(
+		(recipient) => recipient.email !== ownEmail,
+	);
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>

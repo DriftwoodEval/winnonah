@@ -54,8 +54,9 @@ export const issueReportRouter = createTRPCRouter({
 
 			const { recipients } = await loadRecipients(ctx.db);
 			const allowedEmails = new Set(recipients.map((r) => r.email));
-			const ccEmails = input.ccEmails.filter((email) =>
-				allowedEmails.has(email),
+			const ownEmail = user.email?.toLowerCase();
+			const ccEmails = input.ccEmails.filter(
+				(email) => allowedEmails.has(email) && email !== ownEmail,
 			);
 
 			try {
