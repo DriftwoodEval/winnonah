@@ -255,6 +255,10 @@ export const PERMISSIONS = {
 						title: "Change Post-Visit Message Attachment",
 					},
 					{
+						id: "settings:issue-report:edit",
+						title: "Edit Issue Report Recipients",
+					},
+					{
 						id: "settings:exclusion-check:notifications",
 						title: "Receive Monthly Exclusion List Check Results",
 					},

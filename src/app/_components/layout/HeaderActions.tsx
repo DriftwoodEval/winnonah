@@ -1,5 +1,6 @@
 "use client";
 
+import { IssueReportButton } from "@components/issue-report/IssueReportButton";
 import { IssuesAlert } from "@components/issues/issuesAlert";
 import { TaskQueueBubble } from "@components/layout/TaskQueueBubble";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
@@ -19,7 +20,6 @@ import { RedactionToggle } from "../redaction/RedactionToggle";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 import { HeaderItemsCustomizer } from "./HeaderItemsCustomizer";
 import { ImpersonateUserSelect } from "./ImpersonateUserSelect";
-import { IssueFormLink } from "./IssueFormLink";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function HeaderActions() {
@@ -87,7 +87,7 @@ export function HeaderActions() {
 			{checkPermission("settings:pii-redaction") &&
 				!isHidden("redaction-toggle") && <RedactionToggle />}
 
-			{!isHidden("issue-form") && <IssueFormLink />}
+			{!isHidden("issue-form") && <IssueReportButton />}
 
 			{isDesktop && !isHidden("theme-switcher") && <ThemeSwitcher />}
 

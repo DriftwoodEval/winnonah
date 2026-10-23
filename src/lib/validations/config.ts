@@ -235,6 +235,26 @@ export const postVisitMessageConfigSchema = z.object({
 	body: z.string().trim().min(1).max(5000),
 });
 
+export const issueReportRecipientSchema = z.object({
+	name: z.string().trim().min(1).max(100),
+	email: z.string().trim().toLowerCase().max(254).pipe(z.email()),
+});
+
+export const issueReportRecipientsSchema = z.object({
+	recipients: z.array(issueReportRecipientSchema).max(50),
+});
+
+// The screenshot is a PNG as base64, capped at roughly 10 MB.
+export const issueReportSubmissionSchema = z.object({
+	subject: z.string().trim().min(1).max(200),
+	body: z.string().trim().min(1).max(5000),
+	pageUrl: z.string().max(2000),
+	ccEmails: z.array(z.string()).max(50),
+	screenshotBase64: z.string().max(14_000_000).optional(),
+});
+
+export type IssueReportRecipient = z.infer<typeof issueReportRecipientSchema>;
+
 export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
 export type AdditionalInsuranceAppointments = z.infer<
 	typeof additionalInsuranceAppointmentsSchema

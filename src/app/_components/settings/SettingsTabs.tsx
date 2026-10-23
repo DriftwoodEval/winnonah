@@ -7,6 +7,7 @@ import BabynetReportSettings from "@components/settings/BabynetReportSettings";
 import EiContactsSettings from "@components/settings/EiContactsSettings";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
+import IssueReportSettings from "@components/settings/IssueReportSettings";
 import PeopleTable from "@components/settings/PeopleTable";
 import PostVisitAttachmentSettings from "@components/settings/PostVisitAttachmentSettings";
 import QuestionnaireRemindersSettings from "@components/settings/QuestionnaireRemindersSettings";
@@ -185,6 +186,11 @@ const SEARCH_ENTRIES: SearchEntry[] = [
 		keywords: "post visit message attachment pdf",
 		tab: "post-visit-attachment",
 	},
+	{
+		label: "Issue Report Recipients",
+		keywords: "issue report bug email recipients cc",
+		tab: "issue-report",
+	},
 ];
 
 function SettingsSearch({
@@ -288,6 +294,8 @@ export function SettingsTabs() {
 	const canViewBabynetReport = can("settings:babynet-report:view");
 	const canViewPostVisitAttachment = can("settings:post-visit-attachment:edit");
 
+	const canEditIssueReport = can("settings:issue-report:edit");
+
 	const goToSearchEntry = (entry: SearchEntry) => {
 		const params = new URLSearchParams(searchParams.toString());
 		params.set("tab", entry.tab);
@@ -352,6 +360,11 @@ export function SettingsTabs() {
 					{canViewPostVisitAttachment && (
 						<TabsTrigger className="h-8 grow-0" value="post-visit-attachment">
 							Post-Visit Message
+						</TabsTrigger>
+					)}
+					{canEditIssueReport && (
+						<TabsTrigger className="h-8 grow-0" value="issue-report">
+							Issue Reports
 						</TabsTrigger>
 					)}
 				</TabsList>
@@ -467,6 +480,11 @@ export function SettingsTabs() {
 				{canViewPostVisitAttachment && (
 					<TabsContent value="post-visit-attachment">
 						<PostVisitAttachmentSettings />
+					</TabsContent>
+				)}
+				{canEditIssueReport && (
+					<TabsContent value="issue-report">
+						<IssueReportSettings />
 					</TabsContent>
 				)}
 			</Tabs>

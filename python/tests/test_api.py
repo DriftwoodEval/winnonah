@@ -1,6 +1,7 @@
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,6 +9,7 @@ from fastapi import HTTPException
 from pywaze.route_calculator import CalcRoutesResponse
 
 from api.app import (
+    IssueReportRequest,
     _apply_confirmed_marker,
     _find_duplicates,
     col_num_to_letter,
@@ -15,6 +17,7 @@ from api.app import (
     get_current_user,
     get_user_folder,
     get_writer_id,
+    notify_issue_report,
     office_drive_times,
 )
 
@@ -561,3 +564,61 @@ class TestOfficeDriveTimes:
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))
         assert exc_info.value.status_code == 422
+
+
+class TestNotifyIssueReport:
+    USER: ClassVar[dict] = {"name": "Pat <Staff>", "email": "pat@example.com"}
+
+    def make_request(self, **overrides):
+        fields = {
+            "subject": "Broken page",
+            "body": "Line one\nLine two",
+            "page_url": "https://emr.example.com/clients",
+            "cc_emails": ["a@example.com", "b@example.com"],
+            "screenshot_base64": "aGVsbG8=",
+        }
+        return IssueReportRequest(**{**fields, **overrides})
+
+    def test_sends_to_tech_with_cc_and_screenshot(self):
+        with patch("api.app.send_gmail", return_value={"id": "1"}) as send:
+            result = notify_issue_report(self.make_request(), self.USER)
+
+        assert result == {"status": "success"}
+        kwargs = send.call_args.kwargs
+        assert kwargs["subject"] == "[EMR Issue] Broken page"
+        assert kwargs["to_addr"] == "tech@driftwoodeval.com"
+        assert kwargs["cc_addr"] == "a@example.com, b@example.com"
+        assert kwargs["attachments"] == [(b"hello", "screenshot.png")]
+        assert "pat@example.com" in kwargs["message_text"]
+        assert "Pat &lt;Staff&gt;" in kwargs["html"]
+        assert "Line one<br>Line two" in kwargs["html"]
+
+    def test_omits_cc_and_attachment_when_not_given(self):
+        request = self.make_request(cc_emails=[], screenshot_base64=None)
+        with patch("api.app.send_gmail", return_value={"id": "1"}) as send:
+            notify_issue_report(request, self.USER)
+
+        kwargs = send.call_args.kwargs
+        assert kwargs["cc_addr"] is None
+        assert kwargs["attachments"] is None
+
+    def test_rejects_invalid_screenshot(self):
+        with (
+            patch("api.app.send_gmail") as send,
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            notify_issue_report(
+                self.make_request(screenshot_base64="not base64!"), self.USER
+            )
+
+        assert exc_info.value.status_code == 400
+        send.assert_not_called()
+
+    def test_raises_502_when_gmail_fails(self):
+        with (
+            patch("api.app.send_gmail", return_value=None),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            notify_issue_report(self.make_request(), self.USER)
+
+        assert exc_info.value.status_code == 502

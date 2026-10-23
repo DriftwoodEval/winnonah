@@ -1,0 +1,74 @@
+"use client";
+
+import { Button } from "@ui/button";
+import { Bug, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { IssueReportDialog } from "./IssueReportDialog";
+
+// Screenshots are scaled down to this width so the email stays small.
+const MAX_SCREENSHOT_WIDTH = 1600;
+
+/** Renders the current page to a PNG data URL, or null if it cannot be captured. */
+async function capturePage(): Promise<string | null> {
+	const { toPng } = await import("html-to-image");
+	const width = window.innerWidth;
+	const height = window.innerHeight;
+	try {
+		return await toPng(document.body, {
+			width,
+			height,
+			canvasWidth: Math.min(width, MAX_SCREENSHOT_WIDTH),
+			canvasHeight: Math.round(
+				height * (Math.min(width, MAX_SCREENSHOT_WIDTH) / width),
+			),
+			pixelRatio: 1,
+			backgroundColor: getComputedStyle(document.body).backgroundColor,
+			cacheBust: true,
+		});
+	} catch {
+		return null;
+	}
+}
+
+export function IssueReportButton() {
+	const [capturing, setCapturing] = useState(false);
+	const [screenshot, setScreenshot] = useState<string | null>(null);
+	const [open, setOpen] = useState(false);
+	const [pageUrl, setPageUrl] = useState("");
+
+	const startReport = async () => {
+		setCapturing(true);
+		const image = await capturePage();
+		setCapturing(false);
+		if (!image) {
+			toast.warning("Could not capture a screenshot", {
+				description: "You can still send the report without one.",
+			});
+		}
+		setScreenshot(image);
+		setPageUrl(window.location.href);
+		setOpen(true);
+	};
+
+	return (
+		<>
+			<Button
+				className="cursor-pointer rounded-full"
+				disabled={capturing}
+				onClick={startReport}
+				size="icon"
+				variant="ghost"
+			>
+				{capturing ? <Loader2 className="animate-spin" /> : <Bug />}
+				<span className="sr-only">Report issue</span>
+			</Button>
+			<IssueReportDialog
+				onOpenChange={setOpen}
+				open={open}
+				pageUrl={pageUrl}
+				screenshot={screenshot}
+			/>
+		</>
+	);
+}

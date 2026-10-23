@@ -277,6 +277,9 @@ importers:
       google-auth-library:
         specifier: ^11.0.0
         version: 11.1.0
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
@@ -4186,6 +4189,9 @@ packages:
   hono@4.13.13:
     resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
+
+  html-to-image@1.11.13:
+    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
 
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
@@ -9556,6 +9562,8 @@ snapshots:
   help-me@5.0.0: {}
 
   hono@4.13.13: {}
+
+  html-to-image@1.11.13: {}
 
   html-void-elements@3.0.0: {}
 

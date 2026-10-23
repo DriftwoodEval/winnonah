@@ -1,9 +1,11 @@
 import asyncio
+import base64
 import os
 import re
 import time
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
+from html import escape
 from pathlib import Path
 from uuid import uuid4
 
@@ -133,6 +135,14 @@ class AdminReviewClaimRequest(BaseModel):
 class InviteNotificationRequest(BaseModel):
     invitee_email: str
     inviter_name: str
+
+
+class IssueReportRequest(BaseModel):
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
+    page_url: str = Field(max_length=2000)
+    cc_emails: list[str] = Field(default_factory=list, max_length=50)
+    screenshot_base64: str | None = None
 
 
 class PossiblePrivatePayReasonsRequest(BaseModel):
@@ -785,6 +795,53 @@ def notify_invite(
         from_addr="tech@driftwoodeval.com",
         html=html_content,
     )
+
+    return {"status": "success"}
+
+
+ISSUE_REPORT_TO_ADDRESS = "tech@driftwoodeval.com"
+
+
+@app.post("/notifications/issue-report")
+def notify_issue_report(
+    request: IssueReportRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Emails an issue report, with an optional screenshot, to the tech address."""
+    reporter = current_user["name"] or current_user["email"]
+
+    message_text = (
+        f"Reported by: {reporter} ({current_user['email']})\n"
+        f"Page: {request.page_url}\n\n"
+        f"{request.body}"
+    )
+    html_content = f"""
+    <p><strong>Reported by:</strong> {escape(reporter)} ({escape(current_user["email"])})<br>
+    <strong>Page:</strong> <a href="{escape(request.page_url)}">{escape(request.page_url)}</a></p>
+    <p>{escape(request.body).replace(chr(10), "<br>")}</p>
+    """
+
+    attachments = None
+    if request.screenshot_base64:
+        try:
+            screenshot = base64.b64decode(request.screenshot_base64, validate=True)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=400, detail="The screenshot is not valid base64"
+            ) from error
+        attachments = [(screenshot, "screenshot.png")]
+
+    response = send_gmail(
+        message_text=message_text,
+        subject=f"[EMR Issue] {request.subject}",
+        to_addr=ISSUE_REPORT_TO_ADDRESS,
+        from_addr=ISSUE_REPORT_TO_ADDRESS,
+        cc_addr=", ".join(request.cc_emails) or None,
+        html=html_content,
+        attachments=attachments,
+    )
+    if response is None:
+        raise HTTPException(status_code=502, detail="Failed to send the email")
 
     return {"status": "success"}
 

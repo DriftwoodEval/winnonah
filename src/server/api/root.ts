@@ -1,6 +1,7 @@
 import { auditLogRouter } from "./routers/admin/auditLog";
 import { googleRouter } from "./routers/admin/google";
 import { insuranceRouter } from "./routers/admin/insurance";
+import { issueReportRouter } from "./routers/admin/issueReport";
 import { listDismissalsRouter } from "./routers/admin/listDismissals";
 import { postVisitAttachmentRouter } from "./routers/admin/postVisitAttachment";
 import { pyConfigRouter } from "./routers/admin/py-config";
@@ -53,6 +54,7 @@ export const appRouter = createTRPCRouter({
 	google: googleRouter,
 	greeterProxy: greeterProxyRouter,
 	insurances: insuranceRouter,
+	issueReport: issueReportRouter,
 	listDismissals: listDismissalsRouter,
 	adminReview: adminReviewRouter,
 	notes: noteRouter,
