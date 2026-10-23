@@ -77,9 +77,9 @@ export function IssueReportDialog({
 
 	// The sender is already on the email, so they are not offered as a recipient.
 	const ownEmail = session?.user.email?.toLowerCase();
-	const recipients = (recipientConfig?.recipients ?? []).filter(
-		(recipient) => recipient.email !== ownEmail,
-	);
+	const recipients = (recipientConfig?.recipients ?? [])
+		.filter((recipient) => recipient.email !== ownEmail)
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
