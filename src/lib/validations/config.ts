@@ -259,6 +259,7 @@ export const issueReportSubmissionSchema = z.object({
 				base64: z.string().max(4_000_000),
 			}),
 		)
+		.min(1)
 		.max(MAX_ISSUE_REPORT_SCREENSHOTS),
 });
 

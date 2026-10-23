@@ -121,7 +121,7 @@ export function IssueReportButton() {
 		} else {
 			toast.warning("Could not capture a screenshot", {
 				description:
-					"You can still send the report. It will say no screenshot is attached.",
+					"A report needs a screenshot. Try again, or check the browser console for details.",
 			});
 		}
 		setOpen(true);
