@@ -59,19 +59,21 @@ export const issueReportRouter = createTRPCRouter({
 				(email) => allowedEmails.has(email) && email !== ownEmail,
 			);
 
+			const pageLines = input.screenshots.map(
+				(screenshot, index) => `Screenshot ${index + 1}: ${screenshot.pageUrl}`,
+			);
+
 			try {
 				await sendGmailAsUser(ctx.session, {
 					to: ISSUE_REPORT_EMAIL,
 					cc: ccEmails,
 					subject: `[EMR Issue] ${input.subject}`,
-					text: `Page: ${input.pageUrl}\n\n${input.body}`,
-					attachment: input.screenshotBase64
-						? {
-								filename: "screenshot.png",
-								contentType: "image/png",
-								base64: input.screenshotBase64,
-							}
-						: undefined,
+					text: [...pageLines, "", input.body].join("\n"),
+					attachments: input.screenshots.map((screenshot, index) => ({
+						filename: `screenshot-${index + 1}.png`,
+						contentType: "image/png",
+						base64: screenshot.base64,
+					})),
 				});
 			} catch (error) {
 				ctx.logger.error(error, "Failed to send issue report");
