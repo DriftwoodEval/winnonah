@@ -125,8 +125,8 @@ export function IssueReportDialog({
 					</div>
 
 					{recipients.length > 0 && (
-						<fieldset className="grid gap-2">
-							<legend className="font-medium text-sm">Include on email</legend>
+						<div className="grid gap-2" role="group">
+							<p className="font-medium text-sm">Include on email</p>
 							<div className="flex flex-wrap gap-x-4 gap-y-2">
 								{recipients.map((recipient) => (
 									<Label
@@ -143,7 +143,7 @@ export function IssueReportDialog({
 									</Label>
 								))}
 							</div>
-						</fieldset>
+						</div>
 					)}
 
 					<DialogFooter>
