@@ -19,6 +19,7 @@ import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
 	appointmentSyncConfigSchema,
+	issueReportRecipientsSchema,
 	postVisitMessageConfigSchema,
 	pythonConfigSchema,
 	referralDataSchema,
@@ -1401,7 +1402,8 @@ export const schedulingClientsRelations = relations(
 type ConfigData =
 	| z.infer<typeof pythonConfigSchema>
 	| z.infer<typeof appointmentSyncConfigSchema>
-	| z.infer<typeof postVisitMessageConfigSchema>;
+	| z.infer<typeof postVisitMessageConfigSchema>
+	| z.infer<typeof issueReportRecipientsSchema>;
 
 export const pythonConfig = createTable("python_config", (d) => ({
 	id: d.int().notNull().primaryKey(),

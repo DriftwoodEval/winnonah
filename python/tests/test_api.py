@@ -561,3 +561,4 @@ class TestOfficeDriveTimes:
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))
         assert exc_info.value.status_code == 422
+

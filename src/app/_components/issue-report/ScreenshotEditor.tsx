@@ -1,0 +1,226 @@
+"use client";
+
+import { Button } from "@ui/button";
+import { ArrowUpRight, Pencil, Square, Trash2, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "~/lib/utils";
+
+type Tool = "pen" | "rectangle" | "arrow";
+
+interface Point {
+	x: number;
+	y: number;
+}
+
+type Shape =
+	| { tool: "pen"; color: string; points: Point[] }
+	| { tool: "rectangle" | "arrow"; color: string; start: Point; end: Point };
+
+// Drawing colors are canvas pixel data, so they are literal values.
+const COLORS = ["#e11d48", "#2563eb", "#16a34a", "#111827"];
+
+const TOOLS: { id: Tool; label: string; Icon: typeof Pencil }[] = [
+	{ id: "pen", label: "Pen", Icon: Pencil },
+	{ id: "rectangle", label: "Rectangle", Icon: Square },
+	{ id: "arrow", label: "Arrow", Icon: ArrowUpRight },
+];
+
+function drawArrow(ctx: CanvasRenderingContext2D, start: Point, end: Point) {
+	const headLength = 6 * ctx.lineWidth;
+	const angle = Math.atan2(end.y - start.y, end.x - start.x);
+	ctx.beginPath();
+	ctx.moveTo(start.x, start.y);
+	ctx.lineTo(end.x, end.y);
+	for (const offset of [Math.PI / 7, -Math.PI / 7]) {
+		ctx.moveTo(end.x, end.y);
+		ctx.lineTo(
+			end.x - headLength * Math.cos(angle - offset),
+			end.y - headLength * Math.sin(angle - offset),
+		);
+	}
+	ctx.stroke();
+}
+
+function drawShape(
+	ctx: CanvasRenderingContext2D,
+	shape: Shape,
+	lineWidth: number,
+) {
+	ctx.strokeStyle = shape.color;
+	ctx.lineWidth = lineWidth;
+	ctx.lineCap = "round";
+	ctx.lineJoin = "round";
+
+	if (shape.tool === "pen") {
+		const [first, ...rest] = shape.points;
+		if (!first) return;
+		ctx.beginPath();
+		ctx.moveTo(first.x, first.y);
+		if (rest.length === 0) ctx.lineTo(first.x, first.y);
+		for (const point of rest) ctx.lineTo(point.x, point.y);
+		ctx.stroke();
+	} else if (shape.tool === "rectangle") {
+		ctx.strokeRect(
+			shape.start.x,
+			shape.start.y,
+			shape.end.x - shape.start.x,
+			shape.end.y - shape.start.y,
+		);
+	} else {
+		drawArrow(ctx, shape.start, shape.end);
+	}
+}
+
+export interface ScreenshotEditorHandle {
+	toPngBase64: () => string | null;
+}
+
+interface ScreenshotEditorProps {
+	/** Data URL of the screenshot to mark up. */
+	imageSrc: string;
+	onReady: (handle: ScreenshotEditorHandle) => void;
+}
+
+export function ScreenshotEditor({ imageSrc, onReady }: ScreenshotEditorProps) {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const imageRef = useRef<HTMLImageElement | null>(null);
+	const [shapes, setShapes] = useState<Shape[]>([]);
+	const [draft, setDraft] = useState<Shape | null>(null);
+	const [tool, setTool] = useState<Tool>("pen");
+	const [color, setColor] = useState(COLORS[0] ?? "#e11d48");
+	const [imageLoaded, setImageLoaded] = useState(false);
+
+	useEffect(() => {
+		const image = new Image();
+		image.onload = () => {
+			imageRef.current = image;
+			setImageLoaded(true);
+		};
+		image.src = imageSrc;
+	}, [imageSrc]);
+
+	const redraw = useCallback(() => {
+		const canvas = canvasRef.current;
+		const image = imageRef.current;
+		const ctx = canvas?.getContext("2d");
+		if (!canvas || !image || !ctx) return;
+
+		canvas.width = image.naturalWidth;
+		canvas.height = image.naturalHeight;
+		ctx.drawImage(image, 0, 0);
+
+		const lineWidth = Math.max(3, Math.round(canvas.width / 400));
+		for (const shape of draft ? [...shapes, draft] : shapes) {
+			drawShape(ctx, shape, lineWidth);
+		}
+	}, [shapes, draft]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: redraw when the image finishes loading
+	useEffect(redraw, [redraw, imageLoaded]);
+
+	useEffect(() => {
+		onReady({
+			toPngBase64: () =>
+				canvasRef.current?.toDataURL("image/png").split(",")[1] ?? null,
+		});
+	}, [onReady]);
+
+	const toCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
+		const canvas = event.currentTarget;
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+			y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+		};
+	};
+
+	const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+		event.currentTarget.setPointerCapture(event.pointerId);
+		const point = toCanvasPoint(event);
+		setDraft(
+			tool === "pen"
+				? { tool, color, points: [point] }
+				: { tool, color, start: point, end: point },
+		);
+	};
+
+	const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+		if (!draft) return;
+		const point = toCanvasPoint(event);
+		setDraft(
+			draft.tool === "pen"
+				? { ...draft, points: [...draft.points, point] }
+				: { ...draft, end: point },
+		);
+	};
+
+	const finishDraft = () => {
+		if (draft) setShapes((current) => [...current, draft]);
+		setDraft(null);
+	};
+
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="flex flex-wrap items-center gap-2">
+				{TOOLS.map(({ id, label, Icon }) => (
+					<Button
+						aria-pressed={tool === id}
+						key={id}
+						onClick={() => setTool(id)}
+						size="sm"
+						type="button"
+						variant={tool === id ? "secondary" : "outline"}
+					>
+						<Icon />
+						{label}
+					</Button>
+				))}
+				<div className="flex items-center gap-1">
+					{COLORS.map((swatch) => (
+						<button
+							aria-label={`Use color ${swatch}`}
+							className={cn(
+								"h-6 w-6 rounded-full border-2",
+								color === swatch ? "border-foreground" : "border-transparent",
+							)}
+							key={swatch}
+							onClick={() => setColor(swatch)}
+							style={{ backgroundColor: swatch }}
+							type="button"
+						/>
+					))}
+				</div>
+				<div className="ml-auto flex gap-2">
+					<Button
+						disabled={shapes.length === 0}
+						onClick={() => setShapes((current) => current.slice(0, -1))}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<Undo2 />
+						Undo
+					</Button>
+					<Button
+						disabled={shapes.length === 0}
+						onClick={() => setShapes([])}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<Trash2 />
+						Clear
+					</Button>
+				</div>
+			</div>
+			<canvas
+				className="max-h-[50vh] w-full cursor-crosshair touch-none rounded-md border object-contain"
+				onPointerCancel={finishDraft}
+				onPointerDown={handlePointerDown}
+				onPointerMove={handlePointerMove}
+				onPointerUp={finishDraft}
+				ref={canvasRef}
+			/>
+		</div>
+	);
+}
