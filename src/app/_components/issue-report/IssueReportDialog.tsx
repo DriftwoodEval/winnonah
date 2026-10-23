@@ -140,6 +140,13 @@ export function IssueReportDialog({
 						/>
 					)}
 
+					{images.length === 0 && (
+						<p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+							No screenshot is attached. Use "Add another screenshot" to capture
+							a page, or send the report without one.
+						</p>
+					)}
+
 					<div className="flex flex-wrap items-center gap-2">
 						{images.map((image, index) => (
 							<div className="relative" key={image.id}>

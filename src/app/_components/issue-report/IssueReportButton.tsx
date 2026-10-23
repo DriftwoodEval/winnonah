@@ -12,29 +12,44 @@ import type { DraftImage, Shape } from "./ScreenshotEditor";
 // Screenshots are scaled down to this width so the email stays small.
 const MAX_SCREENSHOT_WIDTH = 1600;
 
-/** Renders the current page to a PNG data URL, or null if it cannot be captured. */
+// A 1x1 transparent GIF drawn in place of an image that cannot be fetched.
+const BLANK_IMAGE =
+	"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+/**
+ * Renders the current page to a PNG data URL, or null if it cannot be captured.
+ * A failed first attempt is retried without web fonts and with a placeholder for
+ * images that fail to load, which are the usual causes of a failed render.
+ */
 async function capturePage(): Promise<string | null> {
 	const { toPng } = await import("html-to-image");
 	const width = window.innerWidth;
 	const height = window.innerHeight;
-	try {
-		return await toPng(document.body, {
-			width,
-			height,
-			canvasWidth: Math.min(width, MAX_SCREENSHOT_WIDTH),
-			canvasHeight: Math.round(
-				height * (Math.min(width, MAX_SCREENSHOT_WIDTH) / width),
-			),
-			pixelRatio: 1,
-			backgroundColor: getComputedStyle(document.body).backgroundColor,
-			cacheBust: true,
-			// The draft bar is not part of the page being reported.
-			filter: (node) =>
-				!(node instanceof HTMLElement && "issueReportIgnore" in node.dataset),
-		});
-	} catch {
-		return null;
+	const canvasWidth = Math.min(width, MAX_SCREENSHOT_WIDTH);
+	const options = {
+		width,
+		height,
+		canvasWidth,
+		canvasHeight: Math.round(height * (canvasWidth / width)),
+		pixelRatio: 1,
+		backgroundColor: getComputedStyle(document.body).backgroundColor,
+		// The draft bar is not part of the page being reported.
+		filter: (node: HTMLElement) =>
+			!("issueReportIgnore" in (node.dataset ?? {})),
+	};
+
+	const attempts = [
+		{ ...options, cacheBust: true },
+		{ ...options, skipFonts: true, imagePlaceholder: BLANK_IMAGE },
+	];
+	for (const attempt of attempts) {
+		try {
+			return await toPng(document.body, attempt);
+		} catch (error) {
+			console.error("Issue report screenshot failed", error);
+		}
 	}
+	return null;
 }
 
 const EMPTY_FORM: IssueReportForm = { subject: "", body: "", ccEmails: [] };
@@ -105,7 +120,8 @@ export function IssueReportButton() {
 			setSelectedId(id);
 		} else {
 			toast.warning("Could not capture a screenshot", {
-				description: "You can still send the report without one.",
+				description:
+					"You can still send the report. It will say no screenshot is attached.",
 			});
 		}
 		setOpen(true);

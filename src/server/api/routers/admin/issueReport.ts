@@ -68,11 +68,7 @@ export const issueReportRouter = createTRPCRouter({
 					to: ISSUE_REPORT_EMAIL,
 					cc: ccEmails,
 					subject: `[EMR Issue] ${input.subject}`,
-					text: [
-						...pageLines,
-						...(pageLines.length > 0 ? [""] : []),
-						input.body,
-					].join("\n"),
+					text: [...pageLines, "", input.body].join("\n"),
 					attachments: input.screenshots.map((screenshot, index) => ({
 						filename: `screenshot-${index + 1}.png`,
 						contentType: "image/png",
