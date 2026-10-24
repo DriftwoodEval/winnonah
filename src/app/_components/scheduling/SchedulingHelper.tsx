@@ -1288,6 +1288,11 @@ function SchedulingHelperGrid({
 		newStart: Date,
 		newEnd: Date,
 	) {
+		const unchanged =
+			appt.startTime.getTime() === newStart.getTime() &&
+			appt.endTime.getTime() === newEnd.getTime() &&
+			appointmentsByNpi?.[npi]?.some((a) => a.id === appt.id);
+		if (unchanged) return;
 		if (overlapsBooking(npi, newStart, newEnd, appt.id)) {
 			toast.error("Overlaps an existing appointment");
 			return;
