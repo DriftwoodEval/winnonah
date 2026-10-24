@@ -122,7 +122,7 @@ export function IssueReportDialog({
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent className="sm:max-w-3xl">
+			<DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-6xl">
 				<form className="grid gap-4" onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle>Report an issue</DialogTitle>

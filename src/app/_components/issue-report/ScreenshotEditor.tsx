@@ -236,7 +236,7 @@ export function ScreenshotEditor({
 				</div>
 			</div>
 			<canvas
-				className="max-h-[50vh] w-full cursor-crosshair touch-none rounded-md border object-contain"
+				className="max-h-[65vh] w-full cursor-crosshair touch-none rounded-md border object-contain"
 				onPointerCancel={finishDraft}
 				onPointerDown={handlePointerDown}
 				onPointerMove={handlePointerMove}
