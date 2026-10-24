@@ -27,6 +27,8 @@ export type CalendarBooking =
 	RouterOutputs["schedulingHelper"]["getEvaluatorAppointmentsInRange"][number][number];
 
 export type CalendarNote = { kind: "ooo" } | { kind: "planned"; label: string };
+/** Marked availability for one evaluator-day, labeled with the office worked. */ export type CalendarWindow =
+	TimeRange & { label: string | null };
 
 export type CalendarPreview = { npi: number; start: Date; end: Date };
 
@@ -127,7 +129,7 @@ export function SchedulingCalendar({
 	evaluators: { npi: number; providerName: string }[];
 	appointmentsByNpi: Record<number, CalendarBooking[]> | undefined;
 	/** Marked availability for one evaluator-day, as UTC millisecond ranges. */
-	windowsFor: (npi: number, day: string) => TimeRange[];
+	windowsFor: (npi: number, day: string) => CalendarWindow[];
 	noteFor: (npi: number, day: string) => CalendarNote | null;
 	/** The slot currently staged for confirmation, drawn as a pending block. */
 	preview: CalendarPreview | null;
@@ -364,10 +366,12 @@ export function SchedulingCalendar({
 		chosenColors,
 	);
 	const shown = evaluators.filter((ev) => !hiddenNpis.has(ev.npi));
-	// Unless "show all" is on, a day only gets columns for evaluators who have
-	// marked availability or a booking that day, which keeps the grid readable.
+	// Unless "show all" is on or evaluators are filtered, a day only gets columns
+	// for evaluators who have marked availability or a booking that day, which
+	// keeps the grid readable. A filtered-down grid shows the chosen evaluators
+	// every day.
 	function evsFor(day: string) {
-		if (showAll) return shown;
+		if (showAll || hiddenNpis.size > 0) return shown;
 		return shown.filter(
 			(ev) =>
 				windowsFor(ev.npi, day).length > 0 ||
@@ -490,19 +494,22 @@ export function SchedulingCalendar({
 										style={{ top: DAY_HEADER_HEIGHT }}
 									/>
 								) : (
-									<div
+									<button
 										className={cn(
-											"sticky z-20 truncate border-b bg-background px-1 py-1 text-center text-[11px] text-muted-foreground",
+											"sticky z-20 block w-full cursor-pointer truncate border-b bg-background px-1 py-1 text-center text-[11px] text-muted-foreground hover:bg-muted",
 											i === 0 ? "border-l-2" : "border-l",
 											colorByNpi.get(ev.npi)?.split(" ")[0],
 										)}
+										data-head={`${day}:${ev.npi}`}
 										key={`${day}-${ev.npi}-head`}
+										onClick={() => onSelect(ev.npi, day)}
 										style={{ top: DAY_HEADER_HEIGHT }}
 										title={ev.providerName}
+										type="button"
 									>
 										<Redact>{initialsOf(ev.providerName)}</Redact>
 										{ev.npi === assignedNpi && <AssignedStar />}
-									</div>
+									</button>
 								),
 							),
 						)}
@@ -552,13 +559,19 @@ export function SchedulingCalendar({
 											if (end <= start) return null;
 											return (
 												<div
-													className="pointer-events-none absolute inset-x-0.5 rounded-sm bg-success/15"
+													className="pointer-events-none absolute inset-x-0.5 overflow-hidden rounded-sm bg-success/15"
 													key={`${w.start}-${w.end}`}
 													style={{
 														top: blockTop(new Date(start)),
 														height: blockHeight(new Date(start), new Date(end)),
 													}}
-												/>
+												>
+													{w.label && (
+														<div className="truncate px-1 text-[10px] text-muted-foreground">
+															{w.label}
+														</div>
+													)}
+												</div>
 											);
 										})}
 										{note?.kind === "ooo" && (
@@ -618,6 +631,7 @@ export function SchedulingCalendar({
 										{showPreview && preview && (
 											<div
 												className="pointer-events-none absolute inset-x-0.5 animate-pulse overflow-hidden rounded-sm border-2 border-primary border-dashed bg-primary/10 px-1 py-0.5 text-[11px] dark:bg-primary/20"
+												data-slot-preview=""
 												style={{
 													top: blockTop(preview.start),
 													height: blockHeight(preview.start, preview.end),
