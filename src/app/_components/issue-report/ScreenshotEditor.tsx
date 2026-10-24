@@ -109,7 +109,7 @@ function paint(
 export async function renderMarkedUpJpeg({ src, shapes }: DraftImage) {
 	const canvas = document.createElement("canvas");
 	paint(canvas, await loadImage(src), shapes);
-	return canvas.toDataURL("image/jpeg", 0.8).split(",")[1] ?? "";
+	return canvas.toDataURL("image/jpeg", 0.6).split(",")[1] ?? "";
 }
 
 interface ScreenshotEditorProps {

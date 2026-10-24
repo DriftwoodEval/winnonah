@@ -10,7 +10,7 @@ import { IssueReportDialog, type IssueReportForm } from "./IssueReportDialog";
 import type { DraftImage, Shape } from "./ScreenshotEditor";
 
 // Screenshots are scaled down to this width so the email stays small.
-const MAX_SCREENSHOT_WIDTH = 1600;
+const MAX_SCREENSHOT_WIDTH = 1200;
 
 // A 1x1 transparent GIF drawn in place of an image that cannot be fetched.
 const BLANK_IMAGE =
