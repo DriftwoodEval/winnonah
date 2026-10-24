@@ -22,7 +22,7 @@ import { MAX_ISSUE_REPORT_SCREENSHOTS } from "~/lib/validations/config";
 import { api } from "~/trpc/react";
 import {
 	type DraftImage,
-	renderMarkedUpPng,
+	renderMarkedUpJpeg,
 	ScreenshotEditor,
 	type Shape,
 } from "./ScreenshotEditor";
@@ -96,7 +96,7 @@ export function IssueReportDialog({
 			const screenshots = await Promise.all(
 				images.map(async (image) => ({
 					pageUrl: image.pageUrl,
-					base64: await renderMarkedUpPng(image),
+					base64: await renderMarkedUpJpeg(image),
 				})),
 			);
 			send.mutate({

@@ -105,11 +105,11 @@ function paint(
 	for (const shape of shapes) drawShape(ctx, shape, lineWidth);
 }
 
-/** The screenshot with its markup burned in, as base64 PNG without the prefix. */
-export async function renderMarkedUpPng({ src, shapes }: DraftImage) {
+/** The screenshot with its markup burned in, as base64 JPEG without the prefix. */
+export async function renderMarkedUpJpeg({ src, shapes }: DraftImage) {
 	const canvas = document.createElement("canvas");
 	paint(canvas, await loadImage(src), shapes);
-	return canvas.toDataURL("image/png").split(",")[1] ?? "";
+	return canvas.toDataURL("image/jpeg", 0.8).split(",")[1] ?? "";
 }
 
 interface ScreenshotEditorProps {
