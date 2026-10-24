@@ -124,6 +124,12 @@ function addDays(date: Date, days: number): Date {
 
 const HIDDEN_NPIS_KEY = "scheduling-helper-hidden-npis";
 
+// The Sunday on or before today: the grid always shows Sunday-to-Saturday weeks.
+function startOfWeek(): Date {
+	const today = startOfToday();
+	return addDays(today, -today.getDay());
+}
+
 function startOfToday(): Date {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -319,11 +325,11 @@ type CellStatus = CellKind & {
 	full: boolean;
 };
 
-// How many VISIBLE_DAYS-wide pages forward (or back) of today a given date
-// falls on, so a deep-linked date scrolls the grid to the right week.
+// How many weeks forward (or back) of the current week a given date falls
+// in, so a deep-linked date scrolls the grid to the right week.
 function weekOffsetForDate(dateStr: string): number {
 	const diffDays = Math.round(
-		(dayStringToLocalDate(dateStr).getTime() - startOfToday().getTime()) /
+		(dayStringToLocalDate(dateStr).getTime() - startOfWeek().getTime()) /
 			86400000,
 	);
 	return Math.floor(diffDays / VISIBLE_DAYS);
@@ -466,7 +472,7 @@ function SchedulingHelperGrid({
 		[typeAllowedEvaluators],
 	);
 
-	const rangeStart = useMemo(() => startOfToday(), []);
+	const rangeStart = useMemo(() => startOfWeek(), []);
 	const visibleStart = useMemo(
 		() => addDays(rangeStart, weekOffset * VISIBLE_DAYS),
 		[rangeStart, weekOffset],
@@ -479,10 +485,10 @@ function SchedulingHelperGrid({
 		[visibleStart],
 	);
 	const rangeEnd = useMemo(() => {
-		const minEnd = addDays(rangeStart, AVAILABILITY_WINDOW_DAYS);
+		const minEnd = addDays(startOfToday(), AVAILABILITY_WINDOW_DAYS);
 		const visibleEnd = addDays(visibleStart, VISIBLE_DAYS);
 		return visibleEnd > minEnd ? visibleEnd : minEnd;
-	}, [rangeStart, visibleStart]);
+	}, [visibleStart]);
 
 	const { data: availabilityByNpi, isLoading: isLoadingAvailability } =
 		api.schedulingHelper.getAvailability.useQuery(
