@@ -1541,6 +1541,15 @@ function SchedulingHelperGrid({
 
 							<div className="flex items-center gap-1">
 								<Button
+									className="mr-1 h-8"
+									disabled={weekOffset === 0}
+									onClick={() => setWeekOffset(0)}
+									size="sm"
+									variant="outline"
+								>
+									Today
+								</Button>
+								<Button
 									className="h-8 w-8"
 									onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
 									size="icon"
