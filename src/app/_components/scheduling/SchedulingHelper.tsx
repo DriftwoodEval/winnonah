@@ -1589,28 +1589,30 @@ function SchedulingHelperGrid({
 							)}
 						</Card>
 					)}
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
-						<Badge variant="default">Booked</Badge>
-						<Badge
-							className="border-warning border-dashed bg-warning/15 text-warning dark:bg-warning/25"
-							variant="outline"
-						>
-							Placeholder
-						</Badge>
-						<Badge variant="outline">Planned</Badge>
-						<Badge
-							className="border-success/40 bg-success/10 text-success"
-							variant="outline"
-						>
-							Available
-						</Badge>
-						<span className="text-muted-foreground/50">OOO</span>
-						<Badge
-							className="border-destructive/40 bg-destructive/10 text-destructive"
-							variant="outline"
-						>
-							Full
-						</Badge>
+					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-muted-foreground text-xs">
+						<span className="font-medium">Key:</span>
+						{[
+							{ label: "Booked", swatch: "border-primary bg-primary" },
+							{
+								label: "Placeholder",
+								swatch: "border-warning border-dashed bg-warning/15",
+							},
+							{ label: "Planned", swatch: "border-border bg-background" },
+							{
+								label: "Available",
+								swatch: "border-success/40 bg-success/10",
+							},
+							{ label: "OOO", swatch: "border-transparent bg-muted" },
+							{
+								label: "Full",
+								swatch: "border-destructive/40 bg-destructive/10",
+							},
+						].map(({ label, swatch }) => (
+							<span className="flex items-center gap-1.5" key={label}>
+								<span className={cn("h-3 w-3 rounded-sm border", swatch)} />
+								{label}
+							</span>
+						))}
 					</div>
 					<TooltipProvider>
 						<Card className="overflow-x-auto p-0">
