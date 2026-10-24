@@ -374,6 +374,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					officeName: offices.prettyName,
 					placeholder: appointments.placeholder,
 					clientName: clients.fullName,
+					clientHash: clients.hash,
 				})
 				.from(appointments)
 				.leftJoin(offices, eq(appointments.locationKey, offices.key))
@@ -400,6 +401,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					officeName: string | null;
 					placeholder: boolean;
 					clientName: string | null;
+					clientHash: string | null;
 				}[]
 			> = {};
 			for (const row of rows) {
@@ -414,6 +416,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					officeName: row.officeName,
 					placeholder: row.placeholder,
 					clientName: row.clientName,
+					clientHash: row.clientHash,
 				});
 			}
 			return result;

@@ -2125,9 +2125,13 @@ function SchedulingHelperGrid({
 
 									{effectiveClient ? (
 										<div className="flex items-center justify-between gap-2">
-											<strong className="truncate text-sm">
+											<Link
+												className="truncate font-bold text-sm hover:underline"
+												href={`/clients/${effectiveClient.hash}`}
+												target="_blank"
+											>
 												{effectiveClient.fullName}
-											</strong>
+											</Link>
 											<Button
 												disabled={createPlaceholder.isPending}
 												onClick={handleConfirm}

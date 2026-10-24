@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { Star, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
 	assignColors,
@@ -607,7 +608,20 @@ export function SchedulingCalendar({
 													style={{ top: blockTop(appt.startTime), height }}
 												>
 													<div className="truncate font-medium">
-														<Redact>{appt.clientName ?? "Appointment"}</Redact>
+														{appt.clientHash ? (
+															<Link
+																className="hover:underline"
+																href={`/clients/${appt.clientHash}`}
+																onPointerDown={(e) => e.stopPropagation()}
+																target="_blank"
+															>
+																<Redact>{appt.clientName}</Redact>
+															</Link>
+														) : (
+															<Redact>
+																{appt.clientName ?? "Appointment"}
+															</Redact>
+														)}
 													</div>
 													{height >= 36 && (
 														<div className="truncate text-[10px] text-muted-foreground tabular-nums">
