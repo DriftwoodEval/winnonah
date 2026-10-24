@@ -32,6 +32,11 @@ export type CalendarPreview = { npi: number; start: Date; end: Date };
 
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD_PX = 4;
+// Holding a dragged placeholder this close to the grid's left or right edge
+// flips to the previous or next week, repeating while it stays there.
+const EDGE_ZONE_PX = 48;
+const EDGE_DWELL_MS = 600;
+const EDGE_REPEAT_MS = 900;
 const DAY_START_MIN = DAY_START * 60;
 const DAY_END_MIN = DAY_END * 60;
 const DAY_HEADER_HEIGHT = 36;
@@ -111,6 +116,7 @@ export function SchedulingCalendar({
 	assignedNpi,
 	hiddenNpis,
 	onToggleEvaluator,
+	onChangeWeek,
 	defaultDurationMinutes,
 	onCreate,
 	onMove,
@@ -130,6 +136,8 @@ export function SchedulingCalendar({
 	/** Evaluators the user has hidden from the grid. */
 	hiddenNpis: Set<number>;
 	onToggleEvaluator: (npi: number) => void;
+	/** Steps the grid by whole weeks (-1 or 1) while a placeholder is dragged. */
+	onChangeWeek: (delta: -1 | 1) => void;
 	/** A move awaiting confirmation, drawn at its new spot meanwhile. */
 	pendingMove: {
 		appointmentId: string;
@@ -154,6 +162,26 @@ export function SchedulingCalendar({
 	const dragRef = useRef<Drag | null>(null);
 	const [, rerender] = useReducer((n: number) => n + 1, 0);
 	const gutterRef = useRef<HTMLDivElement>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
+	const edgeDirRef = useRef<-1 | 0 | 1>(0);
+	const edgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	function setEdgeDirection(dir: -1 | 0 | 1) {
+		if (dir === edgeDirRef.current) return;
+		edgeDirRef.current = dir;
+		if (edgeTimerRef.current) clearTimeout(edgeTimerRef.current);
+		edgeTimerRef.current = null;
+		if (dir === 0) return;
+		const flip = () => {
+			onChangeWeek(dir);
+			edgeTimerRef.current = setTimeout(flip, EDGE_REPEAT_MS);
+		};
+		edgeTimerRef.current = setTimeout(flip, EDGE_DWELL_MS);
+	}
+
+	// Stops any pending week flip when the component goes away mid-drag.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refs only
+	useEffect(() => () => setEdgeDirection(0), []);
 
 	function setDrag(next: Drag | null) {
 		dragRef.current = next;
@@ -197,21 +225,39 @@ export function SchedulingCalendar({
 					DAY_END_MIN - duration,
 				);
 				next.endMin = next.startMin + duration;
-				const column = document
-					.elementFromPoint(e.clientX, e.clientY)
-					?.closest<HTMLElement>("[data-col]");
-				if (column?.dataset.npi && column.dataset.day) {
-					next.npi = Number(column.dataset.npi);
-					next.day = column.dataset.day;
+				const column = columnAt(e.clientX, e.clientY);
+				if (column) {
+					next.npi = column.npi;
+					next.day = column.day;
 				}
+				const rect = rootRef.current?.getBoundingClientRect();
+				if (rect && e.clientX < rect.left + EDGE_ZONE_PX) setEdgeDirection(-1);
+				else if (rect && e.clientX > rect.right - EDGE_ZONE_PX)
+					setEdgeDirection(1);
+				else setEdgeDirection(0);
 			}
 			setDrag(next);
 		}
 
-		function handleUp() {
-			const d = dragRef.current;
+		function columnAt(x: number, y: number) {
+			const column = document
+				.elementFromPoint(x, y)
+				?.closest<HTMLElement>("[data-col]");
+			if (!column?.dataset.npi || !column.dataset.day) return null;
+			return { npi: Number(column.dataset.npi), day: column.dataset.day };
+		}
+
+		function handleUp(e: PointerEvent) {
+			let d = dragRef.current;
 			setDrag(null);
+			setEdgeDirection(0);
 			if (!d) return;
+			// The grid may have flipped weeks under a stationary pointer, so
+			// re-read the column it was released over.
+			if (d.kind === "move" && d.moved) {
+				const column = columnAt(e.clientX, e.clientY);
+				if (column) d = { ...d, ...column };
+			}
 
 			if (d.kind === "create") {
 				onCreate(
@@ -238,7 +284,9 @@ export function SchedulingCalendar({
 		}
 
 		function handleKey(e: KeyboardEvent) {
-			if (e.key === "Escape") setDrag(null);
+			if (e.key !== "Escape") return;
+			setDrag(null);
+			setEdgeDirection(0);
 		}
 
 		window.addEventListener("pointermove", handleMove);
@@ -354,7 +402,7 @@ export function SchedulingCalendar({
 	const ghost = drag?.moved ? drag : pendingGhost;
 
 	return (
-		<div className="flex flex-col">
+		<div className="flex flex-col" ref={rootRef}>
 			<div className="flex flex-wrap gap-1.5 border-b p-2">
 				<label className="flex items-center gap-1.5 pr-2 text-xs">
 					<input

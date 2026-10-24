@@ -1660,6 +1660,9 @@ function SchedulingHelperGrid({
 									evaluators={[...eligibleList, ...ineligibleList]}
 									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
+									onChangeWeek={(delta) =>
+										setWeekOffset((w) => Math.max(0, w + delta))
+									}
 									onCreate={handleCalendarCreate}
 									onDelete={setPendingDeleteId}
 									onMove={handleCalendarMove}
