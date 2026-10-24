@@ -109,6 +109,8 @@ export function SchedulingCalendar({
 	preview,
 	pendingMove,
 	assignedNpi,
+	hiddenNpis,
+	onToggleEvaluator,
 	defaultDurationMinutes,
 	onCreate,
 	onMove,
@@ -125,6 +127,9 @@ export function SchedulingCalendar({
 	preview: CalendarPreview | null;
 	/** The evaluator already assigned to the client, marked with a star. */
 	assignedNpi: number | null;
+	/** Evaluators the user has hidden from the grid. */
+	hiddenNpis: Set<number>;
+	onToggleEvaluator: (npi: number) => void;
 	/** A move awaiting confirmation, drawn at its new spot meanwhile. */
 	pendingMove: {
 		appointmentId: string;
@@ -145,7 +150,6 @@ export function SchedulingCalendar({
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
 }) {
-	const [hiddenNpis, setHiddenNpis] = useState<Set<number>>(new Set());
 	const [showAll, setShowAll] = useState(false);
 	const dragRef = useRef<Drag | null>(null);
 	const [, rerender] = useReducer((n: number) => n + 1, 0);
@@ -306,14 +310,6 @@ export function SchedulingCalendar({
 		onSelect(npi, day);
 	}
 
-	function toggleEvaluator(npi: number) {
-		setHiddenNpis((prev) => {
-			const next = new Set(prev);
-			if (!next.delete(npi)) next.add(npi);
-			return next;
-		});
-	}
-
 	const chosenColors = useEvaluatorColors();
 	const colorByNpi = assignColors(
 		evaluators.map((ev) => ev.npi),
@@ -380,7 +376,7 @@ export function SchedulingCalendar({
 									: "text-muted-foreground line-through opacity-60",
 							)}
 							key={ev.npi}
-							onClick={() => toggleEvaluator(ev.npi)}
+							onClick={() => onToggleEvaluator(ev.npi)}
 							type="button"
 						>
 							<span

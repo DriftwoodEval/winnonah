@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ClientHeader } from "~/app/_components/client/ClientHeader";
 import { ClientSearchAndAdd } from "~/app/_components/clients/ClientSearchAndAdd";
@@ -121,6 +121,8 @@ function addDays(date: Date, days: number): Date {
 	next.setDate(next.getDate() + days);
 	return next;
 }
+
+const HIDDEN_NPIS_KEY = "scheduling-helper-hidden-npis";
 
 function startOfToday(): Date {
 	const today = new Date();
@@ -373,6 +375,32 @@ function SchedulingHelperGrid({
 		"calendar",
 	);
 
+	// Evaluators hidden in the calendar view, remembered across visits.
+	const [hiddenNpis, setHiddenNpis] = useState<Set<number>>(new Set());
+	useEffect(() => {
+		try {
+			const saved = localStorage.getItem(HIDDEN_NPIS_KEY);
+			if (saved) setHiddenNpis(new Set(JSON.parse(saved) as number[]));
+		} catch {
+			// Storage unavailable or corrupt: start with nobody hidden.
+		}
+	}, []);
+
+	const saveHiddenNpis = useCallback((next: Set<number>) => {
+		setHiddenNpis(next);
+		try {
+			localStorage.setItem(HIDDEN_NPIS_KEY, JSON.stringify([...next]));
+		} catch {
+			// Storage unavailable: the filter just won't persist.
+		}
+	}, []);
+
+	function toggleEvaluator(npi: number) {
+		const next = new Set(hiddenNpis);
+		if (!next.delete(npi)) next.add(npi);
+		saveHiddenNpis(next);
+	}
+
 	// Pre-fill office/type from whatever was already set on the /scheduling
 	// queue row, once per client, after it loads. Picking a different client
 	// also brings the assigned-evaluator filter back.
@@ -381,14 +409,24 @@ function SchedulingHelperGrid({
 	);
 	const clientId = effectiveClient?.id ?? null;
 	useEffect(() => {
-		if (clientId === null || queueInfo === undefined) return;
+		if (clientId === null || queueInfo === undefined || !evaluators) return;
 		if (defaultsAppliedFor === clientId) return;
 		const queuedType = appointmentTypeForQueueCode(queueInfo.code);
 		if (queuedType) setAppointmentType(queuedType);
 		if (queueInfo.office) setOfficeFilter(queueInfo.office);
 		setShowAllEvaluators(false);
+		// A client with a starred evaluator narrows the calendar to just them;
+		// otherwise the saved filter stays as it was.
+		const starredNpi = queueInfo.evaluatorNpi;
+		if (starredNpi && evaluators.some((e) => e.npi === starredNpi)) {
+			saveHiddenNpis(
+				new Set(
+					evaluators.filter((e) => e.npi !== starredNpi).map((e) => e.npi),
+				),
+			);
+		}
 		setDefaultsAppliedFor(clientId);
-	}, [clientId, queueInfo, defaultsAppliedFor]);
+	}, [clientId, queueInfo, evaluators, defaultsAppliedFor, saveHiddenNpis]);
 
 	const office = officeFilter;
 
@@ -755,8 +793,13 @@ function SchedulingHelperGrid({
 			}
 			return null;
 		}
-		const assigned = eligibleList.filter((e) => e.npi === assignedNpi);
-		return earliest(assigned) ?? earliest(eligibleList);
+		// The calendar's hidden evaluators are excluded from the search.
+		const candidates =
+			view === "calendar"
+				? eligibleList.filter((e) => !hiddenNpis.has(e.npi))
+				: eligibleList;
+		const assigned = candidates.filter((e) => e.npi === assignedNpi);
+		return earliest(assigned) ?? earliest(candidates);
 	})();
 
 	function pickSlot(evaluator: Evaluator, day: string, start: number) {
@@ -1575,11 +1618,13 @@ function SchedulingHelperGrid({
 									days={visibleDays}
 									defaultDurationMinutes={defaultDurationMinutesFor}
 									evaluators={[...eligibleList, ...ineligibleList]}
+									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
 									onCreate={handleCalendarCreate}
 									onDelete={setPendingDeleteId}
 									onMove={handleCalendarMove}
 									onSelect={handleCalendarSelect}
+									onToggleEvaluator={toggleEvaluator}
 									pendingMove={
 										pendingMove
 											? {
