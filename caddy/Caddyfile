@@ -9,6 +9,10 @@
 		health_uri /api/health
 		health_interval 5s
 		health_timeout 3s
+
+		# Read each request body in full before opening the upstream request, so
+		# an upload finishes on the tunnel connection regardless of upstream pace.
+		request_buffers 25MB
 	}
 
 	handle_errors 502 503 {
