@@ -72,6 +72,9 @@ export function IssueReportDialog({
 	);
 
 	const send = api.issueReport.send.useMutation({
+		// Retry when the request never got a tRPC response (a dropped upload or a
+		// proxy error page), but not when the server answered with an error.
+		retry: (failureCount, error) => failureCount < 2 && !error.data,
 		onSuccess: () => {
 			toast.success("Report sent");
 			onSent();
