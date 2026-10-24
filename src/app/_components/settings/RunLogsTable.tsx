@@ -126,7 +126,8 @@ function RunLines({
 	initialClient,
 	onBack,
 }: {
-	runId: string;
+	/** Undefined lists lines from every run, with a Script column and no client filter. */
+	runId?: string;
 	initialClient: ClientFilter;
 	onBack: () => void;
 }) {
@@ -171,13 +172,15 @@ function RunLines({
 						))}
 					</SelectContent>
 				</Select>
-				<ClientFilterControl
-					client={client}
-					onChange={(next) => {
-						setOffset(0);
-						setClient(next);
-					}}
-				/>
+				{runId && (
+					<ClientFilterControl
+						client={client}
+						onChange={(next) => {
+							setOffset(0);
+							setClient(next);
+						}}
+					/>
+				)}
 			</div>
 
 			<div className="overflow-x-auto">
@@ -185,6 +188,7 @@ function RunLines({
 					<TableHeader>
 						<TableRow>
 							<TableHead>Time</TableHead>
+							{!runId && <TableHead>Script</TableHead>}
 							<TableHead>Level</TableHead>
 							<TableHead>Client</TableHead>
 							<TableHead>Message</TableHead>
@@ -194,20 +198,20 @@ function RunLines({
 						{isPending ? (
 							SKELETON_ROWS.map((key) => (
 								<TableRow key={key}>
-									<TableCell colSpan={4}>
+									<TableCell colSpan={runId ? 4 : 5}>
 										<Skeleton className="h-5 w-full" />
 									</TableCell>
 								</TableRow>
 							))
 						) : isError ? (
 							<TableRow>
-								<TableCell colSpan={4}>
+								<TableCell colSpan={runId ? 4 : 5}>
 									<ErrorState compact onRetry={refetch} />
 								</TableCell>
 							</TableRow>
 						) : rows.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={4}>
+								<TableCell colSpan={runId ? 4 : 5}>
 									<EmptyState compact title="No log lines found" />
 								</TableCell>
 							</TableRow>
@@ -215,8 +219,16 @@ function RunLines({
 							rows.map((row) => (
 								<TableRow key={row.id}>
 									<TableCell className="whitespace-nowrap align-top">
-										{formatInBusinessTime(row.time, "h:mm:ss a")}
+										{formatInBusinessTime(
+											row.time,
+											runId ? "h:mm:ss a" : "M/d/yy h:mm:ss a",
+										)}
 									</TableCell>
+									{!runId && (
+										<TableCell className="align-top">
+											<Badge variant="outline">{row.app}</Badge>
+										</TableCell>
+									)}
 									<TableCell className="align-top">
 										{levelBadge(row.level)}
 									</TableCell>
@@ -269,6 +281,7 @@ export default function RunLogsTable({
 	const [client, setClient] = useState<ClientFilter>(lockedClient);
 	const [offset, setOffset] = useState(0);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+	const [showAllLines, setShowAllLines] = useState(false);
 
 	const { data: apps } = api.runLogs.listApps.useQuery();
 	const { data, isPending, isError, refetch } = api.runLogs.listRuns.useQuery(
@@ -277,14 +290,17 @@ export default function RunLogsTable({
 	);
 	const rows = data?.rows ?? [];
 
-	if (selectedRunId) {
+	if (selectedRunId || showAllLines) {
 		return (
 			<div className="space-y-4 px-4">
 				<h3 className="font-bold text-lg">Run Logs</h3>
 				<RunLines
 					initialClient={client}
-					onBack={() => setSelectedRunId(null)}
-					runId={selectedRunId}
+					onBack={() => {
+						setSelectedRunId(null);
+						setShowAllLines(false);
+					}}
+					runId={selectedRunId ?? undefined}
 				/>
 			</div>
 		);
@@ -322,6 +338,11 @@ export default function RunLogsTable({
 							setClient(next);
 						}}
 					/>
+				)}
+				{lockedClient && (
+					<Button onClick={() => setShowAllLines(true)} variant="outline">
+						View all lines
+					</Button>
 				)}
 			</div>
 

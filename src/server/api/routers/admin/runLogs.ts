@@ -27,7 +27,8 @@ const LEVEL_ORDER = [
 ] as const;
 
 const listLinesSchema = z.object({
-	runId: z.string().uuid(),
+	/** Omit to list lines across all runs, newest first. */
+	runId: z.string().uuid().optional(),
 	clientId: z.number().optional(),
 	/** Show only lines at this level or more severe. */
 	minLevel: z.enum(LEVEL_ORDER).default("INFO"),
@@ -99,7 +100,7 @@ export const runLogsRouter = createTRPCRouter({
 
 			const levels = LEVEL_ORDER.slice(LEVEL_ORDER.indexOf(input.minLevel));
 			const where = and(
-				eq(scriptRunLogs.runId, input.runId),
+				input.runId ? eq(scriptRunLogs.runId, input.runId) : undefined,
 				sql`${scriptRunLogs.level} in (${sql.join(
 					levels.map((l) => sql`${l}`),
 					sql`, `,
@@ -111,6 +112,7 @@ export const runLogsRouter = createTRPCRouter({
 				ctx.db
 					.select({
 						id: scriptRunLogs.id,
+						app: scriptRuns.app,
 						time: scriptRunLogs.time,
 						level: scriptRunLogs.level,
 						source: scriptRunLogs.source,
@@ -122,9 +124,10 @@ export const runLogsRouter = createTRPCRouter({
 						clientHash: clients.hash,
 					})
 					.from(scriptRunLogs)
+					.innerJoin(scriptRuns, eq(scriptRunLogs.runId, scriptRuns.id))
 					.leftJoin(clients, eq(scriptRunLogs.clientId, clients.id))
 					.where(where)
-					.orderBy(asc(scriptRunLogs.id))
+					.orderBy(input.runId ? asc(scriptRunLogs.id) : desc(scriptRunLogs.id))
 					.limit(input.limit)
 					.offset(input.offset),
 				ctx.db
