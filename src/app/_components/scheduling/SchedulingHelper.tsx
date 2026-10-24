@@ -193,6 +193,10 @@ function eventMatchesOffice(
 	return officeKeys.includes(target);
 }
 
+function isVirtualOffice(key: string | null | undefined): boolean {
+	return key?.toUpperCase() === "VIRTUAL";
+}
+
 function eventCoversDay(event: CalendarEvent, day: string): boolean {
 	const dayStart = fromZonedTime(
 		`${day}T00:00:00`,
@@ -978,6 +982,20 @@ function SchedulingHelperGrid({
 			) ?? null
 		);
 	}, [selectedCell, appointmentsByNpi]);
+
+	// A booking that day at a different in-person office. Virtual visits never
+	// conflict with an office, in either direction.
+	const officeConflict = useMemo(() => {
+		if (!selectedCell || !office || isVirtualOffice(office)) return null;
+		return (
+			appointmentsByNpi?.[selectedCell.npi]?.find(
+				(a) =>
+					a.date === selectedCell.date &&
+					!isVirtualOffice(a.locationKey) &&
+					a.locationKey !== office,
+			) ?? null
+		);
+	}, [selectedCell, office, appointmentsByNpi]);
 
 	const plannedEvent = useMemo(() => {
 		if (!selectedCell) return null;
@@ -1809,26 +1827,24 @@ function SchedulingHelperGrid({
 								</Alert>
 							)}
 
-							{alreadyBooked &&
-								office !== "Virtual" &&
-								alreadyBooked.locationKey !== office && (
-									<Alert variant="destructive">
-										<AlertTriangle />
-										<AlertTitle>Already has an appointment this day</AlertTitle>
-										<AlertDescription>
-											{selectedEvaluator?.providerName} already has
-											{alreadyBooked.placeholder
-												? " a placeholder"
-												: " an appointment"}{" "}
-											at {alreadyBooked.officeName ?? alreadyBooked.locationKey}{" "}
-											on{" "}
-											{dayStringToLocalDate(
-												selectedCell.date,
-											).toLocaleDateString()}
-											. Scheduling at a different office may not be possible.
-										</AlertDescription>
-									</Alert>
-								)}
+							{officeConflict && (
+								<Alert variant="destructive">
+									<AlertTriangle />
+									<AlertTitle>Already has an appointment this day</AlertTitle>
+									<AlertDescription>
+										{selectedEvaluator?.providerName} already has
+										{officeConflict.placeholder
+											? " a placeholder"
+											: " an appointment"}{" "}
+										at {officeConflict.officeName ?? officeConflict.locationKey}{" "}
+										on{" "}
+										{dayStringToLocalDate(
+											selectedCell.date,
+										).toLocaleDateString()}
+										. Scheduling at a different office may not be possible.
+									</AlertDescription>
+								</Alert>
+							)}
 
 							<div className="flex items-center gap-2">
 								{plannedEvent ? (
