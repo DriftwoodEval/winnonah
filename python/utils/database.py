@@ -1332,6 +1332,7 @@ def get_medicaid_clients_with_ids(
     only_due: bool = True,
     stale_days: int | None = None,
     limit: int | None = None,
+    not_found_only: bool = False,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
     """Returns active clients with a Medicaid-portal insurance as primary or secondary.
@@ -1344,6 +1345,8 @@ def get_medicaid_clients_with_ids(
     client never checked or last checked more than stale_days ago, never checked
     first and then oldest first, capped at limit when given (no cap otherwise).
     This catches clients whose last check predates a mid-month change.
+    With not_found_only, restricts to clients the portal could not find on their
+    last check, regardless of when that was, capped at limit when given.
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
@@ -1377,6 +1380,7 @@ def get_medicaid_clients_with_ids(
               AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND TRIM(p.insuranceNumber) REGEXP '^[0-9A-Za-z]+$'
+              {" AND c.medicaidNotFound = TRUE" if not_found_only else ""}
               {
                 " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < %s)"
                 if only_due
@@ -1394,7 +1398,7 @@ def get_medicaid_clients_with_ids(
         clients_by_id.setdefault(row["id"], row)
     result = list(clients_by_id.values())
     if not only_due:
-        return result
+        return result[:limit]
 
     if stale_days is not None:
         result.sort(

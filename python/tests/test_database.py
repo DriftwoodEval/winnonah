@@ -946,6 +946,20 @@ class TestGetMedicaidClientsWithIds:
         assert "p.policyType IN ('PRIMARY', 'SECONDARY')" in query
         assert "REGEXP '^[0-9A-Za-z]+$'" in query
 
+    def test_not_found_only_filters_on_not_found_flag(self):
+        cursor = FakeCursor()
+        other_cursor = FakeCursor()
+
+        get_medicaid_clients_with_ids(
+            only_due=False, not_found_only=True, connection=FakeConnection(cursor)
+        )
+        get_medicaid_clients_with_ids(
+            only_due=False, connection=FakeConnection(other_cursor)
+        )
+
+        assert "c.medicaidNotFound = TRUE" in cursor.executed[0][0]
+        assert "medicaidNotFound" not in other_cursor.executed[0][0]
+
     def test_only_due_adds_recheck_window_parameter(self):
         due_cursor = FakeCursor()
         all_cursor = FakeCursor()

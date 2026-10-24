@@ -500,6 +500,16 @@ def main(
             help="Check if logged in to SC Medicaid Portal and log in if not",
         ),
     ] = False,
+    medicaid_not_found: Annotated[
+        bool,
+        typer.Option(
+            "--medicaid-not-found",
+            help=(
+                "Recheck SC Medicaid eligibility for every client the portal could "
+                "not find on their last check. Honors --medicaid-limit and --medicaid-dry-run"
+            ),
+        ),
+    ] = False,
     medicaid_stale_days: Annotated[
         int | None,
         typer.Option(
@@ -516,14 +526,14 @@ def main(
         typer.Option(
             "--medicaid-limit",
             min=1,
-            help="With --medicaid-stale-days, check at most this many clients",
+            help="With --medicaid-stale-days or --medicaid-not-found, check at most this many clients",
         ),
     ] = None,
     medicaid_dry_run: Annotated[
         bool,
         typer.Option(
             "--medicaid-dry-run",
-            help="With --medicaid-stale-days, list who would be checked without searching",
+            help="With --medicaid-stale-days or --medicaid-not-found, list who would be checked without searching",
         ),
     ] = False,
     medicaid_preview: Annotated[
@@ -613,6 +623,14 @@ def main(
         logger.info("Syncing outstanding balances")
         with utils.database.db_session() as conn:
             sync_outstanding_balances(conn)
+        return
+
+    if medicaid_not_found:
+        utils.medicaid.lookup_medicaid_eligibility(
+            limit=medicaid_limit,
+            dry_run=medicaid_dry_run,
+            not_found_only=True,
+        )
         return
 
     if medicaid_stale_days is not None:

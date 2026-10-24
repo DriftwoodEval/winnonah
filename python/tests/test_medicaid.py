@@ -87,6 +87,17 @@ CLIENT = {
 }
 
 
+class TestSearchSingleClient:
+    def test_sends_only_digits_to_the_portal(self):
+        with (
+            patch.object(medicaid, "_open_query_form") as form,
+            patch.object(medicaid.w, "click_element"),
+            patch.object(medicaid, "read_eligibility", return_value={}),
+        ):
+            medicaid.search_single_client(MagicMock(), "ab12 34-5c")
+        form.return_value.send_keys.assert_called_once_with("12345")
+
+
 class TestRunLookup:
     def _run(self, search_side_effect):
         with (

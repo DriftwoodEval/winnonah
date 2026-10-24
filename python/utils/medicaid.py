@@ -9,7 +9,8 @@ client, or of every client, can be forced with
 `python -m cron.main --medicaid [--client <name-or-id>]`. To catch up clients
 whose last check predates a mid-month change, `--medicaid-stale-days N` rechecks
 everyone last checked more than N days ago, oldest first. Add
-`--medicaid-limit N` to cap the run and `--medicaid-dry-run` to list who would be checked. Portal credentials
+`--medicaid-limit N` to cap the run and `--medicaid-dry-run` to list who would be checked.
+`--medicaid-not-found` rechecks only clients the portal could not find last time. Portal credentials
 come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
 """
@@ -101,13 +102,15 @@ def lookup_medicaid_eligibility(
     stale_days: int | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    not_found_only: bool = False,
 ) -> None:
     """Force eligibility lookup for all Medicaid-portal clients, or filter by name/ID strings.
 
     With stale_days, only clients never checked or last checked more than that
     many days ago are looked up, never checked first and then oldest first, at
     most limit of them if given. With dry_run, the clients that would be looked
-    up are logged by ID and nothing is searched or written.
+    up are logged by ID and nothing is searched or written. With not_found_only,
+    only clients the portal could not find on their last check are looked up.
     """
     _run_medicaid_eligibility_lookup(
         only_due=only_due,
@@ -116,6 +119,7 @@ def lookup_medicaid_eligibility(
         stale_days=stale_days,
         limit=limit,
         dry_run=dry_run,
+        not_found_only=not_found_only,
     )
 
 
@@ -139,9 +143,13 @@ def _run_medicaid_eligibility_lookup(
     stale_days: int | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    not_found_only: bool = False,
 ) -> None:
     clients = utils.database.get_medicaid_clients_with_ids(
-        only_due=only_due, stale_days=stale_days, limit=limit
+        only_due=only_due,
+        stale_days=stale_days,
+        limit=limit,
+        not_found_only=not_found_only,
     )
 
     if client_ids:
@@ -251,9 +259,13 @@ def _open_query_form(driver: WebDriver, max_attempts: int = 3) -> WebElement:
 
 
 def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | None]:
-    """Search for a single client in SC Medicaid Portal and return the scraped fields."""
-    logger.info(f"Searching for client {client_id}")
-    _open_query_form(driver).send_keys(client_id)
+    """Search for a single client in SC Medicaid Portal and return the scraped fields.
+
+    The portal only searches by digits, so any letters in the policy number are dropped.
+    """
+    digits = re.sub(r"\D", "", client_id)
+    logger.info(f"Searching for client {digits}")
+    _open_query_form(driver).send_keys(digits)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
     return read_eligibility(driver)
