@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { Star, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import {
 	assignColors,
 	blockHeight,
@@ -161,7 +161,6 @@ export function SchedulingCalendar({
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
 }) {
-	const [showAll, setShowAll] = useState(false);
 	const dragRef = useRef<Drag | null>(null);
 	const [, rerender] = useReducer((n: number) => n + 1, 0);
 	const gutterRef = useRef<HTMLDivElement>(null);
@@ -367,12 +366,11 @@ export function SchedulingCalendar({
 		chosenColors,
 	);
 	const shown = evaluators.filter((ev) => !hiddenNpis.has(ev.npi));
-	// Unless "show all" is on or evaluators are filtered, a day only gets columns
-	// for evaluators who have marked availability or a booking that day, which
-	// keeps the grid readable. A filtered-down grid shows the chosen evaluators
-	// every day.
+	// Unless evaluators are filtered, a day only gets columns for evaluators who
+	// have marked availability or a booking that day, which keeps the grid
+	// readable. A filtered-down grid shows the chosen evaluators every day.
 	function evsFor(day: string) {
-		if (showAll || hiddenNpis.size > 0) return shown;
+		if (hiddenNpis.size > 0) return shown;
 		return shown.filter(
 			(ev) =>
 				windowsFor(ev.npi, day).length > 0 ||
@@ -409,14 +407,6 @@ export function SchedulingCalendar({
 	return (
 		<div className="flex flex-col" ref={rootRef}>
 			<div className="flex flex-wrap gap-1.5 border-b p-2">
-				<label className="flex items-center gap-1.5 pr-2 text-xs">
-					<input
-						checked={showAll}
-						onChange={(e) => setShowAll(e.target.checked)}
-						type="checkbox"
-					/>
-					Show all evaluators every day
-				</label>
 				{evaluators.map((ev) => {
 					const visible = !hiddenNpis.has(ev.npi);
 					return (
