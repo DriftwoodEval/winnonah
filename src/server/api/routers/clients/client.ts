@@ -1314,6 +1314,7 @@ export const clientRouter = createTRPCRouter({
 					pause: true,
 					autismStop: true,
 					alreadyDx: true,
+					status: true,
 				},
 			});
 
@@ -1324,16 +1325,7 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			const [pending, nextAppointment] = await Promise.all([
-				ctx.db
-					.select({ value: count() })
-					.from(questionnaires)
-					.where(
-						and(
-							eq(questionnaires.clientId, client.id),
-							eq(questionnaires.status, "PENDING"),
-						),
-					),
+			const findAppointment = (when: "next" | "last") =>
 				ctx.db
 					.select({
 						startTime: appointments.startTime,
@@ -1346,20 +1338,57 @@ export const clientRouter = createTRPCRouter({
 					.where(
 						and(
 							eq(appointments.clientId, client.id),
-							gte(appointments.startTime, new Date()),
+							when === "next"
+								? gte(appointments.startTime, new Date())
+								: lt(appointments.startTime, new Date()),
 							eq(appointments.cancelled, false),
 							eq(appointments.placeholder, false),
 							eq(appointments.billingOnly, false),
 						),
 					)
-					.orderBy(asc(appointments.startTime))
-					.limit(1),
-			]);
+					.orderBy(
+						when === "next"
+							? asc(appointments.startTime)
+							: desc(appointments.startTime),
+					)
+					.limit(1);
+
+			const [pending, nextAppointment, lastAppointment, assigned] =
+				await Promise.all([
+					ctx.db
+						.select({ value: count() })
+						.from(questionnaires)
+						.where(
+							and(
+								eq(questionnaires.clientId, client.id),
+								eq(questionnaires.status, "PENDING"),
+							),
+						),
+					findAppointment("next"),
+					findAppointment("last"),
+					ctx.db
+						.select({ name: evaluators.providerName })
+						.from(clientsEvaluators)
+						.innerJoin(
+							evaluators,
+							eq(clientsEvaluators.evaluatorNpi, evaluators.npi),
+						)
+						.where(
+							and(
+								eq(clientsEvaluators.clientId, client.id),
+								eq(evaluators.archived, false),
+							),
+						)
+						.orderBy(asc(evaluators.providerName)),
+				]);
 
 			return {
 				...client,
 				pendingQuestionnaires: pending[0]?.value ?? 0,
 				nextAppointment: nextAppointment[0] ?? null,
+				lastAppointment: lastAppointment[0] ?? null,
+				assignedEvaluators: assigned.map((row) => row.name),
+				dashboardSections: [],
 			};
 		}),
 

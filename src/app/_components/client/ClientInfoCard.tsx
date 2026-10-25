@@ -2,18 +2,22 @@
 
 import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
-import type { ReactNode } from "react";
+import { Separator } from "@ui/separator";
+import { Fragment, type ReactNode } from "react";
 import {
 	CLIENT_CARD_FIELDS,
+	type ClientCardAppointment,
 	type ClientCardFieldId,
 	type ClientCardSummary,
 } from "~/lib/clients/client-card";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	formatClientAge,
+	formatCurrency,
 	formatDateOnlyLong,
 	formatInBusinessTime,
 	formatPhoneNumber,
+	isNotesOnlyClientId,
 } from "~/lib/utils";
 
 function formatInsurance(name: string) {
@@ -31,31 +35,35 @@ function CardRow({ label, children }: { label: string; children: ReactNode }) {
 	);
 }
 
+function AppointmentSummary({
+	appointment,
+}: {
+	appointment: ClientCardAppointment | null;
+}) {
+	if (!appointment) return "None scheduled";
+	return (
+		<>
+			{formatInBusinessTime(appointment.startTime, "EEE, MMM d 'at' h:mm a")}
+			<span className="block text-muted-foreground text-xs">
+				{[appointment.evaluatorName, appointment.officeName]
+					.filter(Boolean)
+					.join(" · ")}
+			</span>
+		</>
+	);
+}
+
 function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 	const label =
 		CLIENT_CARD_FIELDS.find((field) => field.id === id)?.label ?? id;
 
 	switch (id) {
-		case "age":
-			return client.dob ? (
-				<CardRow label={label}>{formatClientAge(client.dob)}</CardRow>
-			) : null;
 		case "dob":
 			return (
 				<CardRow label={label}>
 					<Redact>{formatDateOnlyLong(client.dob)}</Redact>
 				</CardRow>
 			);
-		case "gender":
-			return <CardRow label={label}>{client.gender ?? "Unknown"}</CardRow>;
-		case "language":
-			return client.language ? (
-				<CardRow label={label}>{client.language}</CardRow>
-			) : null;
-		case "asdAdhd":
-			return client.asdAdhd ? (
-				<CardRow label={label}>{client.asdAdhd}</CardRow>
-			) : null;
 		case "phone":
 			return client.phoneNumber ? (
 				<CardRow label={label}>
@@ -100,12 +108,16 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 					{formatDateOnlyLong(client.precertExpires)}
 				</CardRow>
 			) : null;
-		case "balance":
-			return client.outstandingBalance > 0 ? (
-				<CardRow label={label}>${client.outstandingBalance.toFixed(2)}</CardRow>
-			) : null;
 		case "name":
 		case "colorDot":
+		case "age":
+		case "gender":
+		case "language":
+		case "asdAdhd":
+		case "balance":
+		case "clientId":
+		case "status":
+		case "dashboardStatus":
 		case "highPriority":
 		case "paused":
 		case "babyNet":
@@ -115,26 +127,19 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 		case "nextAppointment":
 			return (
 				<CardRow label={label}>
-					{client.nextAppointment ? (
-						<>
-							{formatInBusinessTime(
-								client.nextAppointment.startTime,
-								"EEE, MMM d 'at' h:mm a",
-							)}
-							<span className="block text-muted-foreground text-xs">
-								{[
-									client.nextAppointment.evaluatorName,
-									client.nextAppointment.officeName,
-								]
-									.filter(Boolean)
-									.join(" · ")}
-							</span>
-						</>
-					) : (
-						"None scheduled"
-					)}
+					<AppointmentSummary appointment={client.nextAppointment} />
 				</CardRow>
 			);
+		case "lastAppointment":
+			return client.lastAppointment ? (
+				<CardRow label={label}>
+					<AppointmentSummary appointment={client.lastAppointment} />
+				</CardRow>
+			) : null;
+		case "assignedEvaluators":
+			return client.assignedEvaluators.length ? (
+				<CardRow label={label}>{client.assignedEvaluators.join(", ")}</CardRow>
+			) : null;
 		case "pendingQuestionnaires":
 			return (
 				<CardRow label={label}>
@@ -148,6 +153,91 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 				<CardRow label={label}>{formatDateOnlyLong(client.addedDate)}</CardRow>
 			) : null;
 	}
+}
+
+/** The client ID and Active/Inactive badge, as in the client header. */
+function renderIdentity(
+	fields: ClientCardFieldId[],
+	client: ClientCardSummary,
+) {
+	const notesOnly = isNotesOnlyClientId(client.id);
+	const showId = fields.includes("clientId") && !notesOnly;
+	const showStatus = fields.includes("status");
+	if (!showId && !showStatus) return null;
+	return (
+		<div className="flex items-center gap-2">
+			{showId && (
+				<span>
+					<Redact>{String(client.id)}</Redact>
+				</span>
+			)}
+			{showStatus && (
+				<Badge
+					variant={
+						notesOnly ? "outline" : client.status ? "default" : "destructive"
+					}
+				>
+					{notesOnly
+						? `Notes Only${client.status ? "" : ", Archived"}`
+						: client.status
+							? "Active"
+							: "Inactive"}
+				</Badge>
+			)}
+		</div>
+	);
+}
+
+/** Dashboard sections the client is in, as badges. */
+function renderDashboardStatus(
+	fields: ClientCardFieldId[],
+	client: ClientCardSummary,
+) {
+	if (!fields.includes("dashboardStatus") || !client.dashboardSections.length)
+		return null;
+	return (
+		<div className="flex flex-wrap gap-1">
+			{client.dashboardSections.map((section) => (
+				<Badge key={section} variant="secondary">
+					{section}
+				</Badge>
+			))}
+		</div>
+	);
+}
+
+/** Short facts shown on one line under the name, like the client header. */
+function renderInlineFacts(
+	fields: ClientCardFieldId[],
+	client: ClientCardSummary,
+) {
+	const facts: { id: ClientCardFieldId; content: ReactNode }[] = [
+		{ id: "age", content: client.dob && formatClientAge(client.dob) },
+		{ id: "gender", content: client.gender },
+		{
+			id: "language",
+			content: client.language && (
+				<span className={client.language === "English" ? "" : "font-bold"}>
+					{client.language}
+				</span>
+			),
+		},
+		{ id: "asdAdhd", content: client.asdAdhd },
+	];
+	const shown = facts.filter(
+		(fact) => fields.includes(fact.id) && fact.content,
+	);
+	if (shown.length === 0) return null;
+	return (
+		<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+			{shown.map((fact, index) => (
+				<Fragment key={fact.id}>
+					{index > 0 && <Separator className="h-4" orientation="vertical" />}
+					<span>{fact.content}</span>
+				</Fragment>
+			))}
+		</div>
+	);
 }
 
 type Indicator = {
@@ -191,7 +281,7 @@ const INDICATORS: Indicator[] = [
 	},
 ];
 
-/** The status badges for whichever indicator fields are selected, in one row. */
+/** The status badges (and balance due) for whichever fields are selected, in one row. */
 function renderIndicators(
 	fields: ClientCardFieldId[],
 	client: ClientCardSummary,
@@ -199,7 +289,9 @@ function renderIndicators(
 	const active = INDICATORS.filter(
 		(indicator) => fields.includes(indicator.id) && indicator.isSet(client),
 	);
-	if (active.length === 0) return null;
+	const showBalance =
+		fields.includes("balance") && client.outstandingBalance > 0;
+	if (active.length === 0 && !showBalance) return null;
 	return (
 		<div className="flex flex-wrap gap-1">
 			{active.map((indicator) => (
@@ -207,6 +299,11 @@ function renderIndicators(
 					{indicator.label}
 				</Badge>
 			))}
+			{showBalance && (
+				<Badge variant="destructive">
+					{formatCurrency(client.outstandingBalance)} due
+				</Badge>
+			)}
 		</div>
 	);
 }
@@ -218,20 +315,15 @@ interface ClientInfoCardProps {
 
 /** The body of the client hover card: the name plus whichever fields the user picked. */
 export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
-	// Fields with no value for this client render nothing, so skip them here
-	// rather than leaving an empty gap in the card.
-	const firstIndicator = fields.find((id) =>
-		INDICATORS.some((indicator) => indicator.id === id),
-	);
+	// Fields with no value render nothing, so skip them here rather than
+	// leaving an empty gap in the card.
 	const rows = fields
-		.map((id) => ({
-			id,
-			content:
-				id === firstIndicator
-					? renderIndicators(fields, client)
-					: renderField(id, client),
-		}))
+		.map((id) => ({ id, content: renderField(id, client) }))
 		.filter((row) => row.content);
+	const identity = renderIdentity(fields, client);
+	const badges = renderIndicators(fields, client);
+	const dashboard = renderDashboardStatus(fields, client);
+	const facts = renderInlineFacts(fields, client);
 	const showName = fields.includes("name");
 	const showDot = fields.includes("colorDot") && isClientColor(client.color);
 	const hasHeader = showName || showDot;
@@ -249,7 +341,16 @@ export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
 					{showName && <Redact>{client.fullName}</Redact>}
 				</p>
 			)}
-			{rows.length === 0 && !hasHeader ? (
+			{identity}
+			{badges}
+			{dashboard}
+			{facts}
+			{rows.length === 0 &&
+			!hasHeader &&
+			!identity &&
+			!badges &&
+			!dashboard &&
+			!facts ? (
 				<p className="text-muted-foreground text-xs">
 					Nothing to show for this client.
 				</p>

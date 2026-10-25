@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientInfoCard } from "@components/client/ClientInfoCard";
+import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
 import { useClientCardFields } from "~/hooks/use-client-card-fields";
@@ -10,10 +11,12 @@ import {
 	CLIENT_CARD_GROUPS,
 	type ClientCardFieldId,
 	type ClientCardSummary,
+	DEFAULT_CLIENT_CARD_FIELDS,
 } from "~/lib/clients/client-card";
 
 const SAMPLE_CLIENT: ClientCardSummary = {
-	id: 0,
+	id: 123456789,
+	status: true,
 	fullName: "Sample Client",
 	color: "teal",
 	dob: "2020-03-14",
@@ -41,6 +44,13 @@ const SAMPLE_CLIENT: ClientCardSummary = {
 		evaluatorName: "Sample Evaluator",
 		officeName: "Main Office",
 	},
+	lastAppointment: {
+		startTime: new Date("2026-09-20T14:00:00Z"),
+		evaluatorName: "Sample Evaluator",
+		officeName: "Main Office",
+	},
+	assignedEvaluators: ["Sample Evaluator", "Other Evaluator"],
+	dashboardSections: ["Questionnaires Done", "Ready to Schedule"],
 };
 
 export function ClientCardPreferences() {
@@ -58,13 +68,27 @@ export function ClientCardPreferences() {
 		setFields(CLIENT_CARD_FIELD_IDS.filter((fieldId) => next.has(fieldId)));
 	};
 
+	const isDefault =
+		fields.length === DEFAULT_CLIENT_CARD_FIELDS.length &&
+		DEFAULT_CLIENT_CARD_FIELDS.every((id) => fields.includes(id));
+
 	return (
 		<div className="flex flex-col gap-4">
-			<p className="text-muted-foreground text-sm">
-				Hover a client's name in lists, dashboards, and schedules to see a small
-				card of their info without opening the client page. Choose what it
-				shows. Turn every field off to disable the card.
-			</p>
+			<div className="flex items-start justify-between gap-4">
+				<p className="text-muted-foreground text-sm">
+					Hover a client's name in lists, dashboards, and schedules to see a
+					small card of their info without opening the client page. Choose what
+					it shows. Turn every field off to disable the card.
+				</p>
+				<Button
+					disabled={isDefault}
+					onClick={() => setFields(DEFAULT_CLIENT_CARD_FIELDS)}
+					size="sm"
+					variant="outline"
+				>
+					Reset to default
+				</Button>
+			</div>
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<div className="flex flex-col gap-4">
 					{CLIENT_CARD_GROUPS.map((group) => (
@@ -91,6 +115,12 @@ export function ClientCardPreferences() {
 										>
 											{field.label}
 										</Label>
+										<span className="text-muted-foreground text-xs">
+											Default:{" "}
+											{DEFAULT_CLIENT_CARD_FIELDS.includes(field.id)
+												? "on"
+												: "off"}
+										</span>
 									</div>
 								),
 							)}

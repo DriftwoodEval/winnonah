@@ -1,45 +1,54 @@
+/** The sections of the card, top to bottom. */
 export const CLIENT_CARD_GROUPS = [
-	"Basics",
-	"Contact",
-	"Insurance",
-	"Status",
+	"Title",
+	"Badges",
+	"Quick facts",
+	"Details",
 ] as const;
 
 export type ClientCardGroup = (typeof CLIENT_CARD_GROUPS)[number];
 
-/** Fields the hover card can show, in the order they are displayed. */
+/**
+ * Fields the hover card can show, in the order they are displayed: grouped by
+ * card section, and within a section in the order the card renders them.
+ */
 export const CLIENT_CARD_FIELDS = [
-	{ id: "name", label: "Name", group: "Basics" },
-	{ id: "colorDot", label: "Color dot (next to name)", group: "Basics" },
-	{ id: "age", label: "Age", group: "Basics" },
-	{ id: "dob", label: "Date of birth", group: "Basics" },
-	{ id: "gender", label: "Gender", group: "Basics" },
-	{ id: "language", label: "Language", group: "Basics" },
-	{ id: "asdAdhd", label: "Evaluation type", group: "Basics" },
-	{ id: "phone", label: "Phone", group: "Contact" },
-	{ id: "email", label: "Email", group: "Contact" },
-	{ id: "address", label: "Address", group: "Contact" },
-	{ id: "schoolDistrict", label: "School district", group: "Contact" },
-	{ id: "primaryInsurance", label: "Primary insurance", group: "Insurance" },
+	{ id: "name", label: "Name", group: "Title" },
+	{ id: "colorDot", label: "Color dot (next to name)", group: "Title" },
+	{ id: "clientId", label: "Client ID", group: "Badges" },
+	{ id: "status", label: "Active/Inactive", group: "Badges" },
+	{ id: "highPriority", label: "High priority indicator", group: "Badges" },
+	{ id: "paused", label: "Paused indicator", group: "Badges" },
+	{ id: "babyNet", label: "BabyNet indicator", group: "Badges" },
+	{ id: "autismStop", label: "Autism stop indicator", group: "Badges" },
+	{ id: "alreadyDx", label: "Already diagnosed indicator", group: "Badges" },
+	{ id: "balance", label: "Outstanding balance", group: "Badges" },
+	{ id: "dashboardStatus", label: "Dashboard status", group: "Badges" },
+	{ id: "age", label: "Age", group: "Quick facts" },
+	{ id: "gender", label: "Gender", group: "Quick facts" },
+	{ id: "language", label: "Language", group: "Quick facts" },
+	{ id: "asdAdhd", label: "ASD/ADHD", group: "Quick facts" },
+	{ id: "dob", label: "Date of birth", group: "Details" },
+	{ id: "phone", label: "Phone", group: "Details" },
+	{ id: "email", label: "Email", group: "Details" },
+	{ id: "address", label: "Address", group: "Details" },
+	{ id: "schoolDistrict", label: "School district", group: "Details" },
+	{ id: "primaryInsurance", label: "Primary insurance", group: "Details" },
 	{
 		id: "secondaryInsurance",
 		label: "Secondary insurance",
-		group: "Insurance",
+		group: "Details",
 	},
-	{ id: "precertExpires", label: "PA expires", group: "Insurance" },
-	{ id: "balance", label: "Outstanding balance", group: "Insurance" },
-	{ id: "highPriority", label: "High priority indicator", group: "Status" },
-	{ id: "paused", label: "Paused indicator", group: "Status" },
-	{ id: "babyNet", label: "BabyNet indicator", group: "Status" },
-	{ id: "autismStop", label: "Autism stop indicator", group: "Status" },
-	{ id: "alreadyDx", label: "Already diagnosed indicator", group: "Status" },
-	{ id: "nextAppointment", label: "Next appointment", group: "Status" },
+	{ id: "precertExpires", label: "PA expires", group: "Details" },
+	{ id: "nextAppointment", label: "Next appointment", group: "Details" },
+	{ id: "lastAppointment", label: "Last appointment", group: "Details" },
+	{ id: "assignedEvaluators", label: "Assigned evaluators", group: "Details" },
 	{
 		id: "pendingQuestionnaires",
 		label: "Pending questionnaires",
-		group: "Status",
+		group: "Details",
 	},
-	{ id: "addedDate", label: "Date added", group: "Status" },
+	{ id: "addedDate", label: "Date added", group: "Details" },
 ] as const;
 
 export type ClientCardFieldId = (typeof CLIENT_CARD_FIELDS)[number]["id"];
@@ -49,14 +58,16 @@ export const CLIENT_CARD_FIELD_IDS = CLIENT_CARD_FIELDS.map(
 ) as [ClientCardFieldId, ...ClientCardFieldId[]];
 
 export const DEFAULT_CLIENT_CARD_FIELDS: ClientCardFieldId[] = [
+	"name",
 	"colorDot",
 	"age",
-	"primaryInsurance",
+	"asdAdhd",
 	"highPriority",
 	"paused",
 	"babyNet",
 	"autismStop",
-	"nextAppointment",
+	"alreadyDx",
+	"dashboardStatus",
 ];
 
 /**
@@ -73,8 +84,15 @@ export function mergeClientCardFields(stored: unknown): ClientCardFieldId[] {
 	return CLIENT_CARD_FIELD_IDS.filter((id) => selected.has(id));
 }
 
+export interface ClientCardAppointment {
+	startTime: Date;
+	evaluatorName: string;
+	officeName: string | null;
+}
+
 export interface ClientCardSummary {
 	id: number;
+	status: boolean;
 	fullName: string;
 	color: string;
 	dob: string;
@@ -97,9 +115,9 @@ export interface ClientCardSummary {
 	autismStop: boolean;
 	alreadyDx: boolean;
 	pendingQuestionnaires: number;
-	nextAppointment: {
-		startTime: Date;
-		evaluatorName: string;
-		officeName: string | null;
-	} | null;
+	nextAppointment: ClientCardAppointment | null;
+	lastAppointment: ClientCardAppointment | null;
+	assignedEvaluators: string[];
+	/** Dashboard sections the client is in; filled in on the client from the dashboard query. */
+	dashboardSections: string[];
 }

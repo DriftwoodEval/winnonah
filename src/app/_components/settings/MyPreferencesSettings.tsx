@@ -17,6 +17,14 @@ export default function MyPreferencesSettings() {
 			<p className="text-muted-foreground text-sm">
 				These settings only change what you see. Changes save as you make them.
 			</p>
+			<Card>
+				<CardHeader>
+					<CardTitle>Client Hover Card</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<ClientCardPreferences />
+				</CardContent>
+			</Card>
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<Card>
 					<CardHeader>
@@ -45,14 +53,6 @@ export default function MyPreferencesSettings() {
 					</CardContent>
 				</Card>
 			</div>
-			<Card>
-				<CardHeader>
-					<CardTitle>Client Hover Card</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<ClientCardPreferences />
-				</CardContent>
-			</Card>
 		</div>
 	);
 }

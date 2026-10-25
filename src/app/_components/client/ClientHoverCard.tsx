@@ -24,6 +24,12 @@ function ClientHoverCardBody({
 		{ staleTime: 60 * 1000 },
 	);
 
+	// The same query the client header uses, so it is usually already cached.
+	const { data: dashboardData } = api.google.getDashboardData.useQuery(
+		undefined,
+		{ enabled: fields.includes("dashboardStatus"), staleTime: 5 * 60 * 1000 },
+	);
+
 	if (isError) {
 		return (
 			<p className="text-muted-foreground text-xs">
@@ -40,7 +46,13 @@ function ClientHoverCardBody({
 			</div>
 		);
 	}
-	return <ClientInfoCard client={client} fields={fields} />;
+	const dashboardSections =
+		dashboardData?.sections
+			.filter((section) => section.clients.some((c) => c.id === client.id))
+			.map((section) => section.title) ?? [];
+	return (
+		<ClientInfoCard client={{ ...client, dashboardSections }} fields={fields} />
+	);
 }
 
 type ClientHoverCardProps = {
