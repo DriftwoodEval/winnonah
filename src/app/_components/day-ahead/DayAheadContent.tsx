@@ -1,6 +1,10 @@
 "use client";
 
+import { PostVisitMessageButton } from "@components/appointments/PostVisitMessageButton";
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -31,10 +35,6 @@ import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 import {
 	type AvailabilityWindow,
 	buildColorMap,

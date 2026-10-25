@@ -1,10 +1,10 @@
 "use client";
 
+import { ErrorState } from "@components/shared/ErrorState";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
-import { ErrorState } from "../../shared/ErrorState";
 
 interface OfficeDriveTimesButtonProps {
 	clientId: number;

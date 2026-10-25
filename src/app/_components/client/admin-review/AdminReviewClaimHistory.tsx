@@ -1,11 +1,11 @@
 "use client";
 
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Card, CardContent } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { api } from "~/trpc/react";
-import { ListSkeleton } from "../../shared/ListSkeleton";
 
 export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 	const { data: claimHistory, isLoading } =

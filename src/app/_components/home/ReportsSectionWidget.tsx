@@ -1,11 +1,11 @@
 "use client";
 
+import { useReportSectionsQuery } from "@components/dashboard/ReportsDashboardSections";
+import { SectionReportCard } from "@components/reports/ReportCards";
+import { ReportsLegend } from "@components/reports/report-shared";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Skeleton } from "@ui/skeleton";
-import { useReportSectionsQuery } from "../dashboard/ReportsDashboardSections";
-import { SectionReportCard } from "../reports/ReportCards";
-import { ReportsLegend } from "../reports/report-shared";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 	const { sections, isError, refetch } = useReportSectionsQuery();

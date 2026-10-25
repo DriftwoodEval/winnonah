@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -11,7 +12,6 @@ import { useId } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { getHexFromColor } from "~/lib/colors";
 import { cn, formatCurrency } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 import { ReportNoteCell } from "./ReportNoteCell";
 import {
 	ClientDriveLink,

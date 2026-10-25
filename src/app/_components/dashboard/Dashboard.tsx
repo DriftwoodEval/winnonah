@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import {
 	Accordion,
 	AccordionContent,
@@ -34,7 +35,6 @@ import {
 import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 import { AddToSchedulingButton } from "./AddToSchedulingButton";
 import {
 	DismissButton,

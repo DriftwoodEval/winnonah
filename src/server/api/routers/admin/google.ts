@@ -37,6 +37,8 @@ import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
 import { getInsuranceShortName, hasPermission } from "~/lib/utils";
 import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
+import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
+import { saveNoteInternal } from "~/server/api/routers/clients/notes";
 import {
 	assertPermission,
 	assertPermissionOrBabyNetLimited,
@@ -53,8 +55,6 @@ import {
 	reports,
 	users,
 } from "~/server/db/schema";
-import { ensurePendingExternalRecordRequest } from "../clients/externalRecords";
-import { saveNoteInternal } from "../clients/notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 

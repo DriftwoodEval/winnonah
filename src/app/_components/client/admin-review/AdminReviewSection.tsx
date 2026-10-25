@@ -1,5 +1,7 @@
 "use client";
 
+import { NoteHistory } from "@components/shared/NoteHistory";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@ui/button";
@@ -21,8 +23,6 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { hasPermission, isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { NoteHistory } from "../../shared/NoteHistory";
-import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
 import { AdminReviewClaimHistory } from "./AdminReviewClaimHistory";
 import { AdminReviewSubmitDialog } from "./AdminReviewSubmitDialog";
 

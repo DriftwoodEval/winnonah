@@ -1,10 +1,10 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { forwardRef, memo } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { cn } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 
 type SelectableClientListItemProps = {
 	client: SortedClient;

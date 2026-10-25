@@ -1,5 +1,6 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -11,7 +12,6 @@ import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { USER_COLORS } from "~/lib/user-colors";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 import { CheckInOutControl } from "./CheckInOutControl";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 import { EvaluatorCheckInOutControl } from "./EvaluatorCheckInOutControl";

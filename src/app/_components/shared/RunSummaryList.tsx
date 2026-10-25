@@ -1,11 +1,11 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import Link from "next/link";
 import type { RunSummary } from "~/lib/run-summary";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 
 const RUN_LABELS: Record<string, string> = {
 	import_from_ta: "TherapyAppointment Import",

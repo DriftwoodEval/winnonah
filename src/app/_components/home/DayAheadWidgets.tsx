@@ -1,6 +1,24 @@
 "use client";
 
+import { PostVisitMessageButton } from "@components/appointments/PostVisitMessageButton";
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { formatTime } from "@components/day-ahead/CalendarGrid";
+import { CheckInOutControl } from "@components/day-ahead/CheckInOutControl";
+import {
+	ApptMessagesPopover,
+	ApptTypeBadges,
+	ConfirmedBadge,
+	collectPhoneNumbers,
+	findGreeter,
+	GreeterInline,
+	GreeterLine,
+	type RecentMessagesMap,
+} from "@components/day-ahead/DayAheadShared";
+import { EvaluatorCheckInOutControl } from "@components/day-ahead/EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "@components/day-ahead/use-checkin-date-gate";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -16,24 +34,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
-import { formatTime } from "../day-ahead/CalendarGrid";
-import { CheckInOutControl } from "../day-ahead/CheckInOutControl";
-import {
-	ApptMessagesPopover,
-	ApptTypeBadges,
-	ConfirmedBadge,
-	collectPhoneNumbers,
-	findGreeter,
-	GreeterInline,
-	GreeterLine,
-	type RecentMessagesMap,
-} from "../day-ahead/DayAheadShared";
-import { EvaluatorCheckInOutControl } from "../day-ahead/EvaluatorCheckInOutControl";
-import { useCheckinDateGate } from "../day-ahead/use-checkin-date-gate";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 export function todayStr() {
 	return formatInBusinessTime(new Date(), "yyyy-MM-dd");

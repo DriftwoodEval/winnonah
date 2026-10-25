@@ -1,5 +1,6 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import type { ReactNode } from "react";
 import {
@@ -14,7 +15,6 @@ import {
 	formatInBusinessTime,
 	formatPhoneNumber,
 } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 
 function formatInsurance(name: string) {
 	return name

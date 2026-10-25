@@ -1,5 +1,7 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Bot, MessageSquare } from "lucide-react";
@@ -7,8 +9,6 @@ import { useMemo } from "react";
 import type { TimelineEvent } from "~/lib/integrations/quo";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

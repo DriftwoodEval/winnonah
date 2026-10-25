@@ -1,13 +1,13 @@
 "use client";
 
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
+import { Redact } from "@components/redaction/Redact";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { GitMerge } from "lucide-react";
 import type { Client } from "~/lib/models";
 import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../../redaction/Redact";
 
 interface MergeRecommendationAlertProps {
 	client: Client;

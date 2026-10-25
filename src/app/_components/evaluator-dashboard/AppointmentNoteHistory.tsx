@@ -1,5 +1,6 @@
 "use client";
 
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import type { JSONContent } from "@tiptap/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
@@ -8,7 +9,6 @@ import { ScrollArea } from "@ui/scroll-area";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { calculateDiff, extractTextFromTipTap } from "~/lib/diff-utils";
 import { api } from "~/trpc/react";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 function DiffRenderer({
 	diffChanges,

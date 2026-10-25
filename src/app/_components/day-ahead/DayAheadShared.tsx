@@ -1,12 +1,12 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Armchair } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatPhoneNumber, normalizePhoneNumber } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 import { RecentMessagesPopover } from "./RecentMessagesPopover";
 
 export type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];

@@ -1,5 +1,8 @@
 "use client";
 
+import { ClientsList } from "@components/clients/ClientsList";
+import { NameSearchInput } from "@components/clients/NameSearchInput";
+import { RecentClients } from "@components/clients/RecentClients";
 import { Button } from "@ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import { Kbd, KbdGroup } from "@ui/kbd";
@@ -16,9 +19,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
-import { ClientsList } from "../clients/ClientsList";
-import { NameSearchInput } from "../clients/NameSearchInput";
-import { RecentClients } from "../clients/RecentClients";
 
 export function GlobalClientSearch() {
 	const router = useRouter();

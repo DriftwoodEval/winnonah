@@ -1,5 +1,6 @@
 "use client";
 
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import type { JSONContent } from "@tiptap/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
@@ -12,7 +13,6 @@ import { ChevronUp } from "lucide-react";
 import React, { useState } from "react";
 import { calculateDiff, extractTextFromTipTap } from "~/lib/diff-utils";
 import { api } from "~/trpc/react";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 const UNCHANGED_THRESHOLD = 200;
 const CONTEXT_LENGTH = 50;

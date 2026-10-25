@@ -1,6 +1,9 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -27,9 +30,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 import OfficesSettings from "./OfficesSettings";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
 import { Button } from "@ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@ui/card";
 import {
@@ -17,8 +19,6 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
-import { Redact } from "../redaction/Redact";
 
 interface RelatedClientsProps {
 	clientId: number;

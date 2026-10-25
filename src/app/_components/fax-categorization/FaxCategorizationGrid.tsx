@@ -3,6 +3,8 @@
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { DashboardStatus } from "@components/client/status/DashboardStatus";
 import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
@@ -41,8 +43,6 @@ import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
 

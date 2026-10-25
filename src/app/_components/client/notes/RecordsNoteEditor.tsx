@@ -1,3 +1,6 @@
+import { EvaluationCheckbox } from "@components/client/EvaluationCheckbox";
+import { NoteHistory } from "@components/shared/NoteHistory";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
@@ -31,9 +34,6 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { NoteHistory } from "../../shared/NoteHistory";
-import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
-import { EvaluationCheckbox } from "../EvaluationCheckbox";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
 

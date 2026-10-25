@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -28,7 +29,6 @@ import {
 } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 import { AppointmentNoteCell } from "./AppointmentNoteCell";
 import { DueDateCell } from "./DueDateCell";
 import { LastTaskDateCell } from "./LastTaskDateCell";

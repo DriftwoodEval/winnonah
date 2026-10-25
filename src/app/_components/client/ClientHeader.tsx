@@ -1,5 +1,7 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -28,8 +30,6 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { formatCurrency, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { EditAsdAdhdDialog } from "./EditAsdAdhdDialog";
 import { ClientEditButton } from "./EditClientDialog";
 import { AddDriveButton } from "./location/AddDrive";

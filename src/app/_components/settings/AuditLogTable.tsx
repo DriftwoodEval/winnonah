@@ -1,6 +1,10 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -26,10 +30,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e"];

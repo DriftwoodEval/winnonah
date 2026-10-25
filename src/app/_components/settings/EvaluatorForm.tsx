@@ -1,5 +1,6 @@
 "use client";
 
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
@@ -23,7 +24,6 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { Evaluator } from "~/lib/models";
 import { api } from "~/trpc/react";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 export const evaluatorFormSchema = z.object({
 	npi: z.string().length(10, {

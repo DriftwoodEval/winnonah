@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import {
 	AlertDialog,
@@ -86,7 +87,6 @@ import {
 } from "~/lib/scheduling-slots";
 import { cn, formatInBusinessTime, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
 type AppointmentType = (typeof APPOINTMENT_TYPES)[number];

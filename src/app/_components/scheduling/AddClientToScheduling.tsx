@@ -1,9 +1,9 @@
 "use client";
 
+import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
 import { useMemo } from "react";
 import type { ScheduledClient, SortedClient } from "~/lib/api-types";
 import { api } from "~/trpc/react";
-import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 export function AddClientToScheduling({
 	onClientAdded,

@@ -1,6 +1,11 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
@@ -22,11 +27,6 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import { NameSearchInput } from "./NameSearchInput";

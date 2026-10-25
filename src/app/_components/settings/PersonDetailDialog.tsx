@@ -1,6 +1,8 @@
 "use client";
 
 import { ColorPicker } from "@components/layout/ColorPicker";
+import { Redact } from "@components/redaction/Redact";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	AlertDialog,
@@ -44,8 +46,6 @@ import { logger } from "~/lib/logger";
 import type { Evaluator, User } from "~/lib/models";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { EvaluatorForm } from "./EvaluatorForm";
 import { PermissionsField } from "./PermissionsField";
 

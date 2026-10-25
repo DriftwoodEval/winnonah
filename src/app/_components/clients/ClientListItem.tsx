@@ -1,12 +1,12 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { getHexFromColor } from "~/lib/colors";
 import { cn, formatClientAge, formatDateOnlyMedium } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 
 type ClientListItemProps = {
 	client: SortedClient;

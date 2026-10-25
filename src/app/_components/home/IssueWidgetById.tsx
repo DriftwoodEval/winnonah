@@ -1,16 +1,9 @@
 "use client";
 
-import { Button } from "@ui/button";
-import Link from "next/link";
-import { useCheckPermission } from "~/hooks/use-check-permission";
-import { ISSUE_TITLES } from "~/lib/issues/issue-titles";
-import type { ClientWithIssueInfo } from "~/lib/models";
-import type { PermissionId } from "~/lib/types";
-import { api } from "~/trpc/react";
 import {
 	DDS_REQUESTS_DESCRIPTION,
 	DdsRequestActions,
-} from "../issues/DdsRequestActions";
+} from "@components/issues/DdsRequestActions";
 import {
 	ClientsSharingQuestionnaires,
 	DuplicateDriveFoldersList,
@@ -19,8 +12,15 @@ import {
 	IssueListSkeleton,
 	SpecialAccommodationsActions,
 	SuggestionIssueList,
-} from "../issues/issuesList";
-import { ErrorState } from "../shared/ErrorState";
+} from "@components/issues/issuesList";
+import { ErrorState } from "@components/shared/ErrorState";
+import { Button } from "@ui/button";
+import Link from "next/link";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import { ISSUE_TITLES } from "~/lib/issues/issue-titles";
+import type { ClientWithIssueInfo } from "~/lib/models";
+import type { PermissionId } from "~/lib/types";
+import { api } from "~/trpc/react";
 import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 
 function Shell({ children }: { children: React.ReactNode }) {

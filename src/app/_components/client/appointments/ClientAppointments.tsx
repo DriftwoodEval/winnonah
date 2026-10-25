@@ -1,6 +1,10 @@
 "use client";
 
 import { PostVisitMessageButton } from "@components/appointments/PostVisitMessageButton";
+import { AppointmentReminderTimeline } from "@components/client/communication/AppointmentReminderTimeline";
+import { CheckInOutControl } from "@components/day-ahead/CheckInOutControl";
+import { useCheckinDateGate } from "@components/day-ahead/use-checkin-date-gate";
+import { todayStr } from "@components/home/DayAheadWidgets";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -38,10 +42,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { CheckInOutControl } from "../../day-ahead/CheckInOutControl";
-import { useCheckinDateGate } from "../../day-ahead/use-checkin-date-gate";
-import { todayStr } from "../../home/DayAheadWidgets";
-import { AppointmentReminderTimeline } from "../communication/AppointmentReminderTimeline";
 
 export function ClientAppointments({
 	clientId,

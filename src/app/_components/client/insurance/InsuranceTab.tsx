@@ -1,5 +1,8 @@
 "use client";
 
+import { EditPaAssignedToDialog } from "@components/client/EditPaAssignedToDialog";
+import { Redact } from "@components/redaction/Redact";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Badge } from "@ui/badge";
 import {
@@ -22,9 +25,6 @@ import {
 } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
-import { Redact } from "../../redaction/Redact";
-import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
-import { EditPaAssignedToDialog } from "../EditPaAssignedToDialog";
 
 interface InsuranceTabProps {
 	client: Client;

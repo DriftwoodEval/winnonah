@@ -1,11 +1,14 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import {
 	ColumnFilter,
 	type FilterOption,
 	toFilterOptions,
 } from "@components/shared/ColumnFilter";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
@@ -61,9 +64,6 @@ import {
 } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 import { NameSearchInput } from "./NameSearchInput";
 
 const FILTER_TIMEOUT_MS = 24 * 60 * 60 * 1000;

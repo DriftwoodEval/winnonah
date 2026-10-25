@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -9,7 +10,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { cn, formatDateOnlyLong, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 
 function useDebounce<T>(value: T, delay: number): T {
 	const [debouncedValue, setDebouncedValue] = useState<T>(value);

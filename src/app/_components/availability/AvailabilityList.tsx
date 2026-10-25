@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@ui/button";
 import { DatePicker } from "@ui/date-picker";
 import { ScrollArea, ScrollBar } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
@@ -27,7 +28,6 @@ import {
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Button } from "../ui/button";
 import { CreateAvailabilityDialog } from "./CreateAvailabilityDialog";
 import { EditAvailabilityDialog } from "./EditAvailabilityDialog";
 import { useOutOfOfficePriority } from "./useOutOfOfficePriority";

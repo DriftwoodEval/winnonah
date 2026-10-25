@@ -1,5 +1,6 @@
 "use client";
 
+import RunLogsTable from "@components/settings/RunLogsTable";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import {
@@ -46,7 +47,6 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import RunLogsTable from "../settings/RunLogsTable";
 import { AdminReviewSection } from "./admin-review/AdminReviewSection";
 import { ClientAppointments } from "./appointments/ClientAppointments";
 import { EligibleEvaluatorsList } from "./appointments/EligibleEvaluatorsList";

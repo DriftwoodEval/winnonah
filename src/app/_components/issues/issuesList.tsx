@@ -1,6 +1,11 @@
 "use client";
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ManualAddressDialog } from "@components/client/location/ManualAddressDialog";
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -46,11 +51,6 @@ import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { ManualAddressDialog } from "../client/location/ManualAddressDialog";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import {
 	DDS_REQUESTS_DESCRIPTION,
 	DdsRequestActions,

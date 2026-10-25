@@ -1,12 +1,12 @@
 "use client";
 
 import ReportQueue from "@components/reports/ReportQueue";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
-import { ErrorState } from "../shared/ErrorState";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
 

@@ -1,6 +1,9 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { DatePicker } from "@ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
@@ -26,9 +29,6 @@ import {
 import { Fragment, useMemo, useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 const DA_EVAL_ORDER = ["DA", "EVAL", "DAEVAL"] as const;
 const ASD_ADHD_ORDER = ["ASD", "ADHD", "ASD+LD", "ADHD+LD", "LD"];

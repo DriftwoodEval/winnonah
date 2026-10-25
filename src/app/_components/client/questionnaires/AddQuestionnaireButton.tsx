@@ -1,4 +1,8 @@
 "use client";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ButtonGroup } from "@ui/button-group";
@@ -16,10 +20,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { api } from "~/trpc/react";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../../shared/ResponsiveDialog";
 import {
 	QuestionnaireBulkForm,
 	type QuestionnaireBulkFormValues,

@@ -43,6 +43,8 @@ The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) 
 ## Path Aliases
 `~/` → `src/`, `@components/` → `src/app/_components/`, `@ui/` → `src/app/_components/ui/`
 
+Parent-relative imports (`../`) are banned by a Biome rule, including in `scripts/`. Use an alias; same-directory `./` imports are fine.
+
 ## Restrictions
 - Never read gitignored files (grep/cat/etc. included).
 - Never query or output sensitive data (PII, credentials, patient records), even for debugging.

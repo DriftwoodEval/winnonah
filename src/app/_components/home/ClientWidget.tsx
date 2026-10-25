@@ -1,6 +1,6 @@
 "use client";
 
-import { ClientsDashboard } from "../clients/ClientsDashboard";
+import { ClientsDashboard } from "@components/clients/ClientsDashboard";
 
 export function ClientWidget() {
 	return (

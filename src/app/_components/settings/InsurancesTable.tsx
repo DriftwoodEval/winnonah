@@ -1,5 +1,8 @@
 "use client";
 
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	AlertDialog,
@@ -57,9 +60,6 @@ import { logger } from "~/lib/logger";
 import type { Insurance } from "~/lib/models";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
 import { api } from "~/trpc/react";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 const log = logger.child({ module: "InsurancesTable" });
 

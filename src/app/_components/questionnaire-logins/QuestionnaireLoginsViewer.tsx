@@ -1,5 +1,7 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { useRedaction } from "@components/redaction/redaction";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
@@ -9,8 +11,6 @@ import { toast } from "sonner";
 import { formatInBusinessTime } from "~/lib/utils";
 import { scrambleText } from "~/lib/utils.client";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { useRedaction } from "../redaction/redaction";
 
 function CredentialField({ label, value }: { label: string; value: string }) {
 	const { enabled } = useRedaction();

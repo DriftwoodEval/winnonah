@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { ColumnFilter, toFilterOptions } from "@components/shared/ColumnFilter";
 import { Button } from "@components/ui/button";
 import {
@@ -109,7 +110,6 @@ import {
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 
 // --- Types & Utilities ---
 

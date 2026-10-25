@@ -1,6 +1,17 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import {
+	DismissButton,
+	DismissedBadge,
+	HideDismissedToggle,
+	type ListDismissals,
+	useListDismissals,
+} from "@components/dashboard/ListDismissals";
+import { PinListButton } from "@components/dashboard/PinListButton";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
@@ -15,17 +26,6 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
-import {
-	DismissButton,
-	DismissedBadge,
-	HideDismissedToggle,
-	type ListDismissals,
-	useListDismissals,
-} from "../dashboard/ListDismissals";
-import { PinListButton } from "../dashboard/PinListButton";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 interface DashboardSectionWidgetProps {
 	sectionTitle: string;
