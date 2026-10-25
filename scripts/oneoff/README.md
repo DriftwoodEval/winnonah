@@ -5,6 +5,7 @@ Migrations, backfills, imports, and cleanups that were run once against real dat
 Run TypeScript scripts from the repo root, for example `pnpm exec tsx scripts/oneoff/<name>.ts`. Data files a script reads (such as `notes.json` or `schools.xlsx`) are gitignored and expected next to the script.
 
 - `backfill-appointment-utc.md`: convert appointment times to true UTC (SQL in Markdown).
+- `backfill-user-preferences.md`: copy per-user home widgets, header items, and issue list order into `emr_user.preferences` (SQL in Markdown).
 - `backfill-reports.ts`: populate `emr_report` from the punch list.
 - `cleanup-backfilled-reports.ts`: delete stale report rows the backfill created.
 - `cleanup-no-link-grabbed-failures.ts`: clean up "no link grabbed" failure records.

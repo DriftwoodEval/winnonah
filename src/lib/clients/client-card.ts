@@ -30,7 +30,7 @@ export const CLIENT_CARD_FIELDS = [
 	{ id: "highPriority", label: "High priority indicator", group: "Status" },
 	{ id: "paused", label: "Paused indicator", group: "Status" },
 	{
-		id: "flags",
+		id: "otherIndicators",
 		label: "BabyNet and autism stop indicators",
 		group: "Status",
 	},
@@ -54,7 +54,7 @@ export const DEFAULT_CLIENT_CARD_FIELDS: ClientCardFieldId[] = [
 	"primaryInsurance",
 	"highPriority",
 	"paused",
-	"flags",
+	"otherIndicators",
 	"nextAppointment",
 ];
 

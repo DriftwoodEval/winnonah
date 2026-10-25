@@ -107,7 +107,7 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 		case "colorDot":
 		case "highPriority":
 		case "paused":
-		case "flags":
+		case "otherIndicators":
 			return null;
 		case "nextAppointment":
 			return (
@@ -150,7 +150,7 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 const INDICATOR_FIELDS: ClientCardFieldId[] = [
 	"highPriority",
 	"paused",
-	"flags",
+	"otherIndicators",
 ];
 
 type Indicator = {
@@ -170,7 +170,7 @@ function renderIndicators(
 	if (fields.includes("paused") && client.pause) {
 		indicators.push({ label: "Paused", variant: "warning" });
 	}
-	if (fields.includes("flags")) {
+	if (fields.includes("otherIndicators")) {
 		if (client.babyNet) {
 			indicators.push({ label: "BabyNet", variant: "secondary" });
 		}

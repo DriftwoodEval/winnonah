@@ -14,6 +14,7 @@ import {
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
 import type { PinnedList } from "~/lib/pinned-list";
+import type { UserPreferences } from "~/lib/preferences";
 import type { RunSummary } from "~/lib/run-summary";
 import type { PermissionsObject } from "~/lib/types";
 import type {
@@ -1262,10 +1263,13 @@ export const users = createTable("user", (d) => ({
 	maxClaimedReports: d.tinyint(),
 	phoneNumber: d.varchar({ length: 20 }),
 	recentClients: d.text(),
+	// Per-user display preferences (see ~/lib/preferences).
+	preferences: d.json().$type<UserPreferences>(),
+	// Legacy copies of keys that now live in preferences. No longer read or
+	// written; drop once the preferences backfill is verified.
 	homeWidgets: d.text(),
 	headerItems: d.text(),
 	issueListOrder: d.text(),
-	clientCardFields: d.text(),
 	lastSeenChangelogMarker: d.text(),
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),

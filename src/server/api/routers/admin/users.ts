@@ -7,8 +7,10 @@ import {
 	mergeClientCardFields,
 } from "~/lib/clients/client-card";
 import { pinnedListSchema } from "~/lib/pinned-list";
+import { homeWidgetSchema } from "~/lib/preferences";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
+import { patchPreferences, readPreferences } from "~/server/api/preferences";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -430,85 +432,31 @@ export const userRouter = createTRPCRouter({
 		}),
 
 	getHomeWidgets: protectedProcedure.query(async ({ ctx }) => {
-		const userFromDb = await ctx.db.query.users.findFirst({
-			where: eq(users.id, ctx.session.user.id),
-		});
-
-		if (!userFromDb) return null;
-
-		try {
-			return JSON.parse(userFromDb.homeWidgets ?? "null") as
-				| { id: string; cols: number; rows: number }[]
-				| null;
-		} catch {
-			return null;
-		}
+		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+		return prefs.homeWidgets ?? null;
 	}),
 
 	updateHomeWidgets: protectedProcedure
-		.input(
-			z.object({
-				widgets: z.array(
-					z.object({
-						id: z.string(),
-						cols: z.number().int().min(1).max(4),
-						rows: z.number().int().min(1).max(4),
-					}),
-				),
-			}),
-		)
+		.input(z.object({ widgets: z.array(homeWidgetSchema) }))
 		.mutation(async ({ ctx, input }) => {
-			const userFromDb = await ctx.db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-			});
-			let existingWidgets: unknown[] = [];
-			try {
-				existingWidgets =
-					(JSON.parse(userFromDb?.homeWidgets ?? "null") as unknown[]) ?? [];
-			} catch {
-				existingWidgets = [];
-			}
-			setAuditDetail(ctx, diffValues(existingWidgets, input.widgets));
-
-			await ctx.db
-				.update(users)
-				.set({ homeWidgets: JSON.stringify(input.widgets) })
-				.where(eq(users.id, ctx.session.user.id));
+			const userId = ctx.session.user.id;
+			const prefs = await readPreferences(ctx.db, userId);
+			setAuditDetail(ctx, diffValues(prefs.homeWidgets ?? [], input.widgets));
+			await patchPreferences(ctx.db, userId, { homeWidgets: input.widgets });
 		}),
 
 	getIssueListOrder: protectedProcedure.query(async ({ ctx }) => {
-		const userFromDb = await ctx.db.query.users.findFirst({
-			where: eq(users.id, ctx.session.user.id),
-		});
-
-		try {
-			return JSON.parse(userFromDb?.issueListOrder ?? "null") as
-				| string[]
-				| null;
-		} catch {
-			return null;
-		}
+		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+		return prefs.issueListOrder ?? null;
 	}),
 
 	updateIssueListOrder: protectedProcedure
 		.input(z.object({ order: z.array(z.string()) }))
 		.mutation(async ({ ctx, input }) => {
-			const userFromDb = await ctx.db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-			});
-			let existingOrder: unknown[] = [];
-			try {
-				existingOrder =
-					(JSON.parse(userFromDb?.issueListOrder ?? "null") as unknown[]) ?? [];
-			} catch {
-				existingOrder = [];
-			}
-			setAuditDetail(ctx, diffValues(existingOrder, input.order));
-
-			await ctx.db
-				.update(users)
-				.set({ issueListOrder: JSON.stringify(input.order) })
-				.where(eq(users.id, ctx.session.user.id));
+			const userId = ctx.session.user.id;
+			const prefs = await readPreferences(ctx.db, userId);
+			setAuditDetail(ctx, diffValues(prefs.issueListOrder ?? [], input.order));
+			await patchPreferences(ctx.db, userId, { issueListOrder: input.order });
 		}),
 
 	getListFilters: protectedProcedure.query(async ({ ctx }) => {
@@ -581,19 +529,11 @@ export const userRouter = createTRPCRouter({
 	}),
 
 	getHeaderPreferences: protectedProcedure.query(async ({ ctx }) => {
-		const userFromDb = await ctx.db.query.users.findFirst({
-			where: eq(users.id, ctx.session.user.id),
-		});
-
-		try {
-			const parsed = JSON.parse(userFromDb?.headerItems ?? "null") as {
-				desktop?: string[];
-				mobile?: string[];
-			} | null;
-			return { desktop: parsed?.desktop ?? [], mobile: parsed?.mobile ?? [] };
-		} catch {
-			return { desktop: [], mobile: [] };
-		}
+		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+		return {
+			desktop: prefs.headerItems?.desktop ?? [],
+			mobile: prefs.headerItems?.mobile ?? [],
+		};
 	}),
 
 	updateHeaderPreferences: protectedProcedure
@@ -604,70 +544,40 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const userFromDb = await ctx.db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-			});
-
-			let current: { desktop?: string[]; mobile?: string[] } = {};
-			try {
-				current =
-					(JSON.parse(userFromDb?.headerItems ?? "null") as typeof current) ??
-					{};
-			} catch {
-				current = {};
-			}
-			const previousHiddenItems = current[input.surface] ?? [];
-			current[input.surface] = input.hiddenItems;
-
+			const userId = ctx.session.user.id;
+			const prefs = await readPreferences(ctx.db, userId);
 			setAuditDetail(
 				ctx,
 				diffValues(
-					{ surface: input.surface, hiddenItems: previousHiddenItems },
+					{
+						surface: input.surface,
+						hiddenItems: prefs.headerItems?.[input.surface] ?? [],
+					},
 					{ surface: input.surface, hiddenItems: input.hiddenItems },
 				),
 			);
-
-			await ctx.db
-				.update(users)
-				.set({ headerItems: JSON.stringify(current) })
-				.where(eq(users.id, ctx.session.user.id));
+			await patchPreferences(ctx.db, userId, {
+				headerItems: { [input.surface]: input.hiddenItems },
+			});
 		}),
 
 	getClientCardFields: protectedProcedure.query(async ({ ctx }) => {
-		const userFromDb = await ctx.db.query.users.findFirst({
-			where: eq(users.id, ctx.session.user.id),
-		});
-
-		try {
-			return mergeClientCardFields(
-				JSON.parse(userFromDb?.clientCardFields ?? "null"),
-			);
-		} catch {
-			return mergeClientCardFields(null);
-		}
+		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+		return mergeClientCardFields(prefs.clientCardFields);
 	}),
 
 	updateClientCardFields: protectedProcedure
 		.input(z.object({ fields: z.array(z.enum(CLIENT_CARD_FIELD_IDS)) }))
 		.mutation(async ({ ctx, input }) => {
-			const userFromDb = await ctx.db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-			});
-			let existing: unknown;
-			try {
-				existing = JSON.parse(userFromDb?.clientCardFields ?? "null");
-			} catch {
-				existing = null;
-			}
+			const userId = ctx.session.user.id;
+			const prefs = await readPreferences(ctx.db, userId);
 			setAuditDetail(
 				ctx,
-				diffValues(mergeClientCardFields(existing), input.fields),
+				diffValues(mergeClientCardFields(prefs.clientCardFields), input.fields),
 			);
-
-			await ctx.db
-				.update(users)
-				.set({ clientCardFields: JSON.stringify(input.fields) })
-				.where(eq(users.id, ctx.session.user.id));
+			await patchPreferences(ctx.db, userId, {
+				clientCardFields: input.fields,
+			});
 		}),
 
 	getChangelogMarker: protectedProcedure.query(async ({ ctx }) => {
