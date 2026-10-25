@@ -12,15 +12,15 @@ import {
 	splitActionItems,
 } from "~/lib/issues/issue-titles";
 
-interface IssueListCustomizerProps {
+interface IssueListOrderEditorProps {
 	order: IssueListId[];
 	onChange: (order: IssueListId[]) => void;
 }
 
-export function IssueListCustomizer({
+export function IssueListOrderEditor({
 	order,
 	onChange,
-}: IssueListCustomizerProps) {
+}: IssueListOrderEditorProps) {
 	const can = useCheckPermission();
 	const visibleOrder = order.filter((id) => can(ISSUE_LIST_PERMISSIONS[id]));
 	const { actionItems, issues } = splitActionItems(visibleOrder);
@@ -85,6 +85,20 @@ export function IssueListCustomizer({
 		);
 
 	return (
+		<div className="space-y-4">
+			{renderGroup("Action Item Order", actionItems)}
+			{renderGroup("Issue List Order", issues)}
+		</div>
+	);
+}
+
+type IssueListCustomizerProps = IssueListOrderEditorProps;
+
+export function IssueListCustomizer({
+	order,
+	onChange,
+}: IssueListCustomizerProps) {
+	return (
 		<Popover>
 			<Tooltip>
 				<TooltipTrigger asChild>
@@ -99,9 +113,8 @@ export function IssueListCustomizer({
 				</TooltipContent>
 			</Tooltip>
 			<PopoverContent align="end" className="w-72">
-				<div className="max-h-[70vh] space-y-4 overflow-y-auto">
-					{renderGroup("Action Item Order", actionItems)}
-					{renderGroup("Issue List Order", issues)}
+				<div className="max-h-[70vh] overflow-y-auto">
+					<IssueListOrderEditor onChange={onChange} order={order} />
 				</div>
 			</PopoverContent>
 		</Popover>

@@ -29,6 +29,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useIssueCounts } from "~/hooks/use-issue-counts";
+import { useIssueListOrder } from "~/hooks/use-issue-list-order";
 import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
@@ -38,7 +39,6 @@ import {
 	ISSUE_LIST_PERMISSIONS,
 	ISSUE_TITLES,
 	type IssueListId,
-	mergeIssueListOrder,
 	splitActionItems,
 } from "~/lib/issues/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
@@ -1531,19 +1531,9 @@ export function IssuesList() {
 		)
 		.map(({ title }) => title);
 
-	const { data: savedOrder } = api.users.getIssueListOrder.useQuery();
-	const { mutate: updateOrder } = api.users.updateIssueListOrder.useMutation();
-	const order = mergeIssueListOrder(savedOrder);
+	const { order, setOrder: handleOrderChange } = useIssueListOrder();
 	const { actionItems: actionItemIds, issues: issueIds } =
 		splitActionItems(order);
-
-	const handleOrderChange = async (next: IssueListId[]) => {
-		// Cancel any in-flight fetch so it can't land after this optimistic
-		// write and revert the order back to the old value.
-		await utils.users.getIssueListOrder.cancel();
-		utils.users.getIssueListOrder.setData(undefined, next);
-		updateOrder({ order: next });
-	};
 
 	const issueBlocks: Record<IssueListId, React.ReactNode> = {
 		dd4: (
