@@ -1265,11 +1265,6 @@ export const users = createTable("user", (d) => ({
 	recentClients: d.text(),
 	// Per-user display preferences (see ~/lib/preferences).
 	preferences: d.json().$type<UserPreferences>(),
-	// Legacy copies of keys that now live in preferences. No longer read or
-	// written; drop once the preferences backfill is verified.
-	homeWidgets: d.text(),
-	headerItems: d.text(),
-	issueListOrder: d.text(),
 	lastSeenChangelogMarker: d.text(),
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),

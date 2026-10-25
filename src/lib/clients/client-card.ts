@@ -49,6 +49,7 @@ export const CLIENT_CARD_FIELD_IDS = CLIENT_CARD_FIELDS.map(
 ) as [ClientCardFieldId, ...ClientCardFieldId[]];
 
 export const DEFAULT_CLIENT_CARD_FIELDS: ClientCardFieldId[] = [
+	"colorDot",
 	"age",
 	"primaryInsurance",
 	"highPriority",
