@@ -27,6 +27,7 @@ import { useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
+import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
 
@@ -136,7 +137,7 @@ export default function AuditLogTable() {
 		row.clientId && row.clientHash ? (
 			<Link className="hover:underline" href={`/clients/${row.clientHash}`}>
 				<ClientHoverCard clientHash={row.clientHash}>
-					{row.clientFirstName} {row.clientLastName}
+					<Redact>{`${row.clientFirstName} ${row.clientLastName}`}</Redact>
 				</ClientHoverCard>
 			</Link>
 		) : (
@@ -216,7 +217,7 @@ export default function AuditLogTable() {
 						onClick={() => resetAndSet(setClient)(null)}
 						variant="outline"
 					>
-						{client.fullName}
+						<Redact>{client.fullName}</Redact>
 						<X className="h-4 w-4" />
 					</Button>
 				) : (

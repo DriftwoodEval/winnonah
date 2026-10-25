@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { RunSummary } from "~/lib/run-summary";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 const RUN_LABELS: Record<string, string> = {
 	import_from_ta: "TherapyAppointment Import",
@@ -90,7 +91,7 @@ export default function RunSummaryList() {
 																href={`/clients/${client.hash}`}
 															>
 																<ClientHoverCard clientHash={client.hash}>
-																	{client.name}
+																	<Redact>{client.name}</Redact>
 																</ClientHoverCard>
 															</Link>
 														</span>

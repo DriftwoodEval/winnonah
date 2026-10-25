@@ -30,8 +30,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import { cn, formatCurrency } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
 import { ReportCard } from "./ReportCards";
 import { ReportNoteCell } from "./ReportNoteCell";
@@ -572,14 +573,9 @@ export function ReportsTable({
 												<Link
 													className="block truncate text-sm hover:underline"
 													href={`/clients/${r.clientHash}`}
-													title={
-														r.clientOutstandingBalance > 0
-															? `${r.clientFullName} (${formatCurrency(r.clientOutstandingBalance)} outstanding)`
-															: r.clientFullName
-													}
 												>
 													<ClientHoverCard clientHash={r.clientHash}>
-														{r.clientFullName}
+														<Redact>{r.clientFullName}</Redact>
 													</ClientHoverCard>
 												</Link>
 												<ClientDriveLink report={r} />

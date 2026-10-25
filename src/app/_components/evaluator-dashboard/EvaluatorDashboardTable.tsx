@@ -28,6 +28,7 @@ import {
 } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { AppointmentNoteCell } from "./AppointmentNoteCell";
 import { DueDateCell } from "./DueDateCell";
 import { LastTaskDateCell } from "./LastTaskDateCell";
@@ -70,7 +71,7 @@ function ClientNameCell({ name, hash }: { name: string; hash: string }) {
 			href={`/clients/${hash}`}
 			ref={linkRef}
 		>
-			{name}
+			<Redact>{name}</Redact>
 		</Link>
 	);
 
@@ -179,7 +180,7 @@ export function EvaluatorDashboardTable({
 											href={`/clients/${appt.clientHash}`}
 										>
 											<ClientHoverCard clientHash={appt.clientHash}>
-												{appt.clientFullName}
+												<Redact>{appt.clientFullName}</Redact>
 											</ClientHoverCard>
 										</Link>
 										<p

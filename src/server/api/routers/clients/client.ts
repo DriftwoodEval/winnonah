@@ -1294,6 +1294,7 @@ export const clientRouter = createTRPCRouter({
 				columns: {
 					id: true,
 					fullName: true,
+					color: true,
 					dob: true,
 					gender: true,
 					language: true,

@@ -110,7 +110,6 @@ import {
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
-import { useRedaction } from "../redaction/redaction";
 
 // --- Types & Utilities ---
 
@@ -944,7 +943,6 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 	dragHandleAttributes: DraggableAttributes;
 	dragHandleListeners: DraggableSyntheticListeners;
 }) {
-	const { enabled: redactionEnabled } = useRedaction();
 	const can = useCheckPermission();
 	const canUseSchedulingHelper = can("pages:scheduling-helper");
 
@@ -1003,9 +1001,6 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 					<Link
 						className="truncate hover:underline"
 						href={`/clients/${scheduledClient.client.hash}`}
-						title={
-							redactionEnabled ? undefined : scheduledClient.client.fullName
-						}
 					>
 						<ClientHoverCard clientHash={scheduledClient.client.hash}>
 							<Redact>{scheduledClient.client.fullName}</Redact>
@@ -1254,8 +1249,6 @@ const SchedulingCard = memo(function SchedulingCard({
 	isActionPending: boolean;
 	isHighlighted?: boolean;
 }) {
-	const { enabled: redactionEnabled } = useRedaction();
-
 	const districtMap = useMemo(
 		() => new Map(districts.map((d) => [d.fullName, d])),
 		[districts],
@@ -1298,9 +1291,6 @@ const SchedulingCard = memo(function SchedulingCard({
 					<Link
 						className="truncate font-medium hover:underline"
 						href={`/clients/${scheduledClient.client.hash}`}
-						title={
-							redactionEnabled ? undefined : scheduledClient.client.fullName
-						}
 					>
 						<ClientHoverCard clientHash={scheduledClient.client.hash}>
 							<Redact>{scheduledClient.client.fullName}</Redact>

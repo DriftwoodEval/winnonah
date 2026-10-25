@@ -7,6 +7,7 @@ import {
 	type ClientCardFieldId,
 	type ClientCardSummary,
 } from "~/lib/clients/client-card";
+import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	formatClientAge,
 	formatDateOnlyLong,
@@ -103,23 +104,11 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 			return client.outstandingBalance > 0 ? (
 				<CardRow label={label}>${client.outstandingBalance.toFixed(2)}</CardRow>
 			) : null;
-		case "flags": {
-			const flags = [
-				client.highPriority && "High priority",
-				client.babyNet && "BabyNet",
-				client.pause && "Paused",
-				client.autismStop && "Autism stop",
-			].filter((flag): flag is string => !!flag);
-			return flags.length > 0 ? (
-				<div className="flex flex-wrap gap-1">
-					{flags.map((flag) => (
-						<Badge key={flag} variant="secondary">
-							{flag}
-						</Badge>
-					))}
-				</div>
-			) : null;
-		}
+		case "colorDot":
+		case "highPriority":
+		case "paused":
+		case "flags":
+			return null;
 		case "nextAppointment":
 			return (
 				<CardRow label={label}>
@@ -158,6 +147,49 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 	}
 }
 
+const INDICATOR_FIELDS: ClientCardFieldId[] = [
+	"highPriority",
+	"paused",
+	"flags",
+];
+
+type Indicator = {
+	label: string;
+	variant: "destructive" | "warning" | "secondary";
+};
+
+/** The status badges for whichever indicator fields are selected, in one row. */
+function renderIndicators(
+	fields: ClientCardFieldId[],
+	client: ClientCardSummary,
+) {
+	const indicators: Indicator[] = [];
+	if (fields.includes("highPriority") && client.highPriority) {
+		indicators.push({ label: "High priority", variant: "destructive" });
+	}
+	if (fields.includes("paused") && client.pause) {
+		indicators.push({ label: "Paused", variant: "warning" });
+	}
+	if (fields.includes("flags")) {
+		if (client.babyNet) {
+			indicators.push({ label: "BabyNet", variant: "secondary" });
+		}
+		if (client.autismStop) {
+			indicators.push({ label: "Autism stop", variant: "secondary" });
+		}
+	}
+	if (indicators.length === 0) return null;
+	return (
+		<div className="flex flex-wrap gap-1">
+			{indicators.map((indicator) => (
+				<Badge key={indicator.label} variant={indicator.variant}>
+					{indicator.label}
+				</Badge>
+			))}
+		</div>
+	);
+}
+
 interface ClientInfoCardProps {
 	client: ClientCardSummary;
 	fields: ClientCardFieldId[];
@@ -167,13 +199,27 @@ interface ClientInfoCardProps {
 export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
 	// Fields with no value for this client render nothing, so skip them here
 	// rather than leaving an empty gap in the card.
+	const firstIndicator = fields.find((id) => INDICATOR_FIELDS.includes(id));
 	const rows = fields
-		.map((id) => ({ id, content: renderField(id, client) }))
+		.map((id) => ({
+			id,
+			content:
+				id === firstIndicator
+					? renderIndicators(fields, client)
+					: renderField(id, client),
+		}))
 		.filter((row) => row.content);
+	const showDot = fields.includes("colorDot") && isClientColor(client.color);
 
 	return (
 		<div className="flex flex-col gap-2">
-			<p className="font-semibold">
+			<p className="flex items-center gap-2 font-semibold">
+				{showDot && isClientColor(client.color) && (
+					<span
+						className="h-3 w-3 shrink-0 rounded-full"
+						style={{ backgroundColor: getHexFromColor(client.color) }}
+					/>
+				)}
 				<Redact>{client.fullName}</Redact>
 			</p>
 			{rows.length === 0 ? (

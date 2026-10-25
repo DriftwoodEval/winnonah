@@ -15,6 +15,7 @@ import {
 const SAMPLE_CLIENT: ClientCardSummary = {
 	id: 0,
 	fullName: "Sample Client",
+	color: "teal",
 	dob: "2020-03-14",
 	gender: "Female",
 	language: "English",
@@ -30,8 +31,8 @@ const SAMPLE_CLIENT: ClientCardSummary = {
 	outstandingBalance: 42.5,
 	addedDate: "2026-09-01",
 	highPriority: true,
-	babyNet: false,
-	pause: false,
+	babyNet: true,
+	pause: true,
 	autismStop: false,
 	pendingQuestionnaires: 2,
 	nextAppointment: {

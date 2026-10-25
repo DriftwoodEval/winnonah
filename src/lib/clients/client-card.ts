@@ -9,6 +9,7 @@ export type ClientCardGroup = (typeof CLIENT_CARD_GROUPS)[number];
 
 /** Fields the hover card can show, in the order they are displayed. */
 export const CLIENT_CARD_FIELDS = [
+	{ id: "colorDot", label: "Color dot (next to name)", group: "Basics" },
 	{ id: "age", label: "Age", group: "Basics" },
 	{ id: "dob", label: "Date of birth", group: "Basics" },
 	{ id: "gender", label: "Gender", group: "Basics" },
@@ -26,9 +27,11 @@ export const CLIENT_CARD_FIELDS = [
 	},
 	{ id: "precertExpires", label: "PA expires", group: "Insurance" },
 	{ id: "balance", label: "Outstanding balance", group: "Insurance" },
+	{ id: "highPriority", label: "High priority indicator", group: "Status" },
+	{ id: "paused", label: "Paused indicator", group: "Status" },
 	{
 		id: "flags",
-		label: "Flags (high priority, BabyNet, paused)",
+		label: "BabyNet and autism stop indicators",
 		group: "Status",
 	},
 	{ id: "nextAppointment", label: "Next appointment", group: "Status" },
@@ -49,6 +52,8 @@ export const CLIENT_CARD_FIELD_IDS = CLIENT_CARD_FIELDS.map(
 export const DEFAULT_CLIENT_CARD_FIELDS: ClientCardFieldId[] = [
 	"age",
 	"primaryInsurance",
+	"highPriority",
+	"paused",
 	"flags",
 	"nextAppointment",
 ];
@@ -70,6 +75,7 @@ export function mergeClientCardFields(stored: unknown): ClientCardFieldId[] {
 export interface ClientCardSummary {
 	id: number;
 	fullName: string;
+	color: string;
 	dob: string;
 	gender: string | null;
 	language: string | null;

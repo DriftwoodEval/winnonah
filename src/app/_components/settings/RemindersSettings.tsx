@@ -27,6 +27,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
 import OfficesSettings from "./OfficesSettings";
@@ -252,7 +253,7 @@ export default function ReminderSettings() {
 													href={`/clients/${log.clientHash}`}
 												>
 													<ClientHoverCard clientHash={log.clientHash}>
-														{log.clientFirstName} {log.clientLastName}
+														<Redact>{`${log.clientFirstName} ${log.clientLastName}`}</Redact>
 													</ClientHoverCard>
 												</Link>
 											</TableCell>
@@ -316,7 +317,7 @@ export default function ReminderSettings() {
 													href={`/clients/${reply.clientHash}`}
 												>
 													<ClientHoverCard clientHash={reply.clientHash}>
-														{reply.clientFirstName} {reply.clientLastName}
+														<Redact>{`${reply.clientFirstName} ${reply.clientLastName}`}</Redact>
 													</ClientHoverCard>
 												</Link>
 											</TableCell>
@@ -382,7 +383,7 @@ export default function ReminderSettings() {
 													href={`/clients/${reply.clientHash}`}
 												>
 													<ClientHoverCard clientHash={reply.clientHash}>
-														{reply.clientFirstName} {reply.clientLastName}
+														<Redact>{`${reply.clientFirstName} ${reply.clientLastName}`}</Redact>
 													</ClientHoverCard>
 												</Link>
 											</TableCell>

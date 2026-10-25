@@ -56,11 +56,6 @@ function ClientHeader({ r }: { r: Report }) {
 			<Link
 				className="no-underline! hover:no-underline! flex min-w-0 flex-wrap items-center gap-2 font-medium hover:underline"
 				href={`/clients/${r.clientHash}`}
-				title={
-					r.clientOutstandingBalance > 0
-						? `${r.clientFullName} (${formatCurrency(r.clientOutstandingBalance)} outstanding)`
-						: r.clientFullName
-				}
 			>
 				<span
 					className="h-3 w-3 shrink-0 rounded-full"

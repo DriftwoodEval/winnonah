@@ -730,7 +730,7 @@ export function Dashboard() {
 									<li key={c.hash}>
 										<Link className="underline" href={`/clients/${c.hash}`}>
 											<ClientHoverCard clientHash={c.hash}>
-												{c.name}
+												<Redact>{c.name}</Redact>
 											</ClientHoverCard>
 										</Link>{" "}
 										<span className="font-semibold">({c.count}×)</span>
