@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -167,7 +168,9 @@ function AppointmentRow({
 				className="truncate font-medium hover:text-secondary"
 				href={`/clients/${appt.clientHash}`}
 			>
-				<Redact>{appt.clientName}</Redact>
+				<ClientHoverCard clientHash={appt.clientHash}>
+					<Redact>{appt.clientName}</Redact>
+				</ClientHoverCard>
 			</Link>
 			<ClientPortalLinks
 				driveId={appt.clientDriveId}
@@ -284,7 +287,9 @@ function EvaluatorRow({
 								className="truncate text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								<Redact>{appt.clientName}</Redact>
+								<ClientHoverCard clientHash={appt.clientHash}>
+									<Redact>{appt.clientName}</Redact>
+								</ClientHoverCard>
 							</Link>
 							<ClientPortalLinks
 								driveId={appt.clientDriveId}

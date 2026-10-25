@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { DashboardStatus } from "@components/client/status/DashboardStatus";
 import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
 import { Badge } from "@ui/badge";
@@ -422,7 +423,9 @@ function FaxGrid({
 													className="hover:bg-secondary/70"
 													variant="secondary"
 												>
-													<Redact>{link.client.fullName}</Redact>
+													<ClientHoverCard clientHash={link.client.hash}>
+														<Redact>{link.client.fullName}</Redact>
+													</ClientHoverCard>
 												</Badge>
 											</Link>
 										))}
@@ -606,7 +609,11 @@ function FaxGrid({
 																		className="text-sm hover:underline"
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		<Redact>{link.client.fullName}</Redact>
+																		<ClientHoverCard
+																			clientHash={link.client.hash}
+																		>
+																			<Redact>{link.client.fullName}</Redact>
+																		</ClientHoverCard>
 																	</Link>
 																	{link.source === "llm" &&
 																		link.confidence !== null &&
@@ -670,7 +677,11 @@ function FaxGrid({
 																		)}
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		<Redact>{link.client.fullName}</Redact>
+																		<ClientHoverCard
+																			clientHash={link.client.hash}
+																		>
+																			<Redact>{link.client.fullName}</Redact>
+																		</ClientHoverCard>
 																	</Link>
 																	{link.rejected ? (
 																		<Badge variant="outline">
@@ -716,7 +727,11 @@ function FaxGrid({
 																	className="text-sm hover:underline"
 																	href={`/clients/${link.client.hash}`}
 																>
-																	<Redact>{link.client.fullName}</Redact>
+																	<ClientHoverCard
+																		clientHash={link.client.hash}
+																	>
+																		<Redact>{link.client.fullName}</Redact>
+																	</ClientHoverCard>
 																</Link>
 																{link.source === "manual" && (
 																	<Badge variant="outline">

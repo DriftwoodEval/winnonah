@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
@@ -157,7 +158,9 @@ function DashboardClientRow({
 							/>
 						)}
 						<span className="truncate">
-							<Redact>{name}</Redact>
+							<ClientHoverCard clientHash={full.hash}>
+								<Redact>{name}</Redact>
+							</ClientHoverCard>
 						</span>
 						{isRecordsNotReturnedSection && full.asdAdhd && (
 							<span className="shrink-0 text-muted-foreground text-xs">

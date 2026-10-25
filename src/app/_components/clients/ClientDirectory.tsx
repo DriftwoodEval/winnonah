@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import {
 	ColumnFilter,
 	type FilterOption,
@@ -754,7 +755,9 @@ const ClientTableRow = memo(function ClientTableRow({
 								backgroundColor: getHexFromColor(client.color),
 							}}
 						/>
-						<Redact>{client.fullName}</Redact>
+						<ClientHoverCard clientHash={client.hash}>
+							<Redact>{client.fullName}</Redact>
+						</ClientHoverCard>
 					</span>
 					{visibleColumns[FAILURES_TOGGLE_KEY] &&
 						client.unresolvedFailures.map((reason) => (
@@ -968,7 +971,9 @@ const ClientCard = memo(function ClientCard({
 							backgroundColor: getHexFromColor(client.color),
 						}}
 					/>
-					<Redact>{client.fullName}</Redact>
+					<ClientHoverCard clientHash={client.hash}>
+						<Redact>{client.fullName}</Redact>
+					</ClientHoverCard>
 				</span>
 				{visibleColumns[FAILURES_TOGGLE_KEY] &&
 					client.unresolvedFailures.map((reason) => (

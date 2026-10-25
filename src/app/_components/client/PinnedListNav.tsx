@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin, X } from "lucide-react";
@@ -43,7 +44,9 @@ function ExpandedRow({
 					/>
 				)}
 				<span className={current ? "font-medium" : ""}>
-					<Redact>{entry.name}</Redact>
+					<ClientHoverCard clientHash={entry.hash}>
+						<Redact>{entry.name}</Redact>
+					</ClientHoverCard>
 				</span>
 				{entry.waiting && (
 					<Badge className="" size="sm" variant="warning">

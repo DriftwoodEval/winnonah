@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { DatePicker } from "@ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
@@ -241,7 +242,9 @@ function AppointmentDetailDialog({
 										{format(appt.startTime, "MMM d, yyyy h:mm a")}
 									</TableCell>
 									<TableCell>
-										<Redact>{appt.clientName}</Redact>
+										<ClientHoverCard clientHash={appt.clientHash}>
+											<Redact>{appt.clientName}</Redact>
+										</ClientHoverCard>
 									</TableCell>
 									<TableCell>
 										{appt.asdAdhd

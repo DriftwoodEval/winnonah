@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { IssueReportButton } from "@components/issue-report/IssueReportButton";
 import { IssuesAlert } from "@components/issues/issuesAlert";
 import { TaskQueueBubble } from "@components/layout/TaskQueueBubble";
@@ -69,7 +70,9 @@ export function HeaderActions() {
 									href={`/clients/${client.hash}`}
 									key={client.hash}
 								>
-									<Redact>{client.name}</Redact>
+									<ClientHoverCard clientHash={client.hash}>
+										<Redact>{client.name}</Redact>
+									</ClientHoverCard>
 								</Link>
 							))}
 						</div>

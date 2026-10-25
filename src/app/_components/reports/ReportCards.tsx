@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -65,7 +66,9 @@ function ClientHeader({ r }: { r: Report }) {
 					className="h-3 w-3 shrink-0 rounded-full"
 					style={{ backgroundColor: getHexFromColor(r.clientColor) }}
 				/>
-				<Redact>{r.clientFullName}</Redact>
+				<ClientHoverCard clientHash={r.clientHash}>
+					<Redact>{r.clientFullName}</Redact>
+				</ClientHoverCard>
 			</Link>
 			<ClientDriveLink report={r} />
 			{r.clientAutismStop && (

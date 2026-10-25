@@ -605,7 +605,9 @@ export const SuggestionIssueList = ({
 									{item.hash ? (
 										<Link href={`/clients/${item.hash}`}>
 											<div className="font-medium text-sm hover:underline">
-												<Redact>{item.name}</Redact>
+												<ClientHoverCard clientHash={item.hash}>
+													<Redact>{item.name}</Redact>
+												</ClientHoverCard>
 											</div>
 										</Link>
 									) : (
@@ -631,7 +633,9 @@ export const SuggestionIssueList = ({
 												>
 													<Link href={`/clients/${suggestion.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{suggestion.fullName}</Redact>
+															<ClientHoverCard clientHash={suggestion.hash}>
+																<Redact>{suggestion.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(ID: <Redact>{String(suggestion.id)}</Redact>)
 															</span>
@@ -773,7 +777,9 @@ export const DuplicateNamesList = ({
 												<div className="space-y-1">
 													<Link href={`/clients/${clientA.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{clientA.fullName}</Redact>
+															<ClientHoverCard clientHash={clientA.hash}>
+																<Redact>{clientA.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
 																<Redact>{formatShortDate(clientA.dob)}</Redact>)
@@ -782,7 +788,9 @@ export const DuplicateNamesList = ({
 													</Link>
 													<Link href={`/clients/${clientB.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{clientB.fullName}</Redact>
+															<ClientHoverCard clientHash={clientB.hash}>
+																<Redact>{clientB.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
 																<Redact>{formatShortDate(clientB.dob)}</Redact>)
@@ -919,7 +927,9 @@ export const DuplicateDriveFoldersList = ({
 								<div className="mb-2 font-bold text-lg">
 									<Link href={`/clients/${group.clientHash}`}>
 										<span className="hover:underline">
-											<Redact>{group.clientFullName}</Redact>
+											<ClientHoverCard clientHash={group.clientHash}>
+												<Redact>{group.clientFullName}</Redact>
+											</ClientHoverCard>
 										</span>
 									</Link>
 									<span className="ml-2 font-medium text-muted-foreground text-sm">
@@ -999,7 +1009,9 @@ export const ClientsSharingQuestionnaires = ({
 										<div key={client.id}>
 											<Link href={`/clients/${client.hash}`}>
 												<div className="text-sm hover:underline">
-													<Redact>{client.fullName}</Redact>
+													<ClientHoverCard clientHash={client.hash}>
+														<Redact>{client.fullName}</Redact>
+													</ClientHoverCard>
 													<span className="ml-2 text-muted-foreground text-xs">
 														({count} count{count > 1 ? "s" : ""})
 													</span>
@@ -1098,7 +1110,9 @@ export const PartialBatteryList = ({
 								<div className="flex flex-wrap items-baseline gap-2">
 									<Link href={`/clients/${client.hash}`}>
 										<span className="font-bold hover:underline">
-											<Redact>{client.fullName}</Redact>
+											<ClientHoverCard clientHash={client.hash}>
+												<Redact>{client.fullName}</Redact>
+											</ClientHoverCard>
 										</span>
 									</Link>
 									{client.language && client.language !== "English" && (

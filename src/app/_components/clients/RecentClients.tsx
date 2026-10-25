@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
@@ -26,7 +27,9 @@ export function RecentClients({ onNavigate }: { onNavigate?: () => void }) {
 					key={client.hash}
 					onClick={onNavigate}
 				>
-					<Redact>{client.name}</Redact>
+					<ClientHoverCard clientHash={client.hash}>
+						<Redact>{client.name}</Redact>
+					</ClientHoverCard>
 				</Link>
 			))}
 		</div>

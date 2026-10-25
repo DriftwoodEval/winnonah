@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Button } from "@components/ui/button";
 import { Input } from "@components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -158,7 +159,9 @@ export function ClientSearchAndAdd({
 								>
 									<div className="flex flex-col">
 										<span className="font-medium text-sm">
-											<Redact>{client.fullName}</Redact>
+											<ClientHoverCard clientId={client.id}>
+												<Redact>{client.fullName}</Redact>
+											</ClientHoverCard>
 										</span>
 										{!isNotesOnlyClientId(client.id) && (
 											<span className="text-muted-foreground text-xs">
