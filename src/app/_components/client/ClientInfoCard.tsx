@@ -104,6 +104,7 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 			return client.outstandingBalance > 0 ? (
 				<CardRow label={label}>${client.outstandingBalance.toFixed(2)}</CardRow>
 			) : null;
+		case "name":
 		case "colorDot":
 		case "highPriority":
 		case "paused":
@@ -209,20 +210,24 @@ export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
 					: renderField(id, client),
 		}))
 		.filter((row) => row.content);
+	const showName = fields.includes("name");
 	const showDot = fields.includes("colorDot") && isClientColor(client.color);
+	const hasHeader = showName || showDot;
 
 	return (
 		<div className="flex flex-col gap-2">
-			<p className="flex items-center gap-2 font-semibold">
-				{showDot && isClientColor(client.color) && (
-					<span
-						className="h-3 w-3 shrink-0 rounded-full"
-						style={{ backgroundColor: getHexFromColor(client.color) }}
-					/>
-				)}
-				<Redact>{client.fullName}</Redact>
-			</p>
-			{rows.length === 0 ? (
+			{hasHeader && (
+				<p className="flex items-center gap-2 font-semibold">
+					{showDot && isClientColor(client.color) && (
+						<span
+							className="h-3 w-3 shrink-0 rounded-full"
+							style={{ backgroundColor: getHexFromColor(client.color) }}
+						/>
+					)}
+					{showName && <Redact>{client.fullName}</Redact>}
+				</p>
+			)}
+			{rows.length === 0 && !hasHeader ? (
 				<p className="text-muted-foreground text-xs">
 					Nothing to show for this client.
 				</p>
