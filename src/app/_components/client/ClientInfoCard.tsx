@@ -108,7 +108,9 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 		case "colorDot":
 		case "highPriority":
 		case "paused":
-		case "otherIndicators":
+		case "babyNet":
+		case "autismStop":
+		case "alreadyDx":
 			return null;
 		case "nextAppointment":
 			return (
@@ -148,42 +150,60 @@ function renderField(id: ClientCardFieldId, client: ClientCardSummary) {
 	}
 }
 
-const INDICATOR_FIELDS: ClientCardFieldId[] = [
-	"highPriority",
-	"paused",
-	"otherIndicators",
-];
-
 type Indicator = {
+	id: ClientCardFieldId;
 	label: string;
-	variant: "destructive" | "warning" | "secondary";
+	variant: "destructive" | "warning" | "info" | "secondary";
+	isSet: (client: ClientCardSummary) => boolean;
 };
+
+/** Status badges, in display order. */
+const INDICATORS: Indicator[] = [
+	{
+		id: "highPriority",
+		label: "High priority",
+		variant: "destructive",
+		isSet: (client) => client.highPriority,
+	},
+	{
+		id: "paused",
+		label: "Paused",
+		variant: "warning",
+		isSet: (client) => client.pause,
+	},
+	{
+		id: "babyNet",
+		label: "BabyNet",
+		variant: "info",
+		isSet: (client) => client.babyNet,
+	},
+	{
+		id: "autismStop",
+		label: "Autism stop",
+		variant: "destructive",
+		isSet: (client) => client.autismStop,
+	},
+	{
+		id: "alreadyDx",
+		label: "Already diagnosed",
+		variant: "secondary",
+		isSet: (client) => client.alreadyDx,
+	},
+];
 
 /** The status badges for whichever indicator fields are selected, in one row. */
 function renderIndicators(
 	fields: ClientCardFieldId[],
 	client: ClientCardSummary,
 ) {
-	const indicators: Indicator[] = [];
-	if (fields.includes("highPriority") && client.highPriority) {
-		indicators.push({ label: "High priority", variant: "destructive" });
-	}
-	if (fields.includes("paused") && client.pause) {
-		indicators.push({ label: "Paused", variant: "warning" });
-	}
-	if (fields.includes("otherIndicators")) {
-		if (client.babyNet) {
-			indicators.push({ label: "BabyNet", variant: "secondary" });
-		}
-		if (client.autismStop) {
-			indicators.push({ label: "Autism stop", variant: "secondary" });
-		}
-	}
-	if (indicators.length === 0) return null;
+	const active = INDICATORS.filter(
+		(indicator) => fields.includes(indicator.id) && indicator.isSet(client),
+	);
+	if (active.length === 0) return null;
 	return (
 		<div className="flex flex-wrap gap-1">
-			{indicators.map((indicator) => (
-				<Badge key={indicator.label} variant={indicator.variant}>
+			{active.map((indicator) => (
+				<Badge key={indicator.id} variant={indicator.variant}>
 					{indicator.label}
 				</Badge>
 			))}
@@ -200,7 +220,9 @@ interface ClientInfoCardProps {
 export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
 	// Fields with no value for this client render nothing, so skip them here
 	// rather than leaving an empty gap in the card.
-	const firstIndicator = fields.find((id) => INDICATOR_FIELDS.includes(id));
+	const firstIndicator = fields.find((id) =>
+		INDICATORS.some((indicator) => indicator.id === id),
+	);
 	const rows = fields
 		.map((id) => ({
 			id,

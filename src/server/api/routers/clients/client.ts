@@ -1313,6 +1313,7 @@ export const clientRouter = createTRPCRouter({
 					babyNet: true,
 					pause: true,
 					autismStop: true,
+					alreadyDx: true,
 				},
 			});
 

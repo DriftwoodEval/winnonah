@@ -34,6 +34,7 @@ const SAMPLE_CLIENT: ClientCardSummary = {
 	babyNet: true,
 	pause: true,
 	autismStop: false,
+	alreadyDx: true,
 	pendingQuestionnaires: 2,
 	nextAppointment: {
 		startTime: new Date("2026-11-12T15:00:00Z"),

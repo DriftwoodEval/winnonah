@@ -30,11 +30,9 @@ export const CLIENT_CARD_FIELDS = [
 	{ id: "balance", label: "Outstanding balance", group: "Insurance" },
 	{ id: "highPriority", label: "High priority indicator", group: "Status" },
 	{ id: "paused", label: "Paused indicator", group: "Status" },
-	{
-		id: "otherIndicators",
-		label: "BabyNet and autism stop indicators",
-		group: "Status",
-	},
+	{ id: "babyNet", label: "BabyNet indicator", group: "Status" },
+	{ id: "autismStop", label: "Autism stop indicator", group: "Status" },
+	{ id: "alreadyDx", label: "Already diagnosed indicator", group: "Status" },
 	{ id: "nextAppointment", label: "Next appointment", group: "Status" },
 	{
 		id: "pendingQuestionnaires",
@@ -55,7 +53,8 @@ export const DEFAULT_CLIENT_CARD_FIELDS: ClientCardFieldId[] = [
 	"primaryInsurance",
 	"highPriority",
 	"paused",
-	"otherIndicators",
+	"babyNet",
+	"autismStop",
 	"nextAppointment",
 ];
 
@@ -95,6 +94,7 @@ export interface ClientCardSummary {
 	babyNet: boolean;
 	pause: boolean;
 	autismStop: boolean;
+	alreadyDx: boolean;
 	pendingQuestionnaires: number;
 	nextAppointment: {
 		startTime: Date;
