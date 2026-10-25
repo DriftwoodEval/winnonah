@@ -10,6 +10,11 @@ import * as schema from "~/server/db/schema";
 // data. Must run in the same deploy window as that code change: before it,
 // nothing reads the new names yet; after it, nothing reads the old ones.
 //
+// Kept as a record of what ran. It predates `users.preferences`: the
+// `renameHomeWidgetId` step reads and writes the `emr_user.homeWidgets` text
+// column, which no longer exists, so that step fails if this script is run
+// against the current schema.
+//
 // Dry run by default. Pass --apply to write.
 const APPLY = process.argv.includes("--apply");
 
