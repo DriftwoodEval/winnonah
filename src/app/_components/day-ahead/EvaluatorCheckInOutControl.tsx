@@ -1,5 +1,9 @@
 "use client";
 
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
@@ -12,10 +16,6 @@ import {
 	formatInBusinessTime,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
 
 type Kind = "arrived" | "left";
 

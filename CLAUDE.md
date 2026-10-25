@@ -38,10 +38,12 @@ The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-co
 2. Build the component (no props, fetches its own data via tRPC) in `src/app/_components/home/`. For compact list/table widgets with day-navigation, reuse `WidgetShell`, `DayNav`, `useSelectedDate`, `todayStr` exported from `DayAheadWidgets.tsx`.
 3. Add a dispatch branch in `HomePageContent.tsx`'s `w.id === "..."` chain.
 
-The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) are fully data-driven off `HOME_WIDGET_DEFS`, no changes needed there. Storage (`users.homeWidgets`, `getHomeWidgets`/`updateHomeWidgets` in `src/server/api/routers/admin/users.ts`) accepts any string id already.
+The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) are fully data-driven off `HOME_WIDGET_DEFS`, no changes needed there. Storage (`users.preferences.homeWidgets`, `getHomeWidgets`/`updateHomeWidgets` in `src/server/api/routers/admin/users.ts`) accepts any string id already.
 
 ## Path Aliases
 `~/` → `src/`, `@components/` → `src/app/_components/`, `@ui/` → `src/app/_components/ui/`
+
+Parent-relative imports (`../`) are banned by a Biome rule, including in `scripts/`. Use an alias; same-directory `./` imports are fine.
 
 ## Restrictions
 - Never read gitignored files (grep/cat/etc. included).
@@ -70,3 +72,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## User Preferences
+Per-user display preferences (home widgets, header items, issue list order, client hover card fields) live in one JSON column, `users.preferences`, typed by `userPreferencesSchema` in `src/lib/preferences.ts`. To add one: add an optional key to that schema, read it with `readPreferences` and write it with `patchPreferences` (`src/server/api/preferences.ts`, which merges atomically so concurrent saves don't clobber each other), then expose it in a hook and in `src/app/_components/settings/MyPreferencesSettings.tsx`. Don't add a column per preference. App-written state (recent clients, changelog marker, saved places, pinned list, list filters) stays in its own columns.

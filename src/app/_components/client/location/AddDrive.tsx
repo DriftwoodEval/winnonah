@@ -1,3 +1,7 @@
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import {
@@ -15,10 +19,6 @@ import z from "zod";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "AddDrive" });
 

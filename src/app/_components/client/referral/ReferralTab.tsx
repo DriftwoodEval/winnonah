@@ -1,5 +1,8 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { ErrorState } from "@components/shared/ErrorState";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
@@ -48,8 +51,6 @@ import type { Client } from "~/lib/models";
 import { REFERRAL_FIELD_LABELS } from "~/lib/referral-history";
 import { isBabyNetInsurance, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ErrorState } from "../../shared/ErrorState";
-import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
 import { ReferralHistoryButton } from "./ReferralHistory";
 
 interface ReferralTabProps {
@@ -781,12 +782,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										{isSpanish ? (
 											<p>
 												Los niños alcanzan los hitos del desarrollo en
-												diferentes momentos. ¿{displayName} está caminando?
+												diferentes momentos. ¿<Redact>{displayName}</Redact>{" "}
+												está caminando?
 											</p>
 										) : (
 											<p>
 												Children hit developmental milestones at different
-												times. Is {displayName} walking?
+												times. Is <Redact>{displayName}</Redact> walking?
 											</p>
 										)}
 									</div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import {
@@ -18,7 +19,6 @@ import { toast } from "sonner";
 import z from "zod";
 import type { AssessmentType } from "~/lib/models";
 import { api } from "~/trpc/react";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 const testUnitSchema = z.object({
 	name: z.string().min(1, "Name is required"),

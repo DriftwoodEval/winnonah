@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import {
 	AlertDialog,
@@ -1539,7 +1541,7 @@ function SchedulingHelperGrid({
 									{pendingClient ? (
 										<div className="flex items-center gap-2 text-sm">
 											<span className="font-medium">
-												{pendingClient.fullName}
+												<Redact>{pendingClient.fullName}</Redact>
 											</span>
 											<button
 												className="text-muted-foreground text-xs underline"
@@ -1875,7 +1877,7 @@ function SchedulingHelperGrid({
 											)}
 											{ineligibleList.length} evaluator
 											{ineligibleList.length === 1 ? "" : "s"} not eligible for{" "}
-											{effectiveClient?.fullName}
+											<Redact>{effectiveClient?.fullName}</Redact>
 											{showIneligible ? "" : " (click to show)"}
 										</button>
 									)}
@@ -1945,9 +1947,9 @@ function SchedulingHelperGrid({
 								<Alert className="px-2.5 py-2 text-xs" variant="destructive">
 									<AlertTriangle />
 									<AlertDescription>
-										Not eligible for {effectiveClient.fullName}: this evaluator
-										doesn't match their insurance or district rules, so
-										scheduling may need an override.
+										Not eligible for <Redact>{effectiveClient.fullName}</Redact>
+										: this evaluator doesn't match their insurance or district
+										rules, so scheduling may need an override.
 									</AlertDescription>
 								</Alert>
 							)}
@@ -2130,7 +2132,9 @@ function SchedulingHelperGrid({
 												href={`/clients/${effectiveClient.hash}`}
 												target="_blank"
 											>
-												{effectiveClient.fullName}
+												<ClientHoverCard clientHash={effectiveClient.hash}>
+													<Redact>{effectiveClient.fullName}</Redact>
+												</ClientHoverCard>
 											</Link>
 											<Button
 												disabled={createPlaceholder.isPending}
@@ -2206,9 +2210,14 @@ function SchedulingHelperGrid({
 										{pendingMove && (
 											<>
 												Move{" "}
-												{pendingMove.clientName
-													? `${pendingMove.clientName}'s placeholder`
-													: "this placeholder"}{" "}
+												{pendingMove.clientName ? (
+													<>
+														<Redact>{pendingMove.clientName}</Redact>'s
+														placeholder
+													</>
+												) : (
+													"this placeholder"
+												)}{" "}
 												for {pendingMove.evaluatorName} from{" "}
 												{formatInBusinessTime(
 													pendingMove.oldStart,

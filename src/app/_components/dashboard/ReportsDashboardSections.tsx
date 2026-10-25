@@ -1,6 +1,12 @@
 "use client";
 
 import {
+	type BillingField,
+	SectionReportCard,
+} from "@components/reports/ReportCards";
+import { ReportsLegend } from "@components/reports/report-shared";
+import { ErrorState } from "@components/shared/ErrorState";
+import {
 	AccordionContent,
 	AccordionItem,
 	AccordionTrigger,
@@ -15,9 +21,6 @@ import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
 import { canAccessReportsBeta } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
-import { type BillingField, SectionReportCard } from "../reports/ReportCards";
-import { ReportsLegend } from "../reports/report-shared";
-import { ErrorState } from "../shared/ErrorState";
 import {
 	DismissButton,
 	DismissedBadge,

@@ -1,5 +1,8 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
 import { Button } from "@ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@ui/card";
 import {
@@ -16,8 +19,6 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
-import { Redact } from "../redaction/Redact";
 
 interface RelatedClientsProps {
 	clientId: number;
@@ -144,7 +145,9 @@ export function RelatedClients({
 							>
 								<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 								<span className="truncate font-medium group-hover:underline">
-									<Redact>{conn.relatedClientData.fullName}</Redact>
+									<ClientHoverCard clientHash={conn.relatedClientData.hash}>
+										<Redact>{conn.relatedClientData.fullName}</Redact>
+									</ClientHoverCard>
 								</span>
 							</Link>
 							{canEdit && (
@@ -183,7 +186,9 @@ export function RelatedClients({
 									>
 										<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 										<span className="truncate font-medium group-hover:underline">
-											<Redact>{suggestion.fullName}</Redact>
+											<ClientHoverCard clientHash={suggestion.hash}>
+												<Redact>{suggestion.fullName}</Redact>
+											</ClientHoverCard>
 										</span>
 									</Link>
 									<Button

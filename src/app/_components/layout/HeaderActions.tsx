@@ -1,8 +1,11 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { IssueReportButton } from "@components/issue-report/IssueReportButton";
 import { IssuesAlert } from "@components/issues/issuesAlert";
 import { TaskQueueBubble } from "@components/layout/TaskQueueBubble";
+import { Redact } from "@components/redaction/Redact";
+import { RedactionToggle } from "@components/redaction/RedactionToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
@@ -15,8 +18,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { HeaderItemId } from "~/lib/layout/header-items";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { RedactionToggle } from "../redaction/RedactionToggle";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 import { HeaderItemsCustomizer } from "./HeaderItemsCustomizer";
 import { ImpersonateUserSelect } from "./ImpersonateUserSelect";
@@ -69,7 +70,9 @@ export function HeaderActions() {
 									href={`/clients/${client.hash}`}
 									key={client.hash}
 								>
-									<Redact>{client.name}</Redact>
+									<ClientHoverCard clientHash={client.hash}>
+										<Redact>{client.name}</Redact>
+									</ClientHoverCard>
 								</Link>
 							))}
 						</div>

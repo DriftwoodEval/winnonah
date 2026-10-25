@@ -8,6 +8,7 @@ import EiContactsSettings from "@components/settings/EiContactsSettings";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import IssueReportSettings from "@components/settings/IssueReportSettings";
+import MyPreferencesSettings from "@components/settings/MyPreferencesSettings";
 import PeopleTable from "@components/settings/PeopleTable";
 import PostVisitAttachmentSettings from "@components/settings/PostVisitAttachmentSettings";
 import QuestionnaireRemindersSettings from "@components/settings/QuestionnaireRemindersSettings";
@@ -64,6 +65,26 @@ interface SearchEntry {
 }
 
 const SEARCH_ENTRIES: SearchEntry[] = [
+	{
+		label: "Header Items",
+		keywords: "my preferences customize header navigation hide show",
+		tab: "preferences",
+	},
+	{
+		label: "Home Page Widgets",
+		keywords: "my preferences customize home page widgets layout",
+		tab: "preferences",
+	},
+	{
+		label: "Client Hover Card",
+		keywords: "my preferences client name hover tooltip card info fields",
+		tab: "preferences",
+	},
+	{
+		label: "Issue List Order",
+		keywords: "my preferences customize issues lists reorder",
+		tab: "preferences",
+	},
 	{
 		label: "Staff",
 		keywords: "people staff accounts",
@@ -265,7 +286,7 @@ export function SettingsTabs() {
 	const searchParams = useSearchParams();
 	const can = useCheckPermission();
 
-	const urlTab = searchParams.get("tab") ?? "people";
+	const urlTab = searchParams.get("tab") ?? "preferences";
 	const [activeTab, setActiveTab] = useState(urlTab);
 
 	useEffect(() => {
@@ -323,6 +344,9 @@ export function SettingsTabs() {
 			</div>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
 				<TabsList className="!h-auto flex-wrap justify-start gap-1">
+					<TabsTrigger className="h-8 grow-0" value="preferences">
+						My Preferences
+					</TabsTrigger>
 					<TabsTrigger className="h-8 grow-0" value="people">
 						People
 					</TabsTrigger>
@@ -368,6 +392,9 @@ export function SettingsTabs() {
 						</TabsTrigger>
 					)}
 				</TabsList>
+				<TabsContent value="preferences">
+					<MyPreferencesSettings />
+				</TabsContent>
 				<TabsContent value="people">
 					<Tabs onValueChange={setPeopleSubTab} value={peopleSubTab}>
 						<TabsList className="!h-auto flex-wrap justify-start gap-1">

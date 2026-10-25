@@ -1,5 +1,8 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import {
@@ -16,9 +19,6 @@ import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { api } from "~/trpc/react";
-import { Redact } from "../../redaction/Redact";
-import { EmptyState } from "../../shared/EmptyState";
-import { ErrorState } from "../../shared/ErrorState";
 
 interface EligibleEvaluatorsListProps {
 	client: ClientGetOneOutput;

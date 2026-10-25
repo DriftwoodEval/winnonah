@@ -1,5 +1,7 @@
 "use client";
 
+import { Client } from "@components/client/Client";
+import { Redact } from "@components/redaction/Redact";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,8 +20,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
-import { Client } from "../client/Client";
-import { Redact } from "../redaction/Redact";
 
 interface ClientOverwriteFields {
 	id: number;

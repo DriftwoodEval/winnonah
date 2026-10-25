@@ -443,6 +443,7 @@ export const workSummaryRouter = createTRPCRouter({
 				.select({
 					id: appointments.id,
 					clientName: clients.fullName,
+					clientHash: clients.hash,
 					startTime: appointments.startTime,
 					daEval: appointments.daEval,
 					asdAdhd: appointments.asdAdhd,
@@ -483,6 +484,7 @@ export const workSummaryRouter = createTRPCRouter({
 			return rows.map((row) => ({
 				id: row.id,
 				clientName: row.clientName,
+				clientHash: row.clientHash,
 				startTime: row.startTime,
 				daEval: row.daEval,
 				asdAdhd: row.asdAdhd,

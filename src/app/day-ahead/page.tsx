@@ -1,9 +1,9 @@
+import { DayAheadContent } from "@components/day-ahead/DayAheadContent";
+import { Guard } from "@components/layout/Guard";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { env } from "~/env";
 import { HydrateClient } from "~/trpc/server";
-import { DayAheadContent } from "../_components/day-ahead/DayAheadContent";
-import { Guard } from "../_components/layout/Guard";
 
 export const metadata: Metadata = {
 	title: `Day Ahead | ${env.NEXT_PUBLIC_APP_TITLE}`,

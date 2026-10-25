@@ -1,5 +1,7 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { Button } from "@ui/button";
 import {
 	Card,
 	CardAction,
@@ -10,6 +12,7 @@ import {
 } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import { Bot, Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import Link from "next/link";
@@ -17,9 +20,6 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "~/lib/integrations/quo";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../../redaction/Redact";
-import { Button } from "../../ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 
 export function CommunicationTimeline({
 	phoneNumber,

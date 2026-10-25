@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import {
 	Accordion,
 	AccordionContent,
@@ -33,7 +35,6 @@ import {
 import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
 import { AddToSchedulingButton } from "./AddToSchedulingButton";
 import {
 	DismissButton,
@@ -240,9 +241,12 @@ function PunchListAccordionItem({
 																/>
 															)}
 														<span>
-															<Redact>
-																{client.fullName ?? punchClient["Client Name"]}
-															</Redact>
+															<ClientHoverCard clientHash={client.hash}>
+																<Redact>
+																	{client.fullName ??
+																		punchClient["Client Name"]}
+																</Redact>
+															</ClientHoverCard>
 														</span>
 														{isRecordsNotReturnedSection &&
 															punchClient.asdAdhd && (
@@ -725,7 +729,9 @@ export function Dashboard() {
 								{dashboardData?.duplicatePunchClients.map((c) => (
 									<li key={c.hash}>
 										<Link className="underline" href={`/clients/${c.hash}`}>
-											{c.name}
+											<ClientHoverCard clientHash={c.hash}>
+												<Redact>{c.name}</Redact>
+											</ClientHoverCard>
 										</Link>{" "}
 										<span className="font-semibold">({c.count}×)</span>
 									</li>
@@ -826,7 +832,9 @@ export function Dashboard() {
 																	href={`/clients/${c.clientHash}?tab=admin-review`}
 																>
 																	<span>
-																		<Redact>{c.clientName}</Redact>
+																		<ClientHoverCard clientHash={c.clientHash}>
+																			<Redact>{c.clientName}</Redact>
+																		</ClientHoverCard>
 																	</span>
 																	{c.waiting && (
 																		<Badge

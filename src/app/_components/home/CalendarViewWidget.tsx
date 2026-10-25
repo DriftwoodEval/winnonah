@@ -1,5 +1,15 @@
 "use client";
 
+import {
+	type AvailabilityWindow,
+	buildColorMap,
+	CalendarDayView,
+	CalendarMultiDayView,
+	DAY_END,
+	DAY_START,
+	type DateAvailabilityWindow,
+} from "@components/day-ahead/CalendarGrid";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import { Skeleton } from "@ui/skeleton";
 import { TooltipProvider } from "@ui/tooltip";
@@ -14,16 +24,6 @@ import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { minutesToTimeString } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import {
-	type AvailabilityWindow,
-	buildColorMap,
-	CalendarDayView,
-	CalendarMultiDayView,
-	DAY_END,
-	DAY_START,
-	type DateAvailabilityWindow,
-} from "../day-ahead/CalendarGrid";
-import { ErrorState } from "../shared/ErrorState";
 
 export type CalWidgetMode = "day" | "3day" | "week";
 

@@ -1,7 +1,10 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { DashboardStatus } from "@components/client/status/DashboardStatus";
 import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
@@ -40,8 +43,6 @@ import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
 
@@ -422,7 +423,9 @@ function FaxGrid({
 													className="hover:bg-secondary/70"
 													variant="secondary"
 												>
-													<Redact>{link.client.fullName}</Redact>
+													<ClientHoverCard clientHash={link.client.hash}>
+														<Redact>{link.client.fullName}</Redact>
+													</ClientHoverCard>
 												</Badge>
 											</Link>
 										))}
@@ -606,7 +609,11 @@ function FaxGrid({
 																		className="text-sm hover:underline"
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		<Redact>{link.client.fullName}</Redact>
+																		<ClientHoverCard
+																			clientHash={link.client.hash}
+																		>
+																			<Redact>{link.client.fullName}</Redact>
+																		</ClientHoverCard>
 																	</Link>
 																	{link.source === "llm" &&
 																		link.confidence !== null &&
@@ -670,7 +677,11 @@ function FaxGrid({
 																		)}
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		<Redact>{link.client.fullName}</Redact>
+																		<ClientHoverCard
+																			clientHash={link.client.hash}
+																		>
+																			<Redact>{link.client.fullName}</Redact>
+																		</ClientHoverCard>
 																	</Link>
 																	{link.rejected ? (
 																		<Badge variant="outline">
@@ -716,7 +727,11 @@ function FaxGrid({
 																	className="text-sm hover:underline"
 																	href={`/clients/${link.client.hash}`}
 																>
-																	<Redact>{link.client.fullName}</Redact>
+																	<ClientHoverCard
+																		clientHash={link.client.hash}
+																	>
+																		<Redact>{link.client.fullName}</Redact>
+																	</ClientHoverCard>
 																</Link>
 																{link.source === "manual" && (
 																	<Badge variant="outline">

@@ -1,14 +1,10 @@
 "use client";
 
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@ui/input-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce } from "es-toolkit/function";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-} from "../ui/input-group";
 
 interface NameSearchInputProps {
 	initialValue: string;

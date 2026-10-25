@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { Star, X } from "lucide-react";
@@ -605,7 +606,9 @@ export function SchedulingCalendar({
 																onPointerDown={(e) => e.stopPropagation()}
 																target="_blank"
 															>
-																<Redact>{appt.clientName}</Redact>
+																<ClientHoverCard clientHash={appt.clientHash}>
+																	<Redact>{appt.clientName}</Redact>
+																</ClientHoverCard>
 															</Link>
 														) : (
 															<Redact>

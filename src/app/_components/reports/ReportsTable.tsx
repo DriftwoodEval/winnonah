@@ -1,10 +1,13 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import {
 	ColumnFilter,
 	type FilterOption,
 	toFilterOptions,
 } from "@components/shared/ColumnFilter";
+import { EmptyState } from "@components/shared/EmptyState";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -29,9 +32,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import { cn, formatCurrency } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { EmptyState } from "../shared/EmptyState";
 import { ReportCard } from "./ReportCards";
 import { ReportNoteCell } from "./ReportNoteCell";
 import {
@@ -571,13 +573,10 @@ export function ReportsTable({
 												<Link
 													className="block truncate text-sm hover:underline"
 													href={`/clients/${r.clientHash}`}
-													title={
-														r.clientOutstandingBalance > 0
-															? `${r.clientFullName} (${formatCurrency(r.clientOutstandingBalance)} outstanding)`
-															: r.clientFullName
-													}
 												>
-													{r.clientFullName}
+													<ClientHoverCard clientHash={r.clientHash}>
+														<Redact>{r.clientFullName}</Redact>
+													</ClientHoverCard>
 												</Link>
 												<ClientDriveLink report={r} />
 											</div>

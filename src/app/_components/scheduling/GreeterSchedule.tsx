@@ -1,5 +1,8 @@
 "use client";
 
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Skeleton } from "@ui/skeleton";
@@ -16,9 +19,6 @@ import { ChevronLeft, ChevronRight, PhoneCall } from "lucide-react";
 import { useState } from "react";
 import { formatPhoneNumber } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 export default function GreeterSchedule() {
 	const [selectedDate, setSelectedDate] = useState(() =>

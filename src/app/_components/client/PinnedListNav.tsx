@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin, X } from "lucide-react";
@@ -8,7 +10,6 @@ import { useState } from "react";
 import { usePinnedListNav } from "~/hooks/use-pinned-list";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import type { PinnedListEntry } from "~/lib/pinned-list";
-import { Redact } from "../redaction/Redact";
 
 function entryHref(entry: PinnedListEntry): string {
 	return `/clients/${entry.hash}${entry.tab ? `?tab=${entry.tab}` : ""}`;
@@ -43,7 +44,9 @@ function ExpandedRow({
 					/>
 				)}
 				<span className={current ? "font-medium" : ""}>
-					<Redact>{entry.name}</Redact>
+					<ClientHoverCard clientHash={entry.hash}>
+						<Redact>{entry.name}</Redact>
+					</ClientHoverCard>
 				</span>
 				{entry.waiting && (
 					<Badge className="" size="sm" variant="warning">

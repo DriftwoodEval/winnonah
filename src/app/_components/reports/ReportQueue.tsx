@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
@@ -17,8 +19,6 @@ import {
 	REPORT_WRITERS_FOLDER_ID,
 } from "~/lib/constants";
 import { api } from "~/trpc/react";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 interface ReportQueueProps {
 	sourceId?: string;

@@ -1,5 +1,10 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -25,9 +30,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
@@ -134,7 +136,9 @@ export default function AuditLogTable() {
 	const renderClient = (row: AuditRow) =>
 		row.clientId && row.clientHash ? (
 			<Link className="hover:underline" href={`/clients/${row.clientHash}`}>
-				{row.clientFirstName} {row.clientLastName}
+				<ClientHoverCard clientHash={row.clientHash}>
+					<Redact>{`${row.clientFirstName} ${row.clientLastName}`}</Redact>
+				</ClientHoverCard>
 			</Link>
 		) : (
 			<span className="text-muted-foreground">—</span>
@@ -213,7 +217,7 @@ export default function AuditLogTable() {
 						onClick={() => resetAndSet(setClient)(null)}
 						variant="outline"
 					>
-						{client.fullName}
+						<Redact>{client.fullName}</Redact>
 						<X className="h-4 w-4" />
 					</Button>
 				) : (

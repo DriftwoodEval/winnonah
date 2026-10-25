@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -10,7 +12,6 @@ import { useId } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { getHexFromColor } from "~/lib/colors";
 import { cn, formatCurrency } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 import { ReportNoteCell } from "./ReportNoteCell";
 import {
 	ClientDriveLink,
@@ -55,17 +56,14 @@ function ClientHeader({ r }: { r: Report }) {
 			<Link
 				className="no-underline! hover:no-underline! flex min-w-0 flex-wrap items-center gap-2 font-medium hover:underline"
 				href={`/clients/${r.clientHash}`}
-				title={
-					r.clientOutstandingBalance > 0
-						? `${r.clientFullName} (${formatCurrency(r.clientOutstandingBalance)} outstanding)`
-						: r.clientFullName
-				}
 			>
 				<span
 					className="h-3 w-3 shrink-0 rounded-full"
 					style={{ backgroundColor: getHexFromColor(r.clientColor) }}
 				/>
-				<Redact>{r.clientFullName}</Redact>
+				<ClientHoverCard clientHash={r.clientHash}>
+					<Redact>{r.clientFullName}</Redact>
+				</ClientHoverCard>
 			</Link>
 			<ClientDriveLink report={r} />
 			{r.clientAutismStop && (

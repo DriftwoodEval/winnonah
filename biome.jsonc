@@ -26,7 +26,20 @@
 					}
 				}
 			},
-			"preset": "recommended"
+			"preset": "recommended",
+			"style": {
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"patterns": [
+							{
+								"group": ["../**"],
+								"message": "Use the ~/, @components/, or @ui/ alias instead of a parent-relative import. Same-directory ./ imports are fine."
+							}
+						]
+					}
+				}
+			}
 		}
 	},
 	"vcs": {

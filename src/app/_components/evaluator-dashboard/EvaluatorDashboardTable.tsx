@@ -1,5 +1,7 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -69,7 +71,7 @@ function ClientNameCell({ name, hash }: { name: string; hash: string }) {
 			href={`/clients/${hash}`}
 			ref={linkRef}
 		>
-			{name}
+			<Redact>{name}</Redact>
 		</Link>
 	);
 
@@ -177,7 +179,9 @@ export function EvaluatorDashboardTable({
 											)}
 											href={`/clients/${appt.clientHash}`}
 										>
-											{appt.clientFullName}
+											<ClientHoverCard clientHash={appt.clientHash}>
+												<Redact>{appt.clientFullName}</Redact>
+											</ClientHoverCard>
 										</Link>
 										<p
 											className={cn(

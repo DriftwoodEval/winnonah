@@ -1,14 +1,14 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { env } from "../../src/env";
-import { db } from "../../src/server/db";
+import { env } from "~/env";
+import { db } from "~/server/db";
 import {
 	clients,
 	offices,
 	questionnaireRules,
 	questionnaires,
-} from "../../src/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "../../src/server/services/questionnaire-age";
+} from "~/server/db/schema";
+import { getQuestionnaireEligibilityAge } from "~/server/services/questionnaire-age";
 
 const DONE_STATUSES = new Set(["COMPLETED", "EXTERNAL"]);
 

@@ -12,7 +12,7 @@ import {
 import MiniSearch from "minisearch";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import type { DocsSearchEntry } from "../search-index.json/route";
+import type { DocsSearchEntry } from "~/app/docs/search-index.json/route";
 
 const EXCERPT_RADIUS = 60;
 

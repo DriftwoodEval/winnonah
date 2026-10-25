@@ -1,4 +1,5 @@
 "use client";
+import { Redact } from "@components/redaction/Redact";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
@@ -11,7 +12,6 @@ import {
 	formatDateOnlyLong,
 	formatPhoneNumber,
 } from "~/lib/utils";
-import { Redact } from "../redaction/Redact";
 import { ManualAddressDialog } from "./location/ManualAddressDialog";
 import { OfficeDriveTimesButton } from "./location/OfficeDriveTimesButton";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";

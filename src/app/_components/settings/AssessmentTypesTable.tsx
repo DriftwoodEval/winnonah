@@ -1,5 +1,7 @@
 "use client";
 
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	AlertDialog,
@@ -53,8 +55,6 @@ import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 
 const log = logger.child({ module: "AssessmentTypesTable" });
 

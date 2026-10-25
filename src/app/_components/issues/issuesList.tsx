@@ -1,5 +1,11 @@
 "use client";
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { ManualAddressDialog } from "@components/client/location/ManualAddressDialog";
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -29,6 +35,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useIssueCounts } from "~/hooks/use-issue-counts";
+import { useIssueListOrder } from "~/hooks/use-issue-list-order";
 import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
@@ -38,18 +45,12 @@ import {
 	ISSUE_LIST_PERMISSIONS,
 	ISSUE_TITLES,
 	type IssueListId,
-	mergeIssueListOrder,
 	splitActionItems,
 } from "~/lib/issues/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { ManualAddressDialog } from "../client/location/ManualAddressDialog";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import {
 	DDS_REQUESTS_DESCRIPTION,
 	DdsRequestActions,
@@ -232,7 +233,9 @@ export const IssueList = ({
 									key={client.hash}
 								>
 									<div className="break-words text-sm" key={client.hash}>
-										<Redact>{client.fullName}</Redact>{" "}
+										<ClientHoverCard clientHash={client.hash}>
+											<Redact>{client.fullName}</Redact>{" "}
+										</ClientHoverCard>
 										{client.additionalInfo && (
 											<span className="text-muted-foreground">
 												<Redact>{client.additionalInfo}</Redact>
@@ -602,7 +605,9 @@ export const SuggestionIssueList = ({
 									{item.hash ? (
 										<Link href={`/clients/${item.hash}`}>
 											<div className="font-medium text-sm hover:underline">
-												<Redact>{item.name}</Redact>
+												<ClientHoverCard clientHash={item.hash}>
+													<Redact>{item.name}</Redact>
+												</ClientHoverCard>
 											</div>
 										</Link>
 									) : (
@@ -628,7 +633,9 @@ export const SuggestionIssueList = ({
 												>
 													<Link href={`/clients/${suggestion.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{suggestion.fullName}</Redact>
+															<ClientHoverCard clientHash={suggestion.hash}>
+																<Redact>{suggestion.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(ID: <Redact>{String(suggestion.id)}</Redact>)
 															</span>
@@ -770,7 +777,9 @@ export const DuplicateNamesList = ({
 												<div className="space-y-1">
 													<Link href={`/clients/${clientA.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{clientA.fullName}</Redact>
+															<ClientHoverCard clientHash={clientA.hash}>
+																<Redact>{clientA.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
 																<Redact>{formatShortDate(clientA.dob)}</Redact>)
@@ -779,7 +788,9 @@ export const DuplicateNamesList = ({
 													</Link>
 													<Link href={`/clients/${clientB.hash}`}>
 														<div className="text-xs hover:underline">
-															<Redact>{clientB.fullName}</Redact>
+															<ClientHoverCard clientHash={clientB.hash}>
+																<Redact>{clientB.fullName}</Redact>
+															</ClientHoverCard>
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
 																<Redact>{formatShortDate(clientB.dob)}</Redact>)
@@ -916,7 +927,9 @@ export const DuplicateDriveFoldersList = ({
 								<div className="mb-2 font-bold text-lg">
 									<Link href={`/clients/${group.clientHash}`}>
 										<span className="hover:underline">
-											<Redact>{group.clientFullName}</Redact>
+											<ClientHoverCard clientHash={group.clientHash}>
+												<Redact>{group.clientFullName}</Redact>
+											</ClientHoverCard>
 										</span>
 									</Link>
 									<span className="ml-2 font-medium text-muted-foreground text-sm">
@@ -996,7 +1009,9 @@ export const ClientsSharingQuestionnaires = ({
 										<div key={client.id}>
 											<Link href={`/clients/${client.hash}`}>
 												<div className="text-sm hover:underline">
-													<Redact>{client.fullName}</Redact>
+													<ClientHoverCard clientHash={client.hash}>
+														<Redact>{client.fullName}</Redact>
+													</ClientHoverCard>
 													<span className="ml-2 text-muted-foreground text-xs">
 														({count} count{count > 1 ? "s" : ""})
 													</span>
@@ -1095,7 +1110,9 @@ export const PartialBatteryList = ({
 								<div className="flex flex-wrap items-baseline gap-2">
 									<Link href={`/clients/${client.hash}`}>
 										<span className="font-bold hover:underline">
-											<Redact>{client.fullName}</Redact>
+											<ClientHoverCard clientHash={client.hash}>
+												<Redact>{client.fullName}</Redact>
+											</ClientHoverCard>
 										</span>
 									</Link>
 									{client.language && client.language !== "English" && (
@@ -1531,19 +1548,9 @@ export function IssuesList() {
 		)
 		.map(({ title }) => title);
 
-	const { data: savedOrder } = api.users.getIssueListOrder.useQuery();
-	const { mutate: updateOrder } = api.users.updateIssueListOrder.useMutation();
-	const order = mergeIssueListOrder(savedOrder);
+	const { order, setOrder: handleOrderChange } = useIssueListOrder();
 	const { actionItems: actionItemIds, issues: issueIds } =
 		splitActionItems(order);
-
-	const handleOrderChange = async (next: IssueListId[]) => {
-		// Cancel any in-flight fetch so it can't land after this optimistic
-		// write and revert the order back to the old value.
-		await utils.users.getIssueListOrder.cancel();
-		utils.users.getIssueListOrder.setData(undefined, next);
-		updateOrder({ order: next });
-	};
 
 	const issueBlocks: Record<IssueListId, React.ReactNode> = {
 		dd4: (

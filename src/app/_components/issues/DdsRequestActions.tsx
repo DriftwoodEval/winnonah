@@ -1,5 +1,6 @@
 "use client";
 
+import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import { Button } from "@ui/button";
 import {
 	Select,
@@ -12,7 +13,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 export const DDS_REQUESTS_DESCRIPTION =
 	"Disability Determination Services faxes asking for a psychological evaluation. Each row shows the PDF found in the client's Drive folder. Change it if it is the wrong file, then approve or deny.";

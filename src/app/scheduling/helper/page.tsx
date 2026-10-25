@@ -1,7 +1,7 @@
+import { Guard } from "@components/layout/Guard";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SchedulingHelper } from "~/app/_components/scheduling/SchedulingHelper";
-import { Guard } from "../../_components/layout/Guard";
 
 export const metadata: Metadata = {
 	title: "Scheduling Helper",

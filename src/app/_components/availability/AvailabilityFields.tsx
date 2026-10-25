@@ -1,5 +1,6 @@
 "use client";
 
+import { ListSkeleton } from "@components/shared/ListSkeleton";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Checkbox } from "@ui/checkbox";
 import DateTimePicker from "@ui/date-time-picker";
@@ -24,7 +25,6 @@ import {
 	DAYS_OF_WEEK,
 } from "~/lib/validations/availability";
 import { api } from "~/trpc/react";
-import { ListSkeleton } from "../shared/ListSkeleton";
 
 interface AvailabilityFieldsProps {
 	form: UseFormReturn<AvailabilityFormValues>;

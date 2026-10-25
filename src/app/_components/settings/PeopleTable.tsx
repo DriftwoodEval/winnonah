@@ -1,6 +1,9 @@
 "use client";
 
 import { ColorCell } from "@components/layout/ColorPicker";
+import { Redact } from "@components/redaction/Redact";
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
@@ -28,9 +31,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import type { Evaluator, Role, User } from "~/lib/models";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
 import { EvaluatorForm } from "./EvaluatorForm";
 import {
 	formatPhoneAsYouType,

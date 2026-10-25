@@ -1,5 +1,5 @@
-import { db } from "../../src/server/db";
-import { questionnaireReminderTemplates } from "../../src/server/db/schema";
+import { db } from "~/server/db";
+import { questionnaireReminderTemplates } from "~/server/db/schema";
 
 // Ported verbatim (as placeholders) from the wording that used to be hardcoded
 // in the questionnaires repo's utils/messages.py. Keep in sync with

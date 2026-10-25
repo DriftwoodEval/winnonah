@@ -1,5 +1,12 @@
 "use client";
 
+import { EmptyState } from "@components/shared/EmptyState";
+import { ErrorState } from "@components/shared/ErrorState";
+import { ListSkeleton } from "@components/shared/ListSkeleton";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import {
@@ -45,13 +52,6 @@ import type { Invitation } from "~/lib/models";
 import type { PermissionsObject } from "~/lib/types";
 import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
-import { EmptyState } from "../shared/EmptyState";
-import { ErrorState } from "../shared/ErrorState";
-import { ListSkeleton } from "../shared/ListSkeleton";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
 import { PermissionsField } from "./PermissionsField";
 
 const log = logger.child({ module: "InvitesTable" });

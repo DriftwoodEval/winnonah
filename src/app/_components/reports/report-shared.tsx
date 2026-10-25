@@ -189,7 +189,7 @@ export function ClientDriveLink({ report: r }: { report: Report }) {
 			onMouseEnter={() => setHovered(true)}
 			rel="noreferrer"
 			target="_blank"
-			title={drive?.path ?? `Open ${r.clientFullName}'s Drive folder`}
+			title={drive?.path ?? "Open Drive folder"}
 		>
 			<Image
 				alt="Open Google Drive folder"

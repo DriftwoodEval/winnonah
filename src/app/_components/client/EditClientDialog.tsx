@@ -1,5 +1,9 @@
 "use client";
 
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "@components/shared/ResponsiveDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -32,10 +36,6 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { cn, localDateToDateOnly } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import {
-	ResponsiveDialog,
-	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
 import { EiContactCombobox } from "./referral/EiContactCombobox";
 
 const formSchema = z.object({
