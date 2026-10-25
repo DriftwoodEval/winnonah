@@ -241,9 +241,12 @@ function PunchListAccordionItem({
 																/>
 															)}
 														<span>
-															<Redact>
-																{client.fullName ?? punchClient["Client Name"]}
-															</Redact>
+															<ClientHoverCard clientHash={client.hash}>
+																<Redact>
+																	{client.fullName ??
+																		punchClient["Client Name"]}
+																</Redact>
+															</ClientHoverCard>
 														</span>
 														{isRecordsNotReturnedSection &&
 															punchClient.asdAdhd && (
@@ -726,7 +729,9 @@ export function Dashboard() {
 								{dashboardData?.duplicatePunchClients.map((c) => (
 									<li key={c.hash}>
 										<Link className="underline" href={`/clients/${c.hash}`}>
-											{c.name}
+											<ClientHoverCard clientHash={c.hash}>
+												{c.name}
+											</ClientHoverCard>
 										</Link>{" "}
 										<span className="font-semibold">({c.count}×)</span>
 									</li>

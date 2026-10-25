@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -177,7 +178,9 @@ export function EvaluatorDashboardTable({
 											)}
 											href={`/clients/${appt.clientHash}`}
 										>
-											{appt.clientFullName}
+											<ClientHoverCard clientHash={appt.clientHash}>
+												{appt.clientFullName}
+											</ClientHoverCard>
 										</Link>
 										<p
 											className={cn(

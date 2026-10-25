@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import Link from "next/link";
 import type { RunSummary } from "~/lib/run-summary";
 import { formatInBusinessTime } from "~/lib/utils";
@@ -88,7 +89,9 @@ export default function RunSummaryList() {
 																className="underline hover:no-underline"
 																href={`/clients/${client.hash}`}
 															>
-																{client.name}
+																<ClientHoverCard clientHash={client.hash}>
+																	{client.name}
+																</ClientHoverCard>
 															</Link>
 														</span>
 													))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import {
 	AlertDialog,
@@ -2130,7 +2131,9 @@ function SchedulingHelperGrid({
 												href={`/clients/${effectiveClient.hash}`}
 												target="_blank"
 											>
-												{effectiveClient.fullName}
+												<ClientHoverCard clientHash={effectiveClient.hash}>
+													{effectiveClient.fullName}
+												</ClientHoverCard>
 											</Link>
 											<Button
 												disabled={createPlaceholder.isPending}

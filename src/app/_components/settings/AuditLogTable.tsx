@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -134,7 +135,9 @@ export default function AuditLogTable() {
 	const renderClient = (row: AuditRow) =>
 		row.clientId && row.clientHash ? (
 			<Link className="hover:underline" href={`/clients/${row.clientHash}`}>
-				{row.clientFirstName} {row.clientLastName}
+				<ClientHoverCard clientHash={row.clientHash}>
+					{row.clientFirstName} {row.clientLastName}
+				</ClientHoverCard>
 			</Link>
 		) : (
 			<span className="text-muted-foreground">—</span>

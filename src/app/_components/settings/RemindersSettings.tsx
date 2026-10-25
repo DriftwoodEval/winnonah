@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -250,7 +251,9 @@ export default function ReminderSettings() {
 													className="hover:underline"
 													href={`/clients/${log.clientHash}`}
 												>
-													{log.clientFirstName} {log.clientLastName}
+													<ClientHoverCard clientHash={log.clientHash}>
+														{log.clientFirstName} {log.clientLastName}
+													</ClientHoverCard>
 												</Link>
 											</TableCell>
 											<TableCell className="whitespace-nowrap text-xs">
@@ -312,7 +315,9 @@ export default function ReminderSettings() {
 													className="hover:underline"
 													href={`/clients/${reply.clientHash}`}
 												>
-													{reply.clientFirstName} {reply.clientLastName}
+													<ClientHoverCard clientHash={reply.clientHash}>
+														{reply.clientFirstName} {reply.clientLastName}
+													</ClientHoverCard>
 												</Link>
 											</TableCell>
 											<TableCell className="whitespace-nowrap text-xs">
@@ -376,7 +381,9 @@ export default function ReminderSettings() {
 													className="hover:underline"
 													href={`/clients/${reply.clientHash}`}
 												>
-													{reply.clientFirstName} {reply.clientLastName}
+													<ClientHoverCard clientHash={reply.clientHash}>
+														{reply.clientFirstName} {reply.clientLastName}
+													</ClientHoverCard>
 												</Link>
 											</TableCell>
 											<TableCell className="whitespace-nowrap text-xs">

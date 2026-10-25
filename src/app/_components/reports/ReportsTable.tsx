@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import {
 	ColumnFilter,
 	type FilterOption,
@@ -577,7 +578,9 @@ export function ReportsTable({
 															: r.clientFullName
 													}
 												>
-													{r.clientFullName}
+													<ClientHoverCard clientHash={r.clientHash}>
+														{r.clientFullName}
+													</ClientHoverCard>
 												</Link>
 												<ClientDriveLink report={r} />
 											</div>
