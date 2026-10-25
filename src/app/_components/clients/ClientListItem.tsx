@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { SortedClient } from "~/lib/api-types";
@@ -54,7 +55,9 @@ function ClientListItemComponent({
 						/>
 					)}
 					<span>
-						<Redact>{client.fullName}</Redact>
+						<ClientHoverCard clientHash={client.hash}>
+							<Redact>{client.fullName}</Redact>
+						</ClientHoverCard>
 					</span>
 				</div>
 				<span

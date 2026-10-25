@@ -3,6 +3,7 @@
 import { HomeWidgetsEditor } from "@components/home/HomeCustomizer";
 import { IssueListOrderEditor } from "@components/issues/IssueListCustomizer";
 import { HeaderItemsCustomizer } from "@components/layout/HeaderItemsCustomizer";
+import { ClientCardPreferences } from "@components/settings/ClientCardPreferences";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { useHomeWidgets } from "~/hooks/use-home-widgets";
 import { useIssueListOrder } from "~/hooks/use-issue-list-order";
@@ -44,6 +45,14 @@ export default function MyPreferencesSettings() {
 					</CardContent>
 				</Card>
 			</div>
+			<Card>
+				<CardHeader>
+					<CardTitle>Client Hover Card</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<ClientCardPreferences />
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

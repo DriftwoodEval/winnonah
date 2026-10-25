@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import {
 	Accordion,
 	AccordionContent,
@@ -826,7 +827,9 @@ export function Dashboard() {
 																	href={`/clients/${c.clientHash}?tab=admin-review`}
 																>
 																	<span>
-																		<Redact>{c.clientName}</Redact>
+																		<ClientHoverCard clientHash={c.clientHash}>
+																			<Redact>{c.clientName}</Redact>
+																		</ClientHoverCard>
 																	</span>
 																	{c.waiting && (
 																		<Badge

@@ -10,6 +10,7 @@ import {
 	eq,
 	getTableColumns,
 	gt,
+	gte,
 	inArray,
 	isNotNull,
 	isNull,
@@ -34,6 +35,7 @@ import {
 	getUnsupportedLanguageReason,
 	isCharterSchoolUnconfirmed,
 } from "~/lib/client-blockers";
+import type { ClientCardSummary } from "~/lib/clients/client-card";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { appendMissingLines } from "~/lib/insurance-notes-merge";
@@ -109,6 +111,7 @@ import {
 	insurances,
 	notes,
 	officeDriveTimes,
+	offices,
 	questionnaires,
 	referralMsgLog,
 	reports,
@@ -1274,6 +1277,87 @@ export const clientRouter = createTRPCRouter({
 				isOnDropList,
 				dropListReason,
 				initialFailureDate,
+			};
+		}),
+
+	/** A small slice of a client's info for the hover card, without opening the client page. */
+	getCardSummary: protectedProcedure
+		.input(
+			z.union([z.object({ id: z.number() }), z.object({ hash: z.string() })]),
+		)
+		.query(async ({ ctx, input }): Promise<ClientCardSummary> => {
+			const client = await ctx.db.query.clients.findFirst({
+				where:
+					"id" in input
+						? eq(clients.id, input.id)
+						: eq(clients.hash, input.hash),
+				columns: {
+					id: true,
+					fullName: true,
+					dob: true,
+					gender: true,
+					language: true,
+					asdAdhd: true,
+					phoneNumber: true,
+					email: true,
+					address: true,
+					schoolDistrict: true,
+					primaryInsurance: true,
+					secondaryInsurance: true,
+					precertExpires: true,
+					privatePay: true,
+					outstandingBalance: true,
+					addedDate: true,
+					highPriority: true,
+					babyNet: true,
+					pause: true,
+					autismStop: true,
+				},
+			});
+
+			if (!client) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Client not found",
+				});
+			}
+
+			const [pending, nextAppointment] = await Promise.all([
+				ctx.db
+					.select({ value: count() })
+					.from(questionnaires)
+					.where(
+						and(
+							eq(questionnaires.clientId, client.id),
+							eq(questionnaires.status, "PENDING"),
+						),
+					),
+				ctx.db
+					.select({
+						startTime: appointments.startTime,
+						evaluatorName: evaluators.providerName,
+						officeName: offices.prettyName,
+					})
+					.from(appointments)
+					.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+					.leftJoin(offices, eq(appointments.locationKey, offices.key))
+					.where(
+						and(
+							eq(appointments.clientId, client.id),
+							gte(appointments.startTime, new Date()),
+							eq(appointments.cancelled, false),
+							eq(appointments.placeholder, false),
+							eq(appointments.billingOnly, false),
+						),
+					)
+					.orderBy(asc(appointments.startTime))
+					.limit(1),
+			]);
+
+			return {
+				...client,
+				pendingQuestionnaires: pending[0]?.value ?? 0,
+				nextAppointment: nextAppointment[0] ?? null,
 			};
 		}),
 

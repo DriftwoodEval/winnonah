@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
@@ -51,7 +52,9 @@ export function RecentClientsWidget() {
 					href={`/clients/${client.hash}`}
 					key={client.hash}
 				>
-					<Redact>{client.name}</Redact>
+					<ClientHoverCard clientHash={client.hash}>
+						<Redact>{client.name}</Redact>
+					</ClientHoverCard>
 				</Link>
 			))}
 		</div>
@@ -101,7 +104,9 @@ export function MyInsuranceClientsWidget() {
 							href={`/clients/${c.clientHash}?tab=admin-review`}
 							key={c.clientHash}
 						>
-							<Redact>{c.clientName}</Redact>
+							<ClientHoverCard clientHash={c.clientHash}>
+								<Redact>{c.clientName}</Redact>
+							</ClientHoverCard>
 							{c.waiting && (
 								<Badge className="" size="sm" variant="warning">
 									Waiting
@@ -147,7 +152,9 @@ export function PostVisitMessagesWidget() {
 								className="text-sm hover:underline"
 								href={`/clients/${r.clientHash}`}
 							>
-								<Redact>{r.clientName}</Redact>
+								<ClientHoverCard clientHash={r.clientHash}>
+									<Redact>{r.clientName}</Redact>
+								</ClientHoverCard>
 							</Link>
 							<span className="text-muted-foreground text-xs">
 								{formatInBusinessTime(r.startTime, "MMM d")} with{" "}

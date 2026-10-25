@@ -76,6 +76,11 @@ const SEARCH_ENTRIES: SearchEntry[] = [
 		tab: "preferences",
 	},
 	{
+		label: "Client Hover Card",
+		keywords: "my preferences client name hover tooltip card info fields",
+		tab: "preferences",
+	},
+	{
 		label: "Issue List Order",
 		keywords: "my preferences customize issues lists reorder",
 		tab: "preferences",
@@ -281,7 +286,7 @@ export function SettingsTabs() {
 	const searchParams = useSearchParams();
 	const can = useCheckPermission();
 
-	const urlTab = searchParams.get("tab") ?? "people";
+	const urlTab = searchParams.get("tab") ?? "preferences";
 	const [activeTab, setActiveTab] = useState(urlTab);
 
 	useEffect(() => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -202,7 +203,9 @@ export function MyDayWidget() {
 								className="min-w-32 flex-1 truncate font-medium text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								<Redact>{appt.clientName}</Redact>
+								<ClientHoverCard clientHash={appt.clientHash}>
+									<Redact>{appt.clientName}</Redact>
+								</ClientHoverCard>
 							</Link>
 							<ApptTypeBadges appt={appt} className="shrink-0 text-xs" />
 							<ConfirmedBadge confirmedAt={appt.confirmedAt} showUnconfirmed />
@@ -427,7 +430,9 @@ function ExpandableEvaluator({
 								className="min-w-32 flex-1 truncate text-xs hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								<Redact>{appt.clientName}</Redact>
+								<ClientHoverCard clientHash={appt.clientHash}>
+									<Redact>{appt.clientName}</Redact>
+								</ClientHoverCard>
 							</Link>
 							<ApptTypeBadges appt={appt} className="shrink-0 text-xs" />
 							<ConfirmedBadge confirmedAt={appt.confirmedAt} showUnconfirmed />

@@ -2,6 +2,10 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
+import {
+	CLIENT_CARD_FIELD_IDS,
+	mergeClientCardFields,
+} from "~/lib/clients/client-card";
 import { pinnedListSchema } from "~/lib/pinned-list";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -626,6 +630,43 @@ export const userRouter = createTRPCRouter({
 			await ctx.db
 				.update(users)
 				.set({ headerItems: JSON.stringify(current) })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
+
+	getClientCardFields: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		try {
+			return mergeClientCardFields(
+				JSON.parse(userFromDb?.clientCardFields ?? "null"),
+			);
+		} catch {
+			return mergeClientCardFields(null);
+		}
+	}),
+
+	updateClientCardFields: protectedProcedure
+		.input(z.object({ fields: z.array(z.enum(CLIENT_CARD_FIELD_IDS)) }))
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+			let existing: unknown;
+			try {
+				existing = JSON.parse(userFromDb?.clientCardFields ?? "null");
+			} catch {
+				existing = null;
+			}
+			setAuditDetail(
+				ctx,
+				diffValues(mergeClientCardFields(existing), input.fields),
+			);
+
+			await ctx.db
+				.update(users)
+				.set({ clientCardFields: JSON.stringify(input.fields) })
 				.where(eq(users.id, ctx.session.user.id));
 		}),
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { ColumnFilter, toFilterOptions } from "@components/shared/ColumnFilter";
 import { Button } from "@components/ui/button";
 import {
@@ -1006,7 +1007,9 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 							redactionEnabled ? undefined : scheduledClient.client.fullName
 						}
 					>
-						<Redact>{scheduledClient.client.fullName}</Redact>
+						<ClientHoverCard clientHash={scheduledClient.client.hash}>
+							<Redact>{scheduledClient.client.fullName}</Redact>
+						</ClientHoverCard>
 					</Link>
 				</div>
 			</TableCell>
@@ -1299,7 +1302,9 @@ const SchedulingCard = memo(function SchedulingCard({
 							redactionEnabled ? undefined : scheduledClient.client.fullName
 						}
 					>
-						<Redact>{scheduledClient.client.fullName}</Redact>
+						<ClientHoverCard clientHash={scheduledClient.client.hash}>
+							<Redact>{scheduledClient.client.fullName}</Redact>
+						</ClientHoverCard>
 					</Link>
 				</div>
 				<Button

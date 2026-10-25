@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
@@ -599,7 +600,9 @@ export function ClientsDashboard() {
 							href={`/clients/${client.hash}`}
 							key={client.hash}
 						>
-							<Redact>{client.name}</Redact>
+							<ClientHoverCard clientHash={client.hash}>
+								<Redact>{client.name}</Redact>
+							</ClientHoverCard>
 						</Link>
 					))}
 				</div>

@@ -1,4 +1,5 @@
 "use client";
+import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
@@ -232,7 +233,9 @@ export const IssueList = ({
 									key={client.hash}
 								>
 									<div className="break-words text-sm" key={client.hash}>
-										<Redact>{client.fullName}</Redact>{" "}
+										<ClientHoverCard clientHash={client.hash}>
+											<Redact>{client.fullName}</Redact>{" "}
+										</ClientHoverCard>
 										{client.additionalInfo && (
 											<span className="text-muted-foreground">
 												<Redact>{client.additionalInfo}</Redact>
