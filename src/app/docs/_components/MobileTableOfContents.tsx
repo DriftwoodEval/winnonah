@@ -27,18 +27,18 @@ export function MobileTableOfContents({
 
 	return (
 		<details className="not-prose mb-6 rounded-lg border border-border lg:hidden">
-			<summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 font-medium text-sm [&::-webkit-details-marker]:hidden">
+			<summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
 				On this page
 				<ChevronDown className="size-4" />
 			</summary>
-			<div className="border-border border-t px-1 py-1">
+			<div className="border-t border-border px-1 py-1">
 				{headings.length > 0 && (
 					<ul className="flex flex-col gap-0.5">
 						{headings.map((heading) => (
 							<li key={heading.id}>
 								<Link
 									className={cn(
-										"block rounded-md py-1 pr-3 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground",
+										"block rounded-md py-1 pr-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 										INDENT_BY_DEPTH[Math.min(heading.depth, 4)] ?? "pl-9",
 									)}
 									href={`#${heading.id}`}
@@ -51,7 +51,7 @@ export function MobileTableOfContents({
 				)}
 				{editPath && (
 					<a
-						className="mt-1 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
+						className="mt-1 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 						href={`${EDIT_BASE_URL}/${editPath}`}
 						rel="noreferrer"
 						target="_blank"

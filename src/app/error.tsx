@@ -19,13 +19,13 @@ export default function RouteError({
 	return (
 		<div className="flex w-full flex-col items-center justify-center gap-4 p-8 text-center">
 			<AlertTriangle className="size-10 text-destructive" />
-			<h1 className="font-semibold text-xl">Something went wrong</h1>
-			<p className="max-w-md text-muted-foreground text-sm">
+			<h1 className="text-xl font-semibold">Something went wrong</h1>
+			<p className="max-w-md text-sm text-muted-foreground">
 				This page hit an unexpected error. Trying again often fixes it. If it
 				keeps happening, report an issue and include the reference below.
 			</p>
 			{error.digest && (
-				<p className="font-mono text-muted-foreground text-xs">
+				<p className="font-mono text-xs text-muted-foreground">
 					Reference: {error.digest}
 				</p>
 			)}

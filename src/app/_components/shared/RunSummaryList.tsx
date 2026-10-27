@@ -43,10 +43,10 @@ export default function RunSummaryList() {
 			{data?.map(({ type, task }) => (
 				<div className="flex flex-col gap-1" key={type}>
 					<div className="flex items-baseline justify-between gap-2">
-						<span className="font-medium text-sm">
+						<span className="text-sm font-medium">
 							{RUN_LABELS[type] ?? type}
 						</span>
-						<span className="text-muted-foreground text-xs">
+						<span className="text-xs text-muted-foreground">
 							{task
 								? formatInBusinessTime(
 										task.completedAt ?? task.startedAt,
@@ -56,7 +56,7 @@ export default function RunSummaryList() {
 						</span>
 					</div>
 					{task?.status === "failed" && (
-						<span className="text-error text-xs">
+						<span className="text-xs text-error">
 							Run failed{task.error ? `: ${task.error}` : ""}
 						</span>
 					)}

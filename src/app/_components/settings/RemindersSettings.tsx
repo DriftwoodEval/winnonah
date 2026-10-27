@@ -101,7 +101,7 @@ export default function ReminderSettings() {
 
 	return (
 		<div className="space-y-8 px-4">
-			<h3 className="font-bold text-lg">Reminder Configuration</h3>
+			<h3 className="text-lg font-bold">Reminder Configuration</h3>
 
 			<Card>
 				<CardHeader>
@@ -138,7 +138,7 @@ export default function ReminderSettings() {
 
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
-					<h2 className="font-semibold text-xl">Reminder Scripts</h2>
+					<h2 className="text-xl font-semibold">Reminder Scripts</h2>
 					<Button onClick={handleCreate}>Add Template</Button>
 				</div>
 
@@ -242,7 +242,7 @@ export default function ReminderSettings() {
 									{logs.map((log) => (
 										<TableRow key={log.id}>
 											<TableCell
-												className="whitespace-nowrap text-muted-foreground text-xs"
+												className="text-xs whitespace-nowrap text-muted-foreground"
 												title={format(log.sentAt, "PPpp")}
 											>
 												{formatDistanceToNow(log.sentAt, { addSuffix: true })}
@@ -257,7 +257,7 @@ export default function ReminderSettings() {
 													</ClientHoverCard>
 												</Link>
 											</TableCell>
-											<TableCell className="whitespace-nowrap text-xs">
+											<TableCell className="text-xs whitespace-nowrap">
 												{formatInBusinessTime(
 													log.appointmentStart,
 													"MMM d, yyyy p",
@@ -304,7 +304,7 @@ export default function ReminderSettings() {
 									{confirmationReplies.map((reply) => (
 										<TableRow key={reply.id}>
 											<TableCell
-												className="whitespace-nowrap text-muted-foreground text-xs"
+												className="text-xs whitespace-nowrap text-muted-foreground"
 												title={format(reply.receivedAt, "PPpp")}
 											>
 												{formatDistanceToNow(reply.receivedAt, {
@@ -321,7 +321,7 @@ export default function ReminderSettings() {
 													</ClientHoverCard>
 												</Link>
 											</TableCell>
-											<TableCell className="whitespace-nowrap text-xs">
+											<TableCell className="text-xs whitespace-nowrap">
 												{formatInBusinessTime(
 													reply.appointmentStart,
 													"MMM d, yyyy p",
@@ -330,7 +330,7 @@ export default function ReminderSettings() {
 											<TableCell className="text-xs">
 												{reply.incomingText}
 											</TableCell>
-											<TableCell className="text-muted-foreground text-xs">
+											<TableCell className="text-xs text-muted-foreground">
 												{reply.confirmationReplyText ?? "—"}
 											</TableCell>
 										</TableRow>
@@ -370,7 +370,7 @@ export default function ReminderSettings() {
 									{nonConfirmationReplies.map((reply) => (
 										<TableRow key={reply.id}>
 											<TableCell
-												className="whitespace-nowrap text-muted-foreground text-xs"
+												className="text-xs whitespace-nowrap text-muted-foreground"
 												title={format(reply.receivedAt, "PPpp")}
 											>
 												{formatDistanceToNow(reply.receivedAt, {
@@ -387,7 +387,7 @@ export default function ReminderSettings() {
 													</ClientHoverCard>
 												</Link>
 											</TableCell>
-											<TableCell className="whitespace-nowrap text-xs">
+											<TableCell className="text-xs whitespace-nowrap">
 												{formatInBusinessTime(
 													reply.appointmentStart,
 													"MMM d, yyyy p",

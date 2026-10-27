@@ -108,7 +108,7 @@ function AdditionalApptsForm({
 }) {
 	return (
 		<div className="space-y-4 rounded-md border p-4">
-			<FormLabel className="font-bold text-base">
+			<FormLabel className="text-base font-bold">
 				Insurance Codes by Appointment
 			</FormLabel>
 
@@ -160,7 +160,7 @@ function AdditionalApptsForm({
 			/>
 
 			<div>
-				<FormLabel className="text-muted-foreground text-sm">
+				<FormLabel className="text-sm text-muted-foreground">
 					Max Units Per Code (leave blank for no limit)
 				</FormLabel>
 				<div className="mt-2 grid grid-cols-2 gap-3">
@@ -205,7 +205,7 @@ function AdditionalApptsForm({
 				control={form.control}
 				name="additionalAppts.using90000BillingCode"
 				render={({ field }) => (
-					<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+					<FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
 						<FormControl>
 							<Checkbox
 								checked={field.value ?? false}
@@ -355,7 +355,7 @@ function InsuranceForm({
 										badgeClassName="bg-secondary text-secondary-foreground"
 										creatable={true}
 										emptyIndicator={
-											<p className="text-center text-muted-foreground text-sm">
+											<p className="text-center text-sm text-muted-foreground">
 												No names found. Type to add an official name.
 											</p>
 										}
@@ -400,7 +400,7 @@ function InsuranceForm({
 							control={form.control}
 							name="preAuthNeeded"
 							render={({ field }) => (
-								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+								<FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
 									<FormControl>
 										<Checkbox
 											checked={field.value}
@@ -417,7 +417,7 @@ function InsuranceForm({
 							control={form.control}
 							name="preAuthLockin"
 							render={({ field }) => (
-								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+								<FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
 									<FormControl>
 										<Checkbox
 											checked={field.value}
@@ -434,7 +434,7 @@ function InsuranceForm({
 							control={form.control}
 							name="ignoreBalance"
 							render={({ field }) => (
-								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+								<FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
 									<FormControl>
 										<Checkbox
 											checked={field.value}
@@ -473,7 +473,7 @@ function InsuranceForm({
 												key={evaluator.npi}
 												name="evaluatorNpis"
 												render={({ field }) => (
-													<FormItem className="flex items-center space-x-2 space-y-0">
+													<FormItem className="flex items-center space-y-0 space-x-2">
 														<FormControl>
 															<Checkbox
 																checked={field.value?.includes(evaluator.npi)}
@@ -502,7 +502,7 @@ function InsuranceForm({
 										))
 									)}
 									{!isLoadingEvaluators && allEvaluators?.length === 0 && (
-										<p className="text-muted-foreground text-sm italic">
+										<p className="text-sm text-muted-foreground italic">
 											No evaluators found.
 										</p>
 									)}
@@ -699,7 +699,7 @@ export default function InsurancesTable() {
 	return (
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
-				<h3 className="font-bold text-lg">Insurances</h3>
+				<h3 className="text-lg font-bold">Insurances</h3>
 				{canEdit && (
 					<AddInsuranceButton
 						existingInsurances={(insurances as InsuranceWithAliases[]) ?? []}
@@ -743,7 +743,7 @@ export default function InsurancesTable() {
 										<div className="flex flex-col items-start gap-1">
 											<Badge variant="outline">{insurance.shortName}</Badge>
 											{insurance.evaluatorNpis.length === 0 && (
-												<span className="flex items-center gap-1 text-warning text-xs">
+												<span className="flex items-center gap-1 text-xs text-warning">
 													<AlertTriangle className="h-3 w-3" />
 													No evaluators
 												</span>
@@ -758,7 +758,7 @@ export default function InsurancesTable() {
 												</Badge>
 											))}
 											{insurance.aliases.length === 0 && (
-												<span className="text-muted-foreground text-sm italic">
+												<span className="text-sm text-muted-foreground italic">
 													None
 												</span>
 											)}
@@ -808,7 +808,7 @@ export default function InsurancesTable() {
 								<div className="flex flex-col items-start gap-1">
 									<Badge variant="outline">{insurance.shortName}</Badge>
 									{insurance.evaluatorNpis.length === 0 && (
-										<span className="flex items-center gap-1 text-warning text-xs">
+										<span className="flex items-center gap-1 text-xs text-warning">
 											<AlertTriangle className="h-3 w-3" />
 											No evaluators
 										</span>
@@ -825,13 +825,13 @@ export default function InsurancesTable() {
 							</div>
 
 							<div className="mt-3">
-								<div className="text-muted-foreground text-xs">
+								<div className="text-xs text-muted-foreground">
 									Official Names (Aliases)
 								</div>
 								<div className="mt-1 flex flex-wrap gap-1">
 									{insurance.aliases.map((alias) => (
 										<Badge
-											className="h-auto max-w-full whitespace-normal break-words text-left"
+											className="h-auto max-w-full text-left break-words whitespace-normal"
 											key={alias.name}
 											variant="secondary"
 										>
@@ -839,7 +839,7 @@ export default function InsurancesTable() {
 										</Badge>
 									))}
 									{insurance.aliases.length === 0 && (
-										<span className="text-muted-foreground text-sm italic">
+										<span className="text-sm text-muted-foreground italic">
 											None
 										</span>
 									)}
@@ -848,7 +848,7 @@ export default function InsurancesTable() {
 
 							<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
 								<div>
-									<div className="text-muted-foreground text-xs">Pre-Auth</div>
+									<div className="text-xs text-muted-foreground">Pre-Auth</div>
 									{insurance.preAuthNeeded ? (
 										<Check className="h-4 w-4 text-success" />
 									) : (
@@ -856,7 +856,7 @@ export default function InsurancesTable() {
 									)}
 								</div>
 								<div>
-									<div className="text-muted-foreground text-xs">Lock In</div>
+									<div className="text-xs text-muted-foreground">Lock In</div>
 									{insurance.preAuthLockin ? (
 										<Check className="h-4 w-4 text-success" />
 									) : (
@@ -864,7 +864,7 @@ export default function InsurancesTable() {
 									)}
 								</div>
 								<div>
-									<div className="text-muted-foreground text-xs">Appts.</div>
+									<div className="text-xs text-muted-foreground">Appts.</div>
 									<div>{insurance.appointmentsRequired}</div>
 								</div>
 							</div>

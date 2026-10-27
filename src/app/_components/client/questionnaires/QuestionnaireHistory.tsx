@@ -59,7 +59,7 @@ function QuestionnaireHistoryList({ clientId }: { clientId: number }) {
 
 	if (!history || history.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm">No recorded changes yet.</p>
+			<p className="text-sm text-muted-foreground">No recorded changes yet.</p>
 		);
 	}
 
@@ -68,7 +68,7 @@ function QuestionnaireHistoryList({ clientId }: { clientId: number }) {
 			{history.map((entry) => (
 				<li className="border-b pb-2 last:border-b-0" key={entry.id}>
 					<p>{entry.description}</p>
-					<p className="text-muted-foreground text-xs">
+					<p className="text-xs text-muted-foreground">
 						{entry.actor} &middot;{" "}
 						{formatInBusinessTime(entry.createdAt, "MMM d, yyyy h:mm a")}
 					</p>

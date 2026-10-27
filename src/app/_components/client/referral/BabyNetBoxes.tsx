@@ -107,7 +107,7 @@ export function BabyNetBoxes({
 
 	return (
 		<div className="w-full">
-			<h4 className="mb-2 font-bold leading-none">BabyNet Evaluation Report</h4>
+			<h4 className="mb-2 leading-none font-bold">BabyNet Evaluation Report</h4>
 			<div className="flex flex-row flex-wrap items-center gap-3">
 				<Tooltip>
 					<TooltipTrigger>

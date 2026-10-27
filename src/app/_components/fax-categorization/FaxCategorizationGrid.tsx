@@ -109,7 +109,7 @@ function CategoryBadges({
 				>
 					{llmCategory ?? "Unsure"}
 				</Badge>
-				<span className="text-muted-foreground text-xs">→</span>
+				<span className="text-xs text-muted-foreground">→</span>
 				<Badge className={categoryBadgeClass(category)} variant="outline">
 					{category ?? "Unsure"}
 				</Badge>
@@ -237,7 +237,7 @@ export function FaxCategorizationGrid() {
 						</Select>
 					)}
 					{!isLoading && faxes && faxes.length > 0 && (
-						<span className="text-muted-foreground text-sm">
+						<span className="text-sm text-muted-foreground">
 							{displayedFaxes.length} fax
 							{displayedFaxes.length === 1 ? "" : "es"}
 						</span>
@@ -359,8 +359,8 @@ function FaxGrid({
 							<CardHeader className="flex flex-row items-start gap-2 space-y-0">
 								<FileTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
 								<div className="flex flex-col gap-1">
-									<span className="font-medium text-sm">{fax.fileName}</span>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-sm font-medium">{fax.fileName}</span>
+									<span className="text-xs text-muted-foreground">
 										{status === "reviewed" && fax.reviewedAt ? (
 											<>
 												reviewed{" "}
@@ -408,7 +408,7 @@ function FaxGrid({
 									)}
 								</div>
 								{activeLinks(fax.links).length === 0 ? (
-									<span className="text-muted-foreground text-xs italic">
+									<span className="text-xs text-muted-foreground italic">
 										No candidates identified.
 									</span>
 								) : (
@@ -469,7 +469,7 @@ function FaxGrid({
 								/>
 								<div className="flex flex-col gap-3 overflow-y-auto">
 									<div>
-										<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+										<p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
 											Category
 										</p>
 										{status === "pending" ? (
@@ -512,7 +512,7 @@ function FaxGrid({
 										)}
 										{status === "pending" &&
 											selectedFax.confidence !== null && (
-												<p className="mt-2 text-muted-foreground text-xs">
+												<p className="mt-2 text-xs text-muted-foreground">
 													LLM guessed{" "}
 													<span className="font-medium">
 														{selectedFax.llmCategory ?? "Unsure"}
@@ -522,7 +522,7 @@ function FaxGrid({
 												</p>
 											)}
 										{status === "reviewed" && selectedFax.reviewedAt && (
-											<p className="mt-2 text-muted-foreground text-xs">
+											<p className="mt-2 text-xs text-muted-foreground">
 												Reviewed by{" "}
 												<span className="font-medium">
 													{selectedFax.reviewedByName ? (
@@ -555,7 +555,7 @@ function FaxGrid({
 												Re-run AI
 											</Button>
 											{selectedFax.reprocessRequestedAt && (
-												<span className="text-muted-foreground text-xs italic">
+												<span className="text-xs text-muted-foreground italic">
 													Queued for re-run, keeps your category and client
 													picks.
 												</span>
@@ -563,7 +563,7 @@ function FaxGrid({
 										</div>
 										{!selectedFax.reprocessRequestedAt &&
 											selectedFax.lastReprocessedAt && (
-												<p className="mt-2 text-muted-foreground text-xs italic">
+												<p className="mt-2 text-xs text-muted-foreground italic">
 													AI last re-ran this fax on{" "}
 													{formatInBusinessTime(
 														selectedFax.lastReprocessedAt,
@@ -575,12 +575,12 @@ function FaxGrid({
 									</div>
 									{status === "reviewed" && selectedFax.extractedText && (
 										<Collapsible>
-											<CollapsibleTrigger className="flex items-center gap-1 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:text-foreground">
+											<CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium tracking-wider text-muted-foreground uppercase hover:text-foreground">
 												<ChevronDownIcon className="h-3 w-3" />
 												Raw scraped text
 											</CollapsibleTrigger>
 											<CollapsibleContent>
-												<pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-xs">
+												<pre className="mt-2 max-h-64 overflow-y-auto rounded-md border bg-muted/30 p-2 text-xs whitespace-pre-wrap">
 													<Redact>{selectedFax.extractedText}</Redact>
 												</pre>
 											</CollapsibleContent>
@@ -589,11 +589,11 @@ function FaxGrid({
 									<Separator />
 									{status === "pending" ? (
 										<div>
-											<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+											<p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
 												Candidate client(s)
 											</p>
 											{activeLinks(selectedFax.links).length === 0 ? (
-												<p className="text-muted-foreground text-sm italic">
+												<p className="text-sm text-muted-foreground italic">
 													No candidates identified.
 												</p>
 											) : (
@@ -651,13 +651,13 @@ function FaxGrid({
 									) : (
 										<div className="flex flex-col gap-4">
 											<div>
-												<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+												<p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
 													AI suggested
 												</p>
 												{selectedFax.links.filter(
 													(link) => link.source === "llm",
 												).length === 0 ? (
-													<p className="text-muted-foreground text-sm italic">
+													<p className="text-sm text-muted-foreground italic">
 														No candidates identified.
 													</p>
 												) : (
@@ -709,11 +709,11 @@ function FaxGrid({
 												)}
 											</div>
 											<div>
-												<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+												<p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
 													Selected by reviewer
 												</p>
 												{activeLinks(selectedFax.links).length === 0 ? (
-													<p className="text-muted-foreground text-sm italic">
+													<p className="text-sm text-muted-foreground italic">
 														No clients linked.
 													</p>
 												) : (
@@ -749,7 +749,7 @@ function FaxGrid({
 										<>
 											<Separator />
 											<div>
-												<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+												<p className="mb-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
 													Link a different client
 												</p>
 												<ClientSearchAndAdd

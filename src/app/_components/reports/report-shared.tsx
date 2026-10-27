@@ -221,7 +221,7 @@ export function WriterCell({ report: r }: { report: Report }) {
 		return <span className="text-muted-foreground">Unclaimed</span>;
 	return (
 		<span className="inline-flex flex-col items-start gap-0.5">
-			<span className="text-muted-foreground text-xs italic">
+			<span className="text-xs text-muted-foreground italic">
 				Likely {writerDisplay(suggested.name, suggested.email)}
 			</span>
 			<Button

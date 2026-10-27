@@ -318,7 +318,7 @@ export default function RolesTable() {
 	return (
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
-				<h3 className="font-bold text-lg">Roles</h3>
+				<h3 className="text-lg font-bold">Roles</h3>
 				{canEditRoles && <AddRoleButton />}
 			</div>
 
@@ -381,7 +381,7 @@ export default function RolesTable() {
 							key={role.id}
 						>
 							<div className="flex items-center gap-2">
-								<p className="font-medium text-sm">{role.name}</p>
+								<p className="text-sm font-medium">{role.name}</p>
 								{role.isDefault && <Badge variant="outline">Default</Badge>}
 							</div>
 							{canEditRoles && <RoleActionsMenu role={role} />}

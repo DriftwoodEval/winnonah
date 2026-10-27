@@ -217,7 +217,7 @@ export function IssueReportDialog({
 
 					{recipients.length > 0 && (
 						<fieldset>
-							<legend className="mb-2 font-medium text-sm">
+							<legend className="mb-2 text-sm font-medium">
 								Include on email
 							</legend>
 							<div className="flex flex-wrap gap-x-4 gap-y-2">

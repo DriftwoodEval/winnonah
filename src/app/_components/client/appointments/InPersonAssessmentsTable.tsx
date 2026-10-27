@@ -265,7 +265,7 @@ export function InPersonAssessmentsTable({
 	return (
 		<div className="w-full rounded-md border shadow-sm">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
-				<h4 className="font-bold leading-none">In-Person Assessments</h4>
+				<h4 className="leading-none font-bold">In-Person Assessments</h4>
 				{showActions && clientId && availableToAdd.length > 0 && (
 					<AddInPersonAssessmentButton
 						availableTypes={availableToAdd}
@@ -309,12 +309,12 @@ export function InPersonAssessmentsTable({
 										{assessment.status === "EXTERNAL" ? (
 											<Badge variant="outline">External</Badge>
 										) : (
-											<span className="text-muted-foreground text-xs">—</span>
+											<span className="text-xs text-muted-foreground">—</span>
 										)}
 									</TableCell>
 									<TableCell className="hidden sm:table-cell">
 										{assessment.appointmentId ? (
-											<span className="text-muted-foreground text-xs">
+											<span className="text-xs text-muted-foreground">
 												{assessment.appointmentStartTime
 													? formatShortInstantDate(
 															assessment.appointmentStartTime,
@@ -328,7 +328,7 @@ export function InPersonAssessmentsTable({
 												)}
 											</span>
 										) : (
-											<span className="text-muted-foreground text-xs">
+											<span className="text-xs text-muted-foreground">
 												Manual
 											</span>
 										)}
@@ -357,7 +357,7 @@ export function InPersonAssessmentsTable({
 											)}
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">
-											<span className="text-muted-foreground text-xs">
+											<span className="text-xs text-muted-foreground">
 												Archived {formatShortInstantDate(entry.createdAt)}
 											</span>
 										</TableCell>
@@ -369,7 +369,7 @@ export function InPersonAssessmentsTable({
 				</div>
 			)}
 			{!isLoading && assessments?.length === 0 && showActions && (
-				<p className="px-4 pb-4 text-muted-foreground text-sm">
+				<p className="px-4 pb-4 text-sm text-muted-foreground">
 					No in-person assessments added yet.
 				</p>
 			)}

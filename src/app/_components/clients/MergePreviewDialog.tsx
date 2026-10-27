@@ -141,13 +141,13 @@ export function MergePreviewDialog({
 								{isPending ? "Merging..." : "Append Notes & Delete Fake"}
 							</Button>
 							<div className="flex flex-col items-center gap-4">
-								<p className="max-w-[20ch] text-muted-foreground text-sm">
+								<p className="max-w-[20ch] text-sm text-muted-foreground">
 									Notes from the client on the
 									{isDesktop ? " right " : " bottom "}
 									will be added to the end of the notes of the client on the
 									{isDesktop ? " left" : " top"}.
 								</p>
-								<p className="max-w-[20ch] text-muted-foreground text-sm">
+								<p className="max-w-[20ch] text-sm text-muted-foreground">
 									All other information from the client on the
 									{isDesktop ? " right " : " bottom "}
 									will replace the title of the notes on the

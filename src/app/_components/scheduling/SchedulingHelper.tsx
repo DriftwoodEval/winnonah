@@ -502,7 +502,7 @@ function SchedulingHelperGrid({
 	const rangeEnd = useMemo(() => {
 		const minEnd = addDays(startOfToday(), AVAILABILITY_WINDOW_DAYS);
 		const visibleEnd = addDays(visibleStart, VISIBLE_DAYS);
-		return visibleEnd > minEnd ? visibleEnd : minEnd;
+		return new Date(Math.max(visibleEnd.getTime(), minEnd.getTime()));
 	}, [visibleStart]);
 
 	const { data: availabilityByNpi, isLoading: isLoadingAvailability } =
@@ -1494,7 +1494,7 @@ function SchedulingHelperGrid({
 			</TooltipProvider>
 			{durationOverride !== null && (
 				<button
-					className="text-muted-foreground text-xs underline"
+					className="text-xs text-muted-foreground underline"
 					onClick={() => setDurationOverride(null)}
 					type="button"
 				>
@@ -1516,7 +1516,7 @@ function SchedulingHelperGrid({
 					{lockedClient ? (
 						<ClientHeaderSection clientId={lockedClient.id} />
 					) : (
-						<h2 className="font-semibold text-xl">Schedule Appointment</h2>
+						<h2 className="text-xl font-semibold">Schedule Appointment</h2>
 					)}
 				</div>
 				<Button asChild size="sm" variant="outline">
@@ -1535,7 +1535,7 @@ function SchedulingHelperGrid({
 						<div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-2">
 							{!lockedClient && (
 								<div className="flex min-w-[200px] items-center gap-2">
-									<Label className="text-muted-foreground text-xs">
+									<Label className="text-xs text-muted-foreground">
 										Client
 									</Label>
 									{pendingClient ? (
@@ -1544,7 +1544,7 @@ function SchedulingHelperGrid({
 												<Redact>{pendingClient.fullName}</Redact>
 											</span>
 											<button
-												className="text-muted-foreground text-xs underline"
+												className="text-xs text-muted-foreground underline"
 												onClick={() => setPendingClient(null)}
 												type="button"
 											>
@@ -1567,7 +1567,7 @@ function SchedulingHelperGrid({
 
 							<div className="flex items-center gap-2">
 								<Label
-									className="text-muted-foreground text-xs"
+									className="text-xs text-muted-foreground"
 									htmlFor="office-select"
 								>
 									Office
@@ -1598,7 +1598,7 @@ function SchedulingHelperGrid({
 
 							<div className="flex items-center gap-2">
 								<Label
-									className="text-muted-foreground text-xs"
+									className="text-xs text-muted-foreground"
 									htmlFor="type-select"
 								>
 									Type
@@ -1721,7 +1721,7 @@ function SchedulingHelperGrid({
 							)}
 							{filterToAssigned && (
 								<button
-									className="ml-auto text-muted-foreground text-xs underline"
+									className="ml-auto text-xs text-muted-foreground underline"
 									onClick={() => setShowAllEvaluators(true)}
 									type="button"
 								>
@@ -1730,7 +1730,7 @@ function SchedulingHelperGrid({
 							)}
 						</Card>
 					)}
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-muted-foreground text-xs">
+					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-muted-foreground">
 						<span className="font-medium">Key:</span>
 						{[
 							{ label: "Booked", swatch: "border-primary bg-primary" },
@@ -1802,7 +1802,7 @@ function SchedulingHelperGrid({
 							) : isLoadingEvaluators ? (
 								<Skeleton className="m-4 h-64 w-full rounded-md" />
 							) : typeAllowedEvaluators.length === 0 ? (
-								<p className="p-4 text-muted-foreground text-sm">
+								<p className="p-4 text-sm text-muted-foreground">
 									No evaluators allow {appointmentType} appointments.
 								</p>
 							) : (
@@ -1821,12 +1821,12 @@ function SchedulingHelperGrid({
 												className={`sticky top-0 z-10 border-b border-l bg-background p-2 text-center text-xs ${isToday ? "text-primary" : "text-muted-foreground"}`}
 												key={day}
 											>
-												<div className="font-medium uppercase tracking-wide">
+												<div className="font-medium tracking-wide uppercase">
 													{date.toLocaleDateString(undefined, {
 														weekday: "short",
 													})}
 												</div>
-												<div className="font-semibold text-foreground text-sm">
+												<div className="text-sm font-semibold text-foreground">
 													{date.toLocaleDateString(undefined, {
 														month: "numeric",
 														day: "numeric",
@@ -1866,7 +1866,7 @@ function SchedulingHelperGrid({
 
 									{ineligibleList.length > 0 && (
 										<button
-											className="col-span-full flex items-center gap-1 border-t bg-muted/30 p-2 text-left text-muted-foreground text-xs hover:bg-muted/50"
+											className="col-span-full flex items-center gap-1 border-t bg-muted/30 p-2 text-left text-xs text-muted-foreground hover:bg-muted/50"
 											onClick={() => setShowIneligible((v) => !v)}
 											type="button"
 										>
@@ -2037,7 +2037,7 @@ function SchedulingHelperGrid({
 							{view !== "calendar" && <div className="border-t" />}
 							{view !== "calendar" && (
 								<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-									<h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+									<h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 										Pick a time
 									</h4>
 									{durationControl}
@@ -2068,7 +2068,7 @@ function SchedulingHelperGrid({
 									</div>
 								) : (
 									<div className="flex flex-col gap-1.5">
-										<p className="text-muted-foreground text-sm">
+										<p className="text-sm text-muted-foreground">
 											{hasAllDayAvailability
 												? "Marked available all day - pick a time:"
 												: "No marked availability for this day/office - pick a time, or click the calendar below:"}
@@ -2095,7 +2095,7 @@ function SchedulingHelperGrid({
 											</Button>
 										</div>
 										{manualSlotError && (
-											<p className="text-destructive text-xs">
+											<p className="text-xs text-destructive">
 												{manualSlotError}
 											</p>
 										)}
@@ -2128,7 +2128,7 @@ function SchedulingHelperGrid({
 									{effectiveClient ? (
 										<div className="flex items-center justify-between gap-2">
 											<Link
-												className="truncate font-bold text-sm hover:underline"
+												className="truncate text-sm font-bold hover:underline"
 												href={`/clients/${effectiveClient.hash}`}
 												target="_blank"
 											>
@@ -2147,7 +2147,7 @@ function SchedulingHelperGrid({
 											</Button>
 										</div>
 									) : (
-										<p className="text-muted-foreground text-sm">
+										<p className="text-sm text-muted-foreground">
 											Select a client above to confirm this booking.
 										</p>
 									)}
@@ -2161,7 +2161,7 @@ function SchedulingHelperGrid({
 									{selectedEvaluator?.providerName ?? "Evaluator"}'s schedule on{" "}
 									{dayStringToLocalDate(selectedCell.date).toLocaleDateString()}
 								</h3>
-								<p className="text-muted-foreground text-xs">
+								<p className="text-xs text-muted-foreground">
 									Every appointment this evaluator has that day, across all
 									offices, with their marked availability shown behind as a
 									light overlay.
@@ -2273,7 +2273,7 @@ function SchedulingHelperGrid({
 
 						{IS_DEV && (
 							<Collapsible onOpenChange={setShowDebug} open={showDebug}>
-								<CollapsibleTrigger className="flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground">
+								<CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
 									{showDebug ? (
 										<ChevronDown className="h-3 w-3" />
 									) : (
@@ -2463,7 +2463,7 @@ function EvaluatorRow({
 							<Skeleton className="h-5 w-full rounded-sm" />
 						) : status.kind === "booked" ? (
 							<Badge
-								className={`w-full justify-center truncate ${status.placeholder ? "cursor-grab border-2 border-warning border-dashed bg-warning/15 text-warning active:cursor-grabbing dark:bg-warning/25" : ""}`}
+								className={`w-full justify-center truncate ${status.placeholder ? "cursor-grab border-2 border-dashed border-warning bg-warning/15 text-warning active:cursor-grabbing dark:bg-warning/25" : ""}`}
 								draggable={status.placeholder}
 								onDragStart={
 									status.placeholder
@@ -2579,10 +2579,10 @@ function DateFirstView({
 						key={day}
 					>
 						<div className="text-center text-xs">
-							<div className="font-medium text-muted-foreground uppercase tracking-wide">
+							<div className="font-medium tracking-wide text-muted-foreground uppercase">
 								{date.toLocaleDateString(undefined, { weekday: "short" })}
 							</div>
-							<div className="font-semibold text-sm">
+							<div className="text-sm font-semibold">
 								{date.toLocaleDateString(undefined, {
 									month: "numeric",
 									day: "numeric",
@@ -2590,13 +2590,13 @@ function DateFirstView({
 							</div>
 						</div>
 						{rows.length === 0 ? (
-							<span className="text-center text-destructive text-xs">
+							<span className="text-center text-xs text-destructive">
 								No openings
 							</span>
 						) : (
 							rows.map(({ evaluator, starts }) => (
 								<div className="flex flex-col gap-1" key={evaluator.npi}>
-									<span className="truncate font-medium text-xs">
+									<span className="truncate text-xs font-medium">
 										{evaluator.providerName}
 									</span>
 									<div className="flex flex-wrap gap-1">

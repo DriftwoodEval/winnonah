@@ -241,7 +241,7 @@ function SettingsSearch({
 	return (
 		<>
 			<button
-				className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-muted-foreground text-sm shadow-xs"
+				className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-xs"
 				onClick={() => setOpen(true)}
 				type="button"
 			>
@@ -339,7 +339,7 @@ export function SettingsTabs() {
 	return (
 		<div className="mx-4 my-6 flex w-full min-w-0 flex-col gap-6 sm:mx-10 sm:my-10">
 			<div className="flex items-center justify-between gap-4">
-				<h1 className="font-bold text-2xl">Settings</h1>
+				<h1 className="text-2xl font-bold">Settings</h1>
 				<SettingsSearch onNavigate={goToSearchEntry} />
 			</div>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>

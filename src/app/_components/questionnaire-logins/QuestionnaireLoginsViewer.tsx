@@ -22,10 +22,10 @@ function CredentialField({ label, value }: { label: string; value: string }) {
 
 	return (
 		<div className="space-y-1">
-			<Label className="text-muted-foreground text-xs">{label}</Label>
+			<Label className="text-xs text-muted-foreground">{label}</Label>
 			<div className="flex items-center gap-1">
 				<Input
-					className={enabled ? "select-none font-mono blur-sm" : "font-mono"}
+					className={enabled ? "font-mono blur-sm select-none" : "font-mono"}
 					readOnly
 					value={enabled ? scrambleText(value) : value}
 				/>
@@ -83,7 +83,7 @@ function PearsonVerificationCode() {
 						<div className="flex items-center gap-1">
 							<Input
 								className={
-									enabled ? "select-none font-mono blur-sm" : "font-mono"
+									enabled ? "font-mono blur-sm select-none" : "font-mono"
 								}
 								readOnly
 								value={enabled ? scrambleText(code) : code}
@@ -111,7 +111,7 @@ export function QuestionnaireLoginsViewer() {
 
 	if (!services)
 		return (
-			<p className="text-muted-foreground text-sm">No services config found.</p>
+			<p className="text-sm text-muted-foreground">No services config found.</p>
 		);
 
 	const allServices = ["mhs", "qglobal", "wps", "novopsych"] as const;

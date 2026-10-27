@@ -48,7 +48,7 @@ export function OfficeDriveTimesButton({
 			</PopoverTrigger>
 			<PopoverContent side="right">
 				{driveTimes.isLoading ? (
-					<div className="flex items-center gap-2 p-3 text-muted-foreground text-sm">
+					<div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
 						<Loader2Icon className="h-4 w-4 animate-spin" />
 						Getting drive times from Waze
 					</div>
@@ -72,7 +72,7 @@ export function OfficeDriveTimesButton({
 						))}
 					</ul>
 				) : (
-					<p className="p-3 text-muted-foreground text-sm">
+					<p className="p-3 text-sm text-muted-foreground">
 						No drive times available.
 					</p>
 				)}

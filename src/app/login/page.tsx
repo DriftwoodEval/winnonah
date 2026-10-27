@@ -22,7 +22,7 @@ function LoginPage() {
 
 	return (
 		<main className="flex min-h-screen min-w-screen flex-col items-center justify-center gap-6">
-			<h1 className="text-center font-bold text-2xl">
+			<h1 className="text-center text-2xl font-bold">
 				{timedOut ? "Your session has expired" : "Sign in"}
 			</h1>
 			{timedOut && (

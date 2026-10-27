@@ -201,8 +201,8 @@ export function TestUnitManager() {
 								key={unit.id}
 							>
 								<div>
-									<p className="font-medium text-sm">{unit.name}</p>
-									<p className="text-muted-foreground text-xs">
+									<p className="text-sm font-medium">{unit.name}</p>
+									<p className="text-xs text-muted-foreground">
 										{unit.minutes} mins
 									</p>
 								</div>

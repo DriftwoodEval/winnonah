@@ -350,7 +350,7 @@ export function ClientsDashboard() {
 					<PopoverContent align="end">
 						<div className="space-y-4">
 							<div className="space-y-2">
-								<p className="font-medium text-sm">Sort By</p>
+								<p className="text-sm font-medium">Sort By</p>
 								<RadioGroup
 									onValueChange={(value) => handleUrlParamChange("sort", value)}
 									value={queryParams.sort ?? "priority"}
@@ -418,7 +418,7 @@ export function ClientsDashboard() {
 					<PopoverContent align="end" className="max-h-[80dvh] overflow-y-auto">
 						<div className="space-y-4">
 							<div className="space-y-2">
-								<p className="font-medium text-sm">Client Status</p>
+								<p className="text-sm font-medium">Client Status</p>
 								<RadioGroup
 									onValueChange={(value) =>
 										handleUrlParamChange("status", value)
@@ -441,7 +441,7 @@ export function ClientsDashboard() {
 							</div>
 							<Separator />
 							<div className="space-y-2">
-								<p className="font-medium text-sm">Client Type</p>
+								<p className="text-sm font-medium">Client Type</p>
 								<RadioGroup
 									onValueChange={(value) => handleUrlParamChange("type", value)}
 									value={queryParams.type ?? "both"}
@@ -462,7 +462,7 @@ export function ClientsDashboard() {
 							</div>
 							<Separator />
 							<div className="space-y-2">
-								<p className="font-medium text-sm">Color</p>
+								<p className="text-sm font-medium">Color</p>
 								<div className="grid grid-cols-6 gap-2 pt-1">
 									{CLIENT_COLOR_KEYS.map((colorKey) => (
 										<Tooltip key={colorKey}>
@@ -518,7 +518,7 @@ export function ClientsDashboard() {
 										handleUrlParamChange("hideBabyNet", !!checked)
 									}
 								/>
-								<Label className="font-medium text-sm" htmlFor={hideBabyNetId}>
+								<Label className="text-sm font-medium" htmlFor={hideBabyNetId}>
 									Hide BabyNet Clients
 								</Label>
 							</div>
@@ -530,7 +530,7 @@ export function ClientsDashboard() {
 										handleUrlParamChange("privatePay", !!checked)
 									}
 								/>
-								<Label className="font-medium text-sm" htmlFor={privatePayId}>
+								<Label className="text-sm font-medium" htmlFor={privatePayId}>
 									Private Pay Only
 								</Label>
 							</div>
@@ -542,7 +542,7 @@ export function ClientsDashboard() {
 										handleUrlParamChange("autismStop", !!checked)
 									}
 								/>
-								<Label className="font-medium text-sm" htmlFor={autismStopId}>
+								<Label className="text-sm font-medium" htmlFor={autismStopId}>
 									"Autism" in Records
 								</Label>
 							</div>
@@ -550,7 +550,7 @@ export function ClientsDashboard() {
 								<>
 									<Separator />
 									<div className="space-y-2">
-										<p className="font-medium text-sm">Insurance</p>
+										<p className="text-sm font-medium">Insurance</p>
 										<div className="max-h-48 space-y-2 overflow-y-auto">
 											{allInsurances.map((ins) => (
 												<div
@@ -569,7 +569,7 @@ export function ClientsDashboard() {
 														}
 													/>
 													<Label
-														className="font-medium text-sm"
+														className="text-sm font-medium"
 														htmlFor={`insurance-${ins.id}`}
 													>
 														{ins.shortName}
@@ -591,12 +591,12 @@ export function ClientsDashboard() {
 					className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-background px-3 py-2 shadow-sm"
 					onMouseDown={(e) => e.preventDefault()}
 				>
-					<span className="text-muted-foreground text-xs uppercase tracking-wide">
+					<span className="text-xs tracking-wide text-muted-foreground uppercase">
 						Recent
 					</span>
 					{recentClients?.map((client) => (
 						<Link
-							className="shrink-0 whitespace-nowrap rounded-md border bg-muted px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground"
+							className="shrink-0 rounded-md border bg-muted px-2.5 py-1 text-sm whitespace-nowrap shadow-xs hover:bg-accent hover:text-accent-foreground"
 							href={`/clients/${client.hash}`}
 							key={client.hash}
 						>

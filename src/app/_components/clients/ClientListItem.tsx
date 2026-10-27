@@ -62,7 +62,7 @@ function ClientListItemComponent({
 				</div>
 				<span
 					className={cn(
-						"flex gap-2 text-muted-foreground text-xs",
+						"flex gap-2 text-xs text-muted-foreground",
 						(client.sortReason === "BabyNet above 2:6" ||
 							client.sortReason === "High Priority" ||
 							client.sortReason === "BabyNet and High Priority") &&

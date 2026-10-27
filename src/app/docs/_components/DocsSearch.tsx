@@ -144,7 +144,7 @@ export function DocsSearch() {
 	return (
 		<>
 			<button
-				className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-muted-foreground text-sm shadow-xs"
+				className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-xs"
 				onClick={() => setOpen(true)}
 				type="button"
 			>
@@ -180,7 +180,7 @@ export function DocsSearch() {
 										{highlightMatches(result.title, result.matchedTerms)}
 									</span>
 									{result.excerpt && (
-										<span className="w-full text-muted-foreground text-xs">
+										<span className="w-full text-xs text-muted-foreground">
 											{highlightMatches(result.excerpt, result.matchedTerms)}
 										</span>
 									)}

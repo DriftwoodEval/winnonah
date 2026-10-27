@@ -17,7 +17,7 @@ export default function SchedulingDisplay() {
 	};
 	return (
 		<div className="flex h-[calc(100vh-2.5rem)] w-full flex-col overflow-hidden px-3 pt-10 pb-3 sm:px-5 sm:pb-5">
-			<h1 className="mb-2 shrink-0 font-bold text-xl sm:mb-4 sm:text-3xl">
+			<h1 className="mb-2 shrink-0 text-xl font-bold sm:mb-4 sm:text-3xl">
 				Scheduling
 			</h1>
 			<div className="mb-2 shrink-0 sm:mb-4">

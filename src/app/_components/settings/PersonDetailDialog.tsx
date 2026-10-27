@@ -265,7 +265,7 @@ function AccountSection({
 
 	return (
 		<div className="space-y-4">
-			{showHeading && <h4 className="font-semibold text-base">Account</h4>}
+			{showHeading && <h4 className="text-base font-semibold">Account</h4>}
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 					<Card>
@@ -591,7 +591,7 @@ function EvaluatorSection({
 	return (
 		<div className="space-y-4">
 			{showHeading && (
-				<h4 className="font-semibold text-base">Evaluator Profile</h4>
+				<h4 className="text-base font-semibold">Evaluator Profile</h4>
 			)}
 			{canEdit && <ColorPicker npi={evaluator.npi} />}
 			<EvaluatorForm
@@ -684,7 +684,7 @@ function AddEvaluatorSection({
 		<div className="space-y-4">
 			<Separator />
 			<div className="flex items-center justify-between">
-				<h4 className="font-semibold text-base">Evaluator Profile</h4>
+				<h4 className="text-base font-semibold">Evaluator Profile</h4>
 				{canEdit && !isOpen && (
 					<Button
 						onClick={() => setIsOpen(true)}
@@ -704,7 +704,7 @@ function AddEvaluatorSection({
 					onSubmit={(values) => createEvaluator.mutate(values)}
 				/>
 			) : (
-				<p className="text-muted-foreground text-sm">
+				<p className="text-sm text-muted-foreground">
 					No evaluator profile linked to this account.
 				</p>
 			)}
@@ -735,8 +735,8 @@ function InviteSection({ email }: { email: string }) {
 			<Separator />
 			<div className="flex items-center justify-between">
 				<div>
-					<h4 className="font-semibold text-base">User Account</h4>
-					<p className="mt-1 text-muted-foreground text-sm">
+					<h4 className="text-base font-semibold">User Account</h4>
+					<p className="mt-1 text-sm text-muted-foreground">
 						No user account for this evaluator.
 					</p>
 				</div>

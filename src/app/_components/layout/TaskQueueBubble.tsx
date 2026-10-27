@@ -61,7 +61,7 @@ export function TaskQueueBubble() {
 				</Badge>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-80 p-2">
-				<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+				<p className="mb-2 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 					Background Tasks
 				</p>
 				<ScrollArea className="max-h-80 overflow-hidden">
@@ -87,7 +87,7 @@ export function TaskQueueBubble() {
 									</Badge>
 								</div>
 								{task.detail && (
-									<p className="truncate text-muted-foreground text-xs">
+									<p className="truncate text-xs text-muted-foreground">
 										{task.detail}
 									</p>
 								)}
@@ -101,7 +101,7 @@ export function TaskQueueBubble() {
 													: 0
 											}
 										/>
-										<p className="shrink-0 text-muted-foreground text-xs">
+										<p className="shrink-0 text-xs text-muted-foreground">
 											{task.progressCurrent} / {task.progressTotal}
 											{PROGRESS_UNIT_LABELS[task.type]
 												? ` ${PROGRESS_UNIT_LABELS[task.type]}`
@@ -109,7 +109,7 @@ export function TaskQueueBubble() {
 										</p>
 									</div>
 								)}
-								<p className="text-muted-foreground text-xs">
+								<p className="text-xs text-muted-foreground">
 									{relativeTime(new Date(task.startedAt))}
 								</p>
 							</div>

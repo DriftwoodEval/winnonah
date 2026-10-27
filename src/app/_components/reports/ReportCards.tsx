@@ -54,7 +54,7 @@ function ClientHeader({ r }: { r: Report }) {
 			)}
 		>
 			<Link
-				className="no-underline! hover:no-underline! flex min-w-0 flex-wrap items-center gap-2 font-medium hover:underline"
+				className="flex min-w-0 flex-wrap items-center gap-2 font-medium no-underline! hover:no-underline! hover:underline"
 				href={`/clients/${r.clientHash}`}
 			>
 				<span
@@ -100,7 +100,7 @@ function EvalLine({ r }: { r: Report }) {
 	return (
 		<div
 			className={cn(
-				"text-muted-foreground text-xs",
+				"text-xs text-muted-foreground",
 				!r.clientActive && "opacity-50",
 			)}
 		>
@@ -117,7 +117,7 @@ function EvalLine({ r }: { r: Report }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<div className="flex flex-col gap-0.5">
-			<span className="text-muted-foreground text-xs">{label}</span>
+			<span className="text-xs text-muted-foreground">{label}</span>
 			{children}
 		</div>
 	);
@@ -148,7 +148,7 @@ function LabeledCheckbox({
 					setBilling.mutate({ id: r.id, field, value: v === true })
 				}
 			/>
-			<Label className="font-normal text-xs" htmlFor={id}>
+			<Label className="text-xs font-normal" htmlFor={id}>
 				{label}
 			</Label>
 		</div>

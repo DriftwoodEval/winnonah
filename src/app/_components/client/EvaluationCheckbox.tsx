@@ -95,7 +95,7 @@ export function EvaluationCheckbox({
 
 	return (
 		<div className="w-full">
-			<h4 className="mb-2 font-bold leading-none">Evaluation</h4>
+			<h4 className="mb-2 leading-none font-bold">Evaluation</h4>
 			{checkboxRow}
 		</div>
 	);

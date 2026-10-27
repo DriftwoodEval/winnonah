@@ -53,8 +53,8 @@ export default function IssueReportSettings() {
 	return (
 		<Card>
 			<CardContent className="space-y-3">
-				<h3 className="font-semibold text-sm">Issue Report Recipients</h3>
-				<p className="text-muted-foreground text-sm">
+				<h3 className="text-sm font-semibold">Issue Report Recipients</h3>
+				<p className="text-sm text-muted-foreground">
 					People staff can choose to include on an issue report email, in
 					addition to the tech address.
 				</p>

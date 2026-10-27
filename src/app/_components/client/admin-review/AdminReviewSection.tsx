@@ -183,7 +183,7 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 	return (
 		<div className="w-full">
 			<div className="mb-3 flex items-center justify-between gap-2">
-				<h4 className="font-bold leading-none">Review</h4>
+				<h4 className="leading-none font-bold">Review</h4>
 
 				<div className="flex items-center gap-2">
 					<ResponsiveDialog
@@ -253,7 +253,7 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 				{canEdit && (
 					<div className="space-y-1">
 						<div className="flex items-center gap-2">
-							<span className="text-muted-foreground text-sm">Whose turn:</span>
+							<span className="text-sm text-muted-foreground">Whose turn:</span>
 							<Select
 								disabled={
 									setClaimMutation.isPending || reviewableUsers.length === 0
@@ -295,7 +295,7 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 						</div>
 
 						{latestClaim && (
-							<p className="text-muted-foreground text-xs">
+							<p className="text-xs text-muted-foreground">
 								{latestClaim.setBy === latestClaim.userEmail
 									? "Self-assigned"
 									: `Assigned by ${latestClaim.setByName || latestClaim.setBy}`}{" "}
@@ -308,7 +308,7 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 				)}
 
 				{!canEdit && review?.claimedUserEmail && (
-					<p className="text-muted-foreground text-sm">
+					<p className="text-sm text-muted-foreground">
 						Whose turn:{" "}
 						{reviewableUsers.find((u) => u.email === review.claimedUserEmail)
 							?.name ?? review.claimedUserEmail}

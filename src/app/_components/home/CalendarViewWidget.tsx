@@ -108,7 +108,7 @@ function WidgetShell({
 		<div className="flex h-full flex-col overflow-hidden">
 			<div className="flex shrink-0 items-center gap-1 border-b px-3 py-2">
 				<Link
-					className="font-semibold text-sm hover:text-secondary"
+					className="text-sm font-semibold hover:text-secondary"
 					href={linkHref}
 				>
 					{title}
@@ -273,7 +273,7 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 
 	const nav = (
 		<div className="ml-auto flex items-center gap-0.5">
-			<span className="text-muted-foreground text-xs tabular-nums">
+			<span className="text-xs text-muted-foreground tabular-nums">
 				{displayLabel(mode, dateRange)}
 			</span>
 			{!todayInRange && (

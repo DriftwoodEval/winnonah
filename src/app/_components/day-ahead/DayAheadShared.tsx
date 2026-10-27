@@ -61,7 +61,7 @@ export function GreeterLine({ greeter }: { greeter: Greeter | null }) {
 export function GreeterInline({ greeter }: { greeter: Greeter | null }) {
 	if (!greeter) return null;
 	return (
-		<span className="shrink-0 text-muted-foreground text-xs normal-case">
+		<span className="shrink-0 text-xs text-muted-foreground normal-case">
 			<Redact>{greeter.name}</Redact>
 			{greeter.phone && (
 				<>

@@ -472,7 +472,7 @@ export function Client({
 												<PopoverHeader>
 													<PopoverTitle>Insurance match details</PopoverTitle>
 												</PopoverHeader>
-												<p className="text-muted-foreground text-xs">
+												<p className="text-xs text-muted-foreground">
 													We take the Medicaid portal's organization and the
 													client's insurance on file, resolve each to a known
 													insurance below, then check whether the organization's
@@ -613,7 +613,7 @@ export function Client({
 														client.initialFailureDate,
 													);
 													return date ? (
-														<span className="font-normal text-sm opacity-90">
+														<span className="text-sm font-normal opacity-90">
 															(Since {format(date, "MM/dd/yy")})
 														</span>
 													) : null;
@@ -650,7 +650,7 @@ export function Client({
 
 									{isNotesOnlyClientId(client.id) && (
 										<div className="flex w-full items-center justify-between rounded-md border p-3">
-											<span className="font-medium text-sm">
+											<span className="text-sm font-medium">
 												Records Needed
 											</span>
 											<Select

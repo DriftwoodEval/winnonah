@@ -1,23 +1,28 @@
 T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cron Python scripts.
 
 ## Code Style
+
 - No AI-isms (filler, hedging, "as an AI") and no em dashes (use comma/colon/period) in code, comments, commits, docs.
 - Prefer simple, readable code over clever/terse one-liners. DRY.
 - Code comments explain the current state of the code, not what changed or why it used to be different. A reader without the diff should get full value from the comment.
 - Use our named color tokens, never raw Tailwind palette colors (`bg-red-500`, `text-amber-600`, etc.). The tokens are defined in `src/styles/globals.css`: semantic (`success`, `warning`, `error`, `primary`, `destructive`, `muted`, `accent`, `border`, `card`, `popover`, each with a `-foreground` where it applies) and brand (`brand-green`, `brand-teal`, `brand-tan`, `brand-cream`). Semantic tokens have Tailwind utilities (`bg-success`, `border-warning/40`); the brand tokens beyond `brand-green` (which is `primary`) are CSS vars only, reach them with `var(--brand-teal)`. If nothing fits, add a token to `globals.css` rather than hardcoding a palette color.
 
 ## Changelog
+
 When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/ci/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
 
 ## Docs
+
 When a change alters behavior an existing docs page under `src/content/docs/` describes (a renamed label, a changed rule, a removed or added step, a workflow that now works differently), update that page in the same change. Grep the docs for the feature name or UI label to find affected pages. Docs are written for non-technical staff: describe what the user sees and does, not the implementation. Validate with `mise run check:docs`.
 
 Category folders can nest one or more levels; each folder (including subfolders) can carry a `_category.json` (`title`, `position`). Moving a page changes its URL, so update every `/docs/...` cross-link that points at it (the validator fails the build on a dead one).
 
 ## Docs
+
 Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff, not engineers: use plain language and skip implementation detail (schema, cron cadences, function names). Do not hard-wrap prose: one line per paragraph and per list item.
 
 ## Commands
+
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
 - `mise run check` also runs knip (unused TS files, exports, and dependencies; config in `knip.json`) and deptry (Python dependencies). Both are advisory: they print findings and never fail the check or CI. Treat a new finding in code you wrote as worth fixing, and don't chase old ones as part of unrelated changes.
@@ -25,14 +30,17 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - The Python sidecar is laid out by role under `python/`: `api/` (FastAPI app and routers; served as `api.app:app`), `cron/` (scheduled jobs), `tools/` and `oneoff/` (manual scripts), `utils/` (shared logic), `common/` (code shared with `questionnaires`). `failover_notify.py` stays at the top because the host failover scripts call it by name. Run any script as a module from `python/`, not by file path, so `utils` imports resolve: `uv run python -m cron.main`, `uv run python -m oneoff.remediate_noop_audit_log`.
 
 ## Local Development
+
 Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
 
 ## Tests
+
 When changing a function's signature, return shape, or behavior, grep its test files for every call site and check whether existing tests still hold, not just whether they still pass. If a change will break a test, say so and either update the test yourself or flag it with the specific test name and why, don't leave it for CI to discover. Don't delete or weaken a test to make it pass; fix the test's expectations to match the new intended behavior, or fix the code if the test caught a real regression.
 
 This applies to the Python suite (`uv run pytest` under `python/`) and any TS unit/integration tests; it does not mean standing up live browser or end-to-end tests, which this project doesn't run (see Local Development above). Also run `mise run check:ruff` (or full `mise run check`) after editing Python, ahead of pytest: a ruff failure (unused import, bad type annotation) is often the faster signal, and trust its output over your own assumptions about Python syntax validity.
 
 ## Home Page Widgets
+
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
 1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/layout/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
 2. Build the component (no props, fetches its own data via tRPC) in `src/app/_components/home/`. For compact list/table widgets with day-navigation, reuse `WidgetShell`, `DayNav`, `useSelectedDate`, `todayStr` exported from `DayAheadWidgets.tsx`.
@@ -41,21 +49,26 @@ The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-co
 The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) are fully data-driven off `HOME_WIDGET_DEFS`, no changes needed there. Storage (`users.preferences.homeWidgets`, `getHomeWidgets`/`updateHomeWidgets` in `src/server/api/routers/admin/users.ts`) accepts any string id already.
 
 ## Path Aliases
+
 `~/` → `src/`, `@components/` → `src/app/_components/`, `@ui/` → `src/app/_components/ui/`
 
 Parent-relative imports (`../`) are banned by a Biome rule, including in `scripts/`. Use an alias; same-directory `./` imports are fine.
 
 ## Restrictions
+
 - Never read gitignored files (grep/cat/etc. included).
 - Never query or output sensitive data (PII, credentials, patient records), even for debugging.
 
 ## Data Layer
+
 MySQL (Docker). Tables use `emr_` prefix (`mysqlTableCreator` in `src/server/db/schema.ts`). Types inferred via Drizzle: `typeof tableName.$inferSelect`.
 
 ### Date-only columns
+
 Columns defined with `d.date({ mode: "string" })` (e.g. `dob`, `precertExpires`, `policyStartDate`, `failedDate`) are calendar dates with no time component, typed as plain `"YYYY-MM-DD"` strings, not `Date` objects. Never wrap them in `new Date(...)`, `toLocaleDateString()`, or date-fns functions: that reintroduces a UTC-midnight round-trip and shifts the displayed day for any user west of UTC. Use the string-native helpers in `src/lib/utils.ts` instead: `parseDateOnly` (year/month/day parts), `compareDateOnly` (sort comparator), `formatShortDate`/`formatDateOnlyLong`/`formatDateOnlyMedium` (display), and `dateOnlyToLocalDate`/`localDateToDateOnly` only at the boundary with UI components that require a `Date` (date pickers, date-fns comparisons).
 
 ### True-instant (timestamp) columns and business timezone
+
 Columns defined with `d.timestamp()` (e.g. `startTime`, `endTime`, `confirmedAt`, `sentAt`, `createdAt`) are genuine UTC instants, both in the DB and as read via `mysql2` (pool configured with `timezone: "Z"` in `src/server/db/index.ts`). The practice's timezone is `BUSINESS_TIMEZONE` in `src/lib/constants.ts` ("America/New_York"), also defined once for Python in the shared `driftwood-common` package (`python/common`), which both this repo and `questionnaires` import, and exposed to the `questionnaires` repo via the `business_timezone` field on the shared config (`py-config` API). Never hardcode a timezone string, and never treat these columns as if they were already business-local: convert explicitly.
 - Display: `formatInBusinessTime(date, pattern)` (wraps `date-fns-tz`'s `formatInTimeZone`) or `formatShortInstantDate`/`getLocalDayFromUTCDate`.
 - Calendar/grid math needing numeric hour/day getters: `toBusinessZonedTime(date)`, whose local getters (`.getHours()`, `.getDate()`, etc.) reflect business time regardless of the server/browser's own timezone.
@@ -74,4 +87,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 ## User Preferences
+
 Per-user display preferences (home widgets, header items, issue list order, client hover card fields) live in one JSON column, `users.preferences`, typed by `userPreferencesSchema` in `src/lib/preferences.ts`. To add one: add an optional key to that schema, read it with `readPreferences` and write it with `patchPreferences` (`src/server/api/preferences.ts`, which merges atomically so concurrent saves don't clobber each other), then expose it in a hook and in `src/app/_components/settings/MyPreferencesSettings.tsx`. Don't add a column per preference. App-written state (recent clients, changelog marker, saved places, pinned list, list filters) stays in its own columns.

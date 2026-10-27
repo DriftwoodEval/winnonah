@@ -56,7 +56,7 @@ export function ReportCompleteButton({
 		const completedDate = new Date(completedAt);
 		return (
 			<div className="flex flex-col gap-1">
-				<span className="whitespace-nowrap text-muted-foreground text-xs">
+				<span className="text-xs whitespace-nowrap text-muted-foreground">
 					{format(completedDate, "MMM d")}
 					{completedByName && ` · ${completedByName}`}
 				</span>

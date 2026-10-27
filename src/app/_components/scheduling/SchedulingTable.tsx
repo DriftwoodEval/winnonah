@@ -441,7 +441,7 @@ function RowCountDisplay({
 	const isFiltered = filteredCount !== totalCount;
 
 	return (
-		<div className="flex items-center gap-1 px-4 py-2 text-muted-foreground text-sm">
+		<div className="flex items-center gap-1 px-4 py-2 text-sm text-muted-foreground">
 			{isFiltered ? (
 				<>
 					<span className="font-medium text-foreground">{filteredCount}</span>
@@ -531,7 +531,7 @@ function SchedulingSearchBox({
 			)}
 			{value && (
 				<>
-					<span className="whitespace-nowrap text-muted-foreground text-sm">
+					<span className="text-sm whitespace-nowrap text-muted-foreground">
 						{isTooShort
 							? `${minLength}+ chars`
 							: isPending
@@ -729,7 +729,7 @@ function NotesField({
 
 	if (!isEditable) {
 		return (
-			<div className="wrap-break-word max-h-[2.5rem] overflow-hidden overscroll-auto text-sm">
+			<div className="max-h-[2.5rem] overflow-hidden overscroll-auto text-sm wrap-break-word">
 				{scheduledClient.notes || "-"}
 			</div>
 		);
@@ -1026,7 +1026,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 			</TableCell>
 
 			<TableCell
-				className="min-w-[200px] max-w-[200px]"
+				className="max-w-[200px] min-w-[200px]"
 				data-col={2}
 				data-row={rowIndex}
 			>
@@ -1038,7 +1038,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 			</TableCell>
 
 			<TableCell
-				className="min-w-[100px] max-w-[120px]"
+				className="max-w-[120px] min-w-[100px]"
 				data-col={3}
 				data-row={rowIndex}
 			>
@@ -1050,7 +1050,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 			</TableCell>
 
 			<TableCell
-				className="min-w-[100px] max-w-[120px]"
+				className="max-w-[120px] min-w-[100px]"
 				data-col={4}
 				data-row={rowIndex}
 			>
@@ -1313,7 +1313,7 @@ const SchedulingCard = memo(function SchedulingCard({
 
 			<div className="mt-3 grid grid-cols-2 gap-3">
 				<div>
-					<div className="mb-1 text-muted-foreground text-xs">Evaluator</div>
+					<div className="mb-1 text-xs text-muted-foreground">Evaluator</div>
 					<EvaluatorSelect
 						allEvaluators={evaluators}
 						clientId={scheduledClient.clientId}
@@ -1331,7 +1331,7 @@ const SchedulingCard = memo(function SchedulingCard({
 					/>
 				</div>
 				<div>
-					<div className="mb-1 text-muted-foreground text-xs">Code</div>
+					<div className="mb-1 text-xs text-muted-foreground">Code</div>
 					<CodeSelect
 						isEditable={isEditable}
 						onUpdate={onUpdate}
@@ -1339,7 +1339,7 @@ const SchedulingCard = memo(function SchedulingCard({
 					/>
 				</div>
 				<div>
-					<div className="mb-1 text-muted-foreground text-xs">Date</div>
+					<div className="mb-1 text-xs text-muted-foreground">Date</div>
 					<DateField
 						isEditable={isEditable}
 						onUpdate={onUpdate}
@@ -1347,7 +1347,7 @@ const SchedulingCard = memo(function SchedulingCard({
 					/>
 				</div>
 				<div>
-					<div className="mb-1 text-muted-foreground text-xs">Time</div>
+					<div className="mb-1 text-xs text-muted-foreground">Time</div>
 					<TimeField
 						isEditable={isEditable}
 						onUpdate={onUpdate}
@@ -1355,7 +1355,7 @@ const SchedulingCard = memo(function SchedulingCard({
 					/>
 				</div>
 				<div className="col-span-2">
-					<div className="mb-1 text-muted-foreground text-xs">Location</div>
+					<div className="mb-1 text-xs text-muted-foreground">Location</div>
 					<LocationSelect
 						isEditable={isEditable}
 						offices={offices}
@@ -1364,7 +1364,7 @@ const SchedulingCard = memo(function SchedulingCard({
 					/>
 				</div>
 				<div className="col-span-2">
-					<div className="mb-1 text-muted-foreground text-xs">Notes</div>
+					<div className="mb-1 text-xs text-muted-foreground">Notes</div>
 					<NotesField
 						isEditable={isEditable}
 						onUpdate={onUpdate}
@@ -1373,7 +1373,7 @@ const SchedulingCard = memo(function SchedulingCard({
 				</div>
 			</div>
 
-			<div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
+			<div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
 				<span>ASD/ADHD: {scheduledClient.client.asdAdhd || "-"}</span>
 				<span>
 					Insurance:{" "}
@@ -1976,7 +1976,7 @@ function InternalSchedulingTable({
 		return (
 			<>
 				<div className="flex items-center gap-2 px-2 py-2">
-					<span className="shrink-0 text-muted-foreground text-xs">
+					<span className="shrink-0 text-xs text-muted-foreground">
 						{filteredClients.length}/{clients.length}
 					</span>
 					<SchedulingSearchBox
@@ -2000,7 +2000,7 @@ function InternalSchedulingTable({
 							>
 								<Filter className="h-4 w-4" />
 								{activeFilterCount > 0 && (
-									<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+									<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
 										{activeFilterCount}
 									</span>
 								)}

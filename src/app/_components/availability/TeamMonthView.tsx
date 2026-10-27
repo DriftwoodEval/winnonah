@@ -147,7 +147,7 @@ function DayCell({
 		>
 			<span
 				className={cn(
-					"flex h-6 w-6 items-center justify-center self-end rounded-full font-medium text-xs",
+					"flex h-6 w-6 items-center justify-center self-end rounded-full text-xs font-medium",
 					!inMonth && "text-muted-foreground",
 					today && "bg-primary text-primary-foreground",
 				)}
@@ -175,7 +175,7 @@ function DayCell({
 							</button>
 						</PopoverTrigger>
 						<PopoverContent className="w-64">
-							<p className="mb-1 font-medium text-sm">
+							<p className="mb-1 text-sm font-medium">
 								{format(day, "MMMM d, yyyy")}
 							</p>
 							<div className="flex flex-col gap-1">
@@ -308,7 +308,7 @@ export function TeamMonthView() {
 					<div className="grid grid-cols-7 border-b bg-muted/30">
 						{WEEKDAY_LABELS.map((label) => (
 							<div
-								className="p-2 text-center font-medium text-muted-foreground text-xs"
+								className="p-2 text-center text-xs font-medium text-muted-foreground"
 								key={label}
 							>
 								{label}

@@ -104,7 +104,7 @@ export function RecentMessagesPopover({
 				{isLoading ? (
 					<ListSkeleton rowClassName="h-6" rows={3} />
 				) : !messages || messages.length === 0 ? (
-					<p className="text-muted-foreground text-xs">No message history.</p>
+					<p className="text-xs text-muted-foreground">No message history.</p>
 				) : (
 					<div className="flex flex-col gap-1.5">
 						{messages.map((message) =>
@@ -143,7 +143,7 @@ export function RecentMessagesPopover({
 									<div className="flex w-full items-center justify-between gap-2">
 										<span
 											className={cn(
-												"font-medium text-[10px] uppercase tracking-wide",
+												"text-[10px] font-medium tracking-wide uppercase",
 												message.direction === "incoming"
 													? "text-foreground/50"
 													: "text-secondary-foreground/50",
@@ -168,7 +168,7 @@ export function RecentMessagesPopover({
 											{formatInBusinessTime(message.createdAt, "M/d, h:mm a")}
 										</span>
 									</div>
-									<p className="whitespace-pre-wrap text-xs">
+									<p className="text-xs whitespace-pre-wrap">
 										<Redact>{message.text ?? ""}</Redact>
 									</p>
 								</div>

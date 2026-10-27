@@ -424,8 +424,8 @@ export default function AssessmentTypesTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<div>
-					<h3 className="font-bold text-lg">Assessment Types</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-bold">Assessment Types</h3>
+					<p className="text-sm text-muted-foreground">
 						Online assessments and in-person assessments.
 					</p>
 				</div>
@@ -435,7 +435,7 @@ export default function AssessmentTypesTable() {
 			<div className="space-y-6">
 				{/* Online section */}
 				<div>
-					<p className="mb-2 font-medium text-sm">Online</p>
+					<p className="mb-2 text-sm font-medium">Online</p>
 					<div className="rounded-md border">
 						<Table>
 							<TableHeader>
@@ -460,7 +460,7 @@ export default function AssessmentTypesTable() {
 											<TableCell className="font-medium">
 												<Badge variant="outline">{qtype.name}</Badge>
 											</TableCell>
-											<TableCell className="hidden text-muted-foreground text-sm sm:table-cell">
+											<TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
 												{qtype.site}
 											</TableCell>
 											<TableCell className="whitespace-nowrap">
@@ -469,7 +469,7 @@ export default function AssessmentTypesTable() {
 													? "∞"
 													: qtype.maxAge}
 											</TableCell>
-											<TableCell className="text-muted-foreground text-sm">
+											<TableCell className="text-sm text-muted-foreground">
 												{qtype.minutes != null ? `${qtype.minutes} min` : "—"}
 											</TableCell>
 										</TableRow>
@@ -491,7 +491,7 @@ export default function AssessmentTypesTable() {
 
 				{/* In-person section */}
 				<div>
-					<p className="mb-2 font-medium text-sm">In-Person</p>
+					<p className="mb-2 text-sm font-medium">In-Person</p>
 					<div className="rounded-md border">
 						<Table>
 							<TableHeader>
@@ -521,7 +521,7 @@ export default function AssessmentTypesTable() {
 													? "∞"
 													: qtype.maxAge}
 											</TableCell>
-											<TableCell className="text-muted-foreground text-sm">
+											<TableCell className="text-sm text-muted-foreground">
 												{qtype.minutes != null ? `${qtype.minutes} min` : "—"}
 											</TableCell>
 										</TableRow>

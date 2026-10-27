@@ -32,7 +32,7 @@ function ClientHoverCardBody({
 
 	if (isError) {
 		return (
-			<p className="text-muted-foreground text-xs">
+			<p className="text-xs text-muted-foreground">
 				Could not load client info.
 			</p>
 		);

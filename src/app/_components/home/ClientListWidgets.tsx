@@ -43,12 +43,12 @@ export function RecentClientsWidget() {
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 overflow-auto p-3">
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+			<span className="text-xs tracking-wide text-muted-foreground uppercase">
 				Recent
 			</span>
 			{recentClients.map((client) => (
 				<Link
-					className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+					className="shrink-0 rounded-md border bg-background px-2.5 py-1 text-sm whitespace-nowrap shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 					href={`/clients/${client.hash}`}
 					key={client.hash}
 				>
@@ -87,7 +87,7 @@ export function MyInsuranceClientsWidget() {
 	return (
 		<div className="flex flex-col gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
 			<div className="flex items-center justify-between gap-2">
-				<span className="text-muted-foreground text-xs uppercase tracking-wide">
+				<span className="text-xs tracking-wide text-muted-foreground uppercase">
 					My Admin Review Clients
 				</span>
 				<PinListButton pinned={{ kind: "adminReview" }} />
@@ -100,7 +100,7 @@ export function MyInsuranceClientsWidget() {
 				<div className="flex flex-wrap items-center gap-2">
 					{clients.map((c) => (
 						<Link
-							className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+							className="flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 text-sm whitespace-nowrap shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 							href={`/clients/${c.clientHash}?tab=admin-review`}
 							key={c.clientHash}
 						>
@@ -132,7 +132,7 @@ export function PostVisitMessagesWidget() {
 
 	return (
 		<div className="flex h-full flex-col gap-2 overflow-auto rounded-lg border bg-card p-3">
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+			<span className="text-xs tracking-wide text-muted-foreground uppercase">
 				Post-Visit TA Message
 			</span>
 			{isLoading ? (
@@ -156,7 +156,7 @@ export function PostVisitMessagesWidget() {
 									<Redact>{r.clientName}</Redact>
 								</ClientHoverCard>
 							</Link>
-							<span className="text-muted-foreground text-xs">
+							<span className="text-xs text-muted-foreground">
 								{formatInBusinessTime(r.startTime, "MMM d")} with{" "}
 								{r.evaluatorName}
 							</span>

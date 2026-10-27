@@ -161,7 +161,7 @@ function AppointmentRow({
 }) {
 	return (
 		<div className="flex items-center gap-3 py-2">
-			<span className="w-36 shrink-0 text-muted-foreground text-sm tabular-nums">
+			<span className="w-36 shrink-0 text-sm text-muted-foreground tabular-nums">
 				{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 			</span>
 			<Link
@@ -200,7 +200,7 @@ function AppointmentRow({
 					startTime={appt.startTime}
 				/>
 			)}
-			<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+			<span className="ml-auto shrink-0 text-xs text-muted-foreground">
 				{appt.officeName ?? appt.locationKey ?? "Virtual"}
 			</span>
 		</div>
@@ -254,7 +254,7 @@ function EvaluatorRow({
 					<span className={evaluator.isCurrentUser ? "font-semibold" : ""}>
 						<Redact>{evaluator.name}</Redact>
 					</span>
-					<span className="text-muted-foreground text-xs">
+					<span className="text-xs text-muted-foreground">
 						{evaluator.appointments.length} appt
 						{evaluator.appointments.length !== 1 ? "s" : ""}
 					</span>
@@ -271,16 +271,16 @@ function EvaluatorRow({
 					/>
 				)}
 				{timeRange && (
-					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+					<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
 						{timeRange}
 					</span>
 				)}
 			</div>
 			<CollapsibleContent>
-				<div className="ml-8 border-border border-l pl-4">
+				<div className="ml-8 border-l border-border pl-4">
 					{evaluator.appointments.map((appt) => (
 						<div className="flex items-center gap-3 py-1.5" key={appt.id}>
-							<span className="w-32 shrink-0 text-muted-foreground text-xs tabular-nums">
+							<span className="w-32 shrink-0 text-xs text-muted-foreground tabular-nums">
 								{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 							</span>
 							<Link
@@ -626,7 +626,7 @@ export function DayAheadContent() {
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</Button>
-						<h1 className="min-w-44 text-center font-semibold text-lg">
+						<h1 className="min-w-44 text-center text-lg font-semibold">
 							{displayDate}
 						</h1>
 						<Button
@@ -774,11 +774,11 @@ function ListContent({
 		<>
 			<section>
 				<div className="mb-3 flex items-center gap-3">
-					<h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+					<h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 						Your Day
 					</h2>
 					{myTimeRange && (
-						<span className="text-muted-foreground text-xs tabular-nums">
+						<span className="text-xs text-muted-foreground tabular-nums">
 							{myTimeRange}
 						</span>
 					)}
@@ -810,11 +810,11 @@ function ListContent({
 			<Separator />
 
 			<section>
-				<h2 className="mb-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+				<h2 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 					Who&apos;s In
 				</h2>
 				{otherOffices.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
+					<p className="text-sm text-muted-foreground">
 						No one else has appointments today.
 					</p>
 				) : (

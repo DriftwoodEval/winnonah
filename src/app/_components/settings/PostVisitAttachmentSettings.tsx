@@ -54,10 +54,10 @@ export default function PostVisitAttachmentSettings() {
 			<MessageTextCard />
 			<Card>
 				<CardContent className="space-y-3">
-					<h3 className="font-semibold text-sm">
+					<h3 className="text-sm font-semibold">
 						Post-Visit Message Attachment
 					</h3>
-					<p className="text-muted-foreground text-sm">
+					<p className="text-sm text-muted-foreground">
 						This PDF is attached to every post-visit message sent through
 						TherapyAppointment.
 					</p>
@@ -115,8 +115,8 @@ function MessageTextCard() {
 	return (
 		<Card>
 			<CardContent className="space-y-3">
-				<h3 className="font-semibold text-sm">Post-Visit Message Text</h3>
-				<p className="text-muted-foreground text-sm">
+				<h3 className="text-sm font-semibold">Post-Visit Message Text</h3>
+				<p className="text-sm text-muted-foreground">
 					The subject and message sent with the attachment. Changes apply to
 					messages sent from now on, including ones already queued.
 				</p>

@@ -41,13 +41,13 @@ function NoteHistoryList({ reportId }: { reportId: number }) {
 					className="flex flex-col gap-0.5 border-b pb-2 last:border-0"
 					key={entry.id}
 				>
-					<span className="text-muted-foreground text-xs">
+					<span className="text-xs text-muted-foreground">
 						{formatInBusinessTime(entry.createdAt, "MMM d, yyyy h:mm a")}
 						{" · "}
 						{entry.updatedByName ?? entry.updatedBy ?? "Unknown"}
 					</span>
 					{entry.note ? (
-						<span className="whitespace-pre-wrap break-words">
+						<span className="break-words whitespace-pre-wrap">
 							{entry.note}
 						</span>
 					) : (
@@ -101,8 +101,8 @@ export function ReportNoteCell({
 					placeholder="Add a note"
 				/>
 			) : (
-				<span className="max-w-52 whitespace-normal text-sm">
-					{note ?? <span className="text-muted-foreground text-xs">-</span>}
+				<span className="max-w-52 text-sm whitespace-normal">
+					{note ?? <span className="text-xs text-muted-foreground">-</span>}
 				</span>
 			)}
 			<Popover>

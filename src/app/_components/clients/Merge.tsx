@@ -116,7 +116,7 @@ export function Merge() {
 	return (
 		<div className="mx-4 flex w-full flex-col items-center justify-center gap-4 lg:flex-row lg:gap-8">
 			<div className="flex w-full flex-col gap-3 lg:w-1/3">
-				<h2 className="font-semibold text-xl">Imported Clients</h2>
+				<h2 className="text-xl font-semibold">Imported Clients</h2>
 				<NameSearchInput
 					debounceMs={300}
 					initialValue={""}
@@ -159,7 +159,7 @@ export function Merge() {
 			</MergePreviewDialog>
 
 			<div className="flex w-full flex-col gap-3 lg:w-1/3">
-				<h2 className="font-semibold text-xl">Notes Only</h2>
+				<h2 className="text-xl font-semibold">Notes Only</h2>
 				<NameSearchInput
 					debounceMs={300}
 					initialValue={""}

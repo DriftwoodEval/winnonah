@@ -29,7 +29,7 @@ function formatInsurance(name: string) {
 function CardRow({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<div className="flex flex-col">
-			<span className="text-muted-foreground text-xs">{label}</span>
+			<span className="text-xs text-muted-foreground">{label}</span>
 			<span>{children}</span>
 		</div>
 	);
@@ -44,7 +44,7 @@ function AppointmentSummary({
 	return (
 		<>
 			{formatInBusinessTime(appointment.startTime, "EEE, MMM d 'at' h:mm a")}
-			<span className="block text-muted-foreground text-xs">
+			<span className="block text-xs text-muted-foreground">
 				{[appointment.evaluatorName, appointment.officeName]
 					.filter(Boolean)
 					.join(" · ")}
@@ -351,7 +351,7 @@ export function ClientInfoCard({ client, fields }: ClientInfoCardProps) {
 			!badges &&
 			!dashboard &&
 			!facts ? (
-				<p className="text-muted-foreground text-xs">
+				<p className="text-xs text-muted-foreground">
 					Nothing to show for this client.
 				</p>
 			) : (

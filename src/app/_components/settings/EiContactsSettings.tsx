@@ -158,8 +158,8 @@ export default function EiContactsSettings() {
 		<div className="space-y-4 px-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h3 className="font-bold text-lg">EI Contacts</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-bold">EI Contacts</h3>
+					<p className="text-sm text-muted-foreground">
 						Early Intervention coordinators, shared across clients. Selected
 						from a client's Edit dialog as their EI Contact.
 					</p>

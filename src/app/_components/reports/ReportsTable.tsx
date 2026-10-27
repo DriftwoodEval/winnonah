@@ -317,12 +317,12 @@ export function ReportsTable({
 	return (
 		<div className="flex w-full min-w-0 flex-col gap-2">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<span className="text-muted-foreground text-sm">
+				<span className="text-sm text-muted-foreground">
 					Showing {filteredReports.length} of {reports.length} report
 					{reports.length === 1 ? "" : "s"}
 				</span>
 				<div className="flex flex-wrap items-center gap-2">
-					<span className="flex items-center text-muted-foreground text-sm">
+					<span className="flex items-center text-sm text-muted-foreground">
 						Source
 						{filterButton("source", "Source")}
 					</span>
@@ -343,7 +343,7 @@ export function ReportsTable({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-64">
 							{views.length === 0 && (
-								<div className="p-2 text-muted-foreground text-sm">
+								<div className="p-2 text-sm text-muted-foreground">
 									No saved filters yet
 								</div>
 							)}
@@ -485,7 +485,7 @@ export function ReportsTable({
 						...otherBillingFields,
 					].map(({ key, label }) => (
 						<span
-							className="flex items-center gap-0.5 text-muted-foreground text-xs"
+							className="flex items-center gap-0.5 text-xs text-muted-foreground"
 							key={key}
 						>
 							{label}
@@ -591,28 +591,28 @@ export function ReportsTable({
 												</Badge>
 											)}
 										</TableCell>
-										<TableCell className="whitespace-nowrap text-sm">
+										<TableCell className="text-sm whitespace-nowrap">
 											{r.evalAppointmentAt ? (
 												formatReportDate(r.evalAppointmentAt)
 											) : (
-												<span className="text-muted-foreground text-xs">-</span>
+												<span className="text-xs text-muted-foreground">-</span>
 											)}
 										</TableCell>
-										<TableCell className="whitespace-nowrap text-sm">
+										<TableCell className="text-sm whitespace-nowrap">
 											{r.evalEvaluatorName ?? (
-												<span className="text-muted-foreground text-xs">-</span>
+												<span className="text-xs text-muted-foreground">-</span>
 											)}
 										</TableCell>
-										<TableCell className="whitespace-nowrap text-sm">
+										<TableCell className="text-sm whitespace-nowrap">
 											<WriterCell report={r} />
 										</TableCell>
-										<TableCell className="whitespace-nowrap text-sm">
+										<TableCell className="text-sm whitespace-nowrap">
 											{r.claimedAt ? formatReportDate(r.claimedAt) : "-"}
 										</TableCell>
 										<TableCell className="whitespace-nowrap">
 											{r.writerCompletedAt ? (
 												<div className="flex items-center gap-1">
-													<span className="text-muted-foreground text-xs">
+													<span className="text-xs text-muted-foreground">
 														{formatReportDate(r.writerCompletedAt)}
 													</span>
 													{canEditWriting && (
@@ -640,7 +640,7 @@ export function ReportsTable({
 													Mark done
 												</Button>
 											) : (
-												<span className="text-muted-foreground text-xs">-</span>
+												<span className="text-xs text-muted-foreground">-</span>
 											)}
 										</TableCell>
 										<TableCell className="whitespace-nowrap">
@@ -690,11 +690,11 @@ export function ReportsTable({
 														) : r[f.key] ? (
 															<Badge variant="secondary">yes</Badge>
 														) : (
-															<span className="text-muted-foreground text-xs">
+															<span className="text-xs text-muted-foreground">
 																-
 															</span>
 														)}
-														<span className="text-muted-foreground text-xs">
+														<span className="text-xs text-muted-foreground">
 															{f.key === "secondReviewNeeded"
 																? "Needed"
 																: "Done"}
@@ -719,7 +719,7 @@ export function ReportsTable({
 												) : r[f.key] ? (
 													<Badge variant="secondary">yes</Badge>
 												) : (
-													<span className="text-muted-foreground text-xs">
+													<span className="text-xs text-muted-foreground">
 														-
 													</span>
 												)}

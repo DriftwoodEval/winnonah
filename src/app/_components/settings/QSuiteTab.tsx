@@ -1113,7 +1113,7 @@ function ServicesTab({
 					<Separator />
 					<div className="space-y-4">
 						<div className="mb-0 flex items-center justify-between">
-							<Label className="font-medium text-sm">Users</Label>
+							<Label className="text-sm font-medium">Users</Label>
 							<Button
 								disabled={disabled || syncingQuo}
 								onClick={onSyncQuo}

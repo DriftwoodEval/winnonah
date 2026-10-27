@@ -28,7 +28,7 @@ export function PostVisitMessageButton({
 	if (!canSend || !row) return null;
 
 	if (row.queuedAt) {
-		return <span className="text-muted-foreground text-xs">Queued</span>;
+		return <span className="text-xs text-muted-foreground">Queued</span>;
 	}
 	return (
 		<Button

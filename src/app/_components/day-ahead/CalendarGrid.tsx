@@ -204,7 +204,7 @@ export function TimeGutter() {
 		>
 			{GRID_HOURS.map((h, i) => (
 				<div
-					className="absolute right-2 text-[10px] text-muted-foreground tabular-nums leading-none"
+					className="absolute right-2 text-[10px] leading-none text-muted-foreground tabular-nums"
 					key={h}
 					style={{ top: GRID_PADDING + i * HOUR_HEIGHT - 6 }}
 				>
@@ -222,14 +222,14 @@ export function GridLines() {
 		<>
 			{GRID_HOURS.map((h, i) => (
 				<div
-					className="absolute w-full border-border/40 border-t"
+					className="absolute w-full border-t border-border/40"
 					key={h}
 					style={{ top: GRID_PADDING + i * HOUR_HEIGHT }}
 				/>
 			))}
 			{GRID_HOURS.slice(0, -1).map((h, i) => (
 				<div
-					className="absolute w-full border-border/20 border-t border-dashed"
+					className="absolute w-full border-t border-dashed border-border/20"
 					key={`half-${h}`}
 					style={{ top: GRID_PADDING + i * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
 				/>
@@ -387,12 +387,12 @@ export function ApptBlock({
 					style={style}
 				>
 					{appt.isPreview ? (
-						<div className="block truncate font-medium text-xs leading-tight">
+						<div className="block truncate text-xs leading-tight font-medium">
 							<Redact>{appt.clientName}</Redact>
 						</div>
 					) : (
 						<Link
-							className="block truncate font-medium text-xs leading-tight hover:underline"
+							className="block truncate text-xs leading-tight font-medium hover:underline"
 							href={`/clients/${appt.clientHash}`}
 							onClick={(e) => e.stopPropagation()}
 						>
@@ -400,11 +400,11 @@ export function ApptBlock({
 						</Link>
 					)}
 					{showEvaluatorLine && (
-						<div className="truncate text-[10px] text-muted-foreground leading-tight">
+						<div className="truncate text-[10px] leading-tight text-muted-foreground">
 							<Redact>{appt.evaluatorName}</Redact>
 						</div>
 					)}
-					<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
+					<div className="truncate text-[10px] leading-tight text-muted-foreground tabular-nums">
 						{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
 					</div>
 					{showBadges && (
@@ -616,7 +616,7 @@ export function CalendarDayView({
 
 	if (byEval.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm">No appointments this day.</p>
+			<p className="text-sm text-muted-foreground">No appointments this day.</p>
 		);
 	}
 
@@ -635,7 +635,7 @@ export function CalendarDayView({
 								key={ev.npi}
 							>
 								<div
-									className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
+									className={`truncate text-sm font-medium ${ev.isCurrentUser ? "text-primary" : ""}`}
 								>
 									<Redact>{ev.name}</Redact>
 								</div>
@@ -854,12 +854,12 @@ export function CalendarMultiDayView({
 								key={d}
 							>
 								<div
-									className={`font-medium text-xs uppercase tracking-wide ${isToday ? "text-primary" : "text-muted-foreground"}`}
+									className={`text-xs font-medium tracking-wide uppercase ${isToday ? "text-primary" : "text-muted-foreground"}`}
 								>
 									{format(date, "EEE")}
 								</div>
 								<div
-									className={`font-semibold text-sm ${isToday ? "text-primary" : ""}`}
+									className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}
 								>
 									{format(date, "M/d")}
 								</div>

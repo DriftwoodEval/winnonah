@@ -89,7 +89,7 @@ export function RelatedClients({
 	return (
 		<Card className="w-full max-w-sm gap-2 rounded-md p-1">
 			<CardHeader className="flex flex-row items-center justify-between px-4 py-2">
-				<CardTitle className="font-semibold text-sm">Related Clients</CardTitle>
+				<CardTitle className="text-sm font-semibold">Related Clients</CardTitle>
 				{canEdit && (
 					<CardAction>
 						<Dialog onOpenChange={setIsAddOpen} open={isAddOpen}>

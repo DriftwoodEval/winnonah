@@ -91,7 +91,7 @@ export default function ClaimedReports() {
 												className="fill-primary/20 text-primary"
 												size={18}
 											/>
-											<span className="font-bold text-sm leading-none">
+											<span className="text-sm leading-none font-bold">
 												{folder.name}
 											</span>
 										</div>
@@ -124,7 +124,7 @@ export default function ClaimedReports() {
 											</Button>
 										</div>
 									</div>
-									<div className="flex items-center gap-2 text-muted-foreground text-xs">
+									<div className="flex items-center gap-2 text-xs text-muted-foreground">
 										<UserIcon size={12} />
 										<span>{userName || userEmail}</span>
 									</div>

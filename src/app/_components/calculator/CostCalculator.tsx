@@ -251,7 +251,7 @@ export default function CostCalculator() {
 			<CardContent>
 				<div className="mb-6 flex flex-wrap items-end gap-4 rounded-md bg-muted/50 p-4">
 					<div className="grid gap-2">
-						<label className="font-medium text-sm" htmlFor={targetTotalId}>
+						<label className="text-sm font-medium" htmlFor={targetTotalId}>
 							Target Total ($)
 						</label>
 						<Input
@@ -425,8 +425,8 @@ export default function CostCalculator() {
 			</CardContent>
 			<CardFooter className="justify-end border-t p-6">
 				<div className="text-right">
-					<p className="text-muted-foreground text-sm">Total Cost</p>
-					<p className="font-bold text-2xl">${totalCost.toFixed(2)}</p>
+					<p className="text-sm text-muted-foreground">Total Cost</p>
+					<p className="text-2xl font-bold">${totalCost.toFixed(2)}</p>
 				</div>
 			</CardFooter>
 		</Card>

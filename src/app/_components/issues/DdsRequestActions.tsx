@@ -43,7 +43,7 @@ function ChangePdfDialog({
 			title="Choose a different PDF"
 		>
 			{pdfs.isLoading ? (
-				<p className="text-muted-foreground text-sm">Loading PDFs...</p>
+				<p className="text-sm text-muted-foreground">Loading PDFs...</p>
 			) : pdfs.data?.length ? (
 				<Select
 					disabled={setFile.isPending}
@@ -70,7 +70,7 @@ function ChangePdfDialog({
 					</SelectContent>
 				</Select>
 			) : (
-				<p className="text-muted-foreground text-sm italic">
+				<p className="text-sm text-muted-foreground italic">
 					No PDFs found in this client's Drive folder.
 				</p>
 			)}
@@ -125,7 +125,7 @@ function ApproveDialog({
 			<div className="flex flex-col gap-3">
 				{previewError ? (
 					<div className="flex flex-col items-start gap-2">
-						<p className="text-destructive text-sm">{previewError}</p>
+						<p className="text-sm text-destructive">{previewError}</p>
 						<Button onClick={onChangePdf} size="sm" variant="outline">
 							Choose a PDF
 						</Button>
@@ -137,7 +137,7 @@ function ApproveDialog({
 						title="Completed DDS fax"
 					/>
 				) : (
-					<p className="text-muted-foreground text-sm">Building the fax...</p>
+					<p className="text-sm text-muted-foreground">Building the fax...</p>
 				)}
 				<div className="flex justify-end gap-2">
 					<Button onClick={onClose} variant="ghost">

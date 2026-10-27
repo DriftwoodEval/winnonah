@@ -531,7 +531,7 @@ export function EvaluatorForm({
 											key={insurance.id}
 											name="insurances"
 											render={({ field }) => (
-												<FormItem className="flex items-center space-x-2 space-y-0">
+												<FormItem className="flex items-center space-y-0 space-x-2">
 													<FormControl>
 														<Checkbox
 															checked={field.value?.includes(insurance.id)}
@@ -631,7 +631,7 @@ export function EvaluatorForm({
 												badgeClassName="bg-secondary text-secondary-foreground"
 												disabled={isLoading || disabled}
 												emptyIndicator={
-													<p className="text-center text-muted-foreground text-sm">
+													<p className="text-center text-sm text-muted-foreground">
 														No districts found.
 													</p>
 												}
@@ -671,7 +671,7 @@ export function EvaluatorForm({
 												defaultOptions={zipCodeOptions}
 												disabled={isLoading || disabled}
 												emptyIndicator={
-													<p className="text-center text-muted-foreground text-sm">
+													<p className="text-center text-sm text-muted-foreground">
 														No zip codes found. Type to create a new one.
 													</p>
 												}
@@ -784,12 +784,12 @@ export function EvaluatorForm({
 											<div className="grid min-w-[500px] grid-cols-6 items-center gap-x-2 gap-y-2 text-sm">
 												{/* Column headers */}
 												<div />
-												<div className="text-center font-medium text-muted-foreground text-xs">
+												<div className="text-center text-xs font-medium text-muted-foreground">
 													Any
 												</div>
 												{DIAG_KEYS.map((d) => (
 													<div
-														className="text-center font-medium text-muted-foreground text-xs"
+														className="text-center text-xs font-medium text-muted-foreground"
 														key={d}
 													>
 														{d}
@@ -833,12 +833,12 @@ export function EvaluatorForm({
 								<div className="grid min-w-[500px] grid-cols-6 items-center gap-x-2 gap-y-2 text-sm">
 									{/* Column headers */}
 									<div />
-									<div className="text-center font-medium text-muted-foreground text-xs">
+									<div className="text-center text-xs font-medium text-muted-foreground">
 										(any)
 									</div>
 									{DIAG_KEYS.map((d) => (
 										<div
-											className="text-center font-medium text-muted-foreground text-xs"
+											className="text-center text-xs font-medium text-muted-foreground"
 											key={d}
 										>
 											{d}
@@ -874,7 +874,7 @@ export function EvaluatorForm({
 									)}
 								</div>
 							</div>
-							<p className="text-muted-foreground text-xs">
+							<p className="text-xs text-muted-foreground">
 								Diagnosis subtypes override the age-only row, which overrides
 								Default. DA is a flat rate with no subcategories. Grayed-out
 								placeholders show the global default. Leave blank to fall back
@@ -910,7 +910,7 @@ export function EvaluatorForm({
 									>
 										Report Dashboard Evaluator
 									</Label>
-									<p className="text-muted-foreground text-xs">
+									<p className="text-xs text-muted-foreground">
 										Only one evaluator can have the report tracking dashboard.
 										Enabling this will disable it for any other.
 									</p>
@@ -920,7 +920,7 @@ export function EvaluatorForm({
 							{isDashboardEvaluator && (
 								<div className="flex items-center gap-3 border-t pt-3">
 									<Label
-										className="whitespace-nowrap text-sm"
+										className="text-sm whitespace-nowrap"
 										htmlFor={`due-weeks-${initialData.npi}`}
 									>
 										Due date weeks
@@ -940,7 +940,7 @@ export function EvaluatorForm({
 										type="number"
 										value={dueDateWeeks}
 									/>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-xs text-muted-foreground">
 										weeks after appointment (or last task date)
 									</span>
 									<Button

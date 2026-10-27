@@ -92,7 +92,7 @@ function ManualAddressForm({
 		<Form {...form}>
 			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 				<div className="space-y-1">
-					<p className="font-bold text-sm">Client Address</p>
+					<p className="text-sm font-bold">Client Address</p>
 					{initialData?.address ? (
 						<Link
 							className="flex items-center gap-1 text-sm hover:underline"
@@ -103,7 +103,7 @@ function ManualAddressForm({
 							<ExternalLinkIcon size={14} />
 						</Link>
 					) : (
-						<p className="text-muted-foreground text-sm">Unknown</p>
+						<p className="text-sm text-muted-foreground">Unknown</p>
 					)}
 				</div>
 

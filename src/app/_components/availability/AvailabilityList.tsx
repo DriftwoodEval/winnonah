@@ -171,7 +171,7 @@ function RecurrenceBadge({ recurrence }: { recurrence?: string[] }) {
 	if (!desc) return null;
 	return (
 		<span
-			className="flex items-center gap-1 text-muted-foreground text-xs"
+			className="flex items-center gap-1 text-xs text-muted-foreground"
 			title={desc}
 		>
 			<Repeat className="h-3 w-3 shrink-0" />
@@ -199,7 +199,7 @@ function EventLockButton({
 	}
 	return (
 		<button
-			className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+			className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
 			onClick={onEdit}
 			type="button"
 		>
@@ -277,7 +277,7 @@ function ListViewEvent({
 				</p>
 				<RecurrenceBadge recurrence={event.recurrence} />
 			</div>
-			<p className="text-muted-foreground text-sm">
+			<p className="text-sm text-muted-foreground">
 				{event.isAllDay
 					? "All Day"
 					: `${format(toDate(event.start), "h:mm a")} – ${format(toDate(event.end), "h:mm a")}`}
@@ -326,10 +326,10 @@ function ListView({
 													: "bg-muted",
 											)}
 										>
-											<p className="font-semibold text-sm leading-none">
+											<p className="text-sm leading-none font-semibold">
 												{format(date, "EEE")}
 											</p>
-											<p className="font-bold text-lg leading-none">
+											<p className="text-lg leading-none font-bold">
 												{format(date, "d")}
 											</p>
 										</div>
@@ -337,10 +337,10 @@ function ListView({
 											<p className="font-semibold">
 												{format(date, "MMM yyyy")}
 											</p>
-											{today && <p className="text-primary text-xs">Today</p>}
+											{today && <p className="text-xs text-primary">Today</p>}
 										</div>
 									</div>
-									<div className="ml-2 space-y-2 border-muted border-l-2 pl-4">
+									<div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
 										{dayEvents.map((event) => (
 											<ListViewEvent
 												dateKey={dateKey}
@@ -415,14 +415,14 @@ function CalendarViewLoading({ daysCount }: { daysCount: number }) {
 
 						{Array.from({ length: daysCount }).map((_, colIdx) => (
 							<div
-								className="relative border-muted/30 border-l"
+								className="relative border-l border-muted/30"
 								// biome-ignore lint/suspicious/noArrayIndexKey: just a skeleton
 								key={colIdx}
 								style={{ height: `${TOTAL_DAY_HEIGHT_PX}px` }}
 							>
 								{HOURS_OF_DAY.map((hour) => (
 									<div
-										className="absolute inset-x-0 border-muted/30 border-b"
+										className="absolute inset-x-0 border-b border-muted/30"
 										key={hour}
 										style={{
 											top: `${hour * HOUR_HEIGHT_PX}px`,
@@ -471,7 +471,7 @@ function CalendarDayHeader({
 		<button
 			aria-label={`Add all-day event for ${format(day, "PPPP")}`}
 			className={cn(
-				"flex min-w-0 flex-col items-center bg-muted/30 p-2 outline-none transition-colors",
+				"flex min-w-0 flex-col items-center bg-muted/30 p-2 transition-colors outline-none",
 				!isLocked &&
 					"cursor-pointer hover:bg-muted/60 focus-visible:bg-muted/60",
 			)}
@@ -497,12 +497,12 @@ function CalendarDayHeader({
 			tabIndex={isLocked ? -1 : 0}
 			type="button"
 		>
-			<span className="text-muted-foreground text-xs">
+			<span className="text-xs text-muted-foreground">
 				{format(day, "EEE")}
 			</span>
 			<span
 				className={cn(
-					"flex h-8 w-8 items-center justify-center rounded-full font-semibold text-lg",
+					"flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold",
 					today && "bg-primary text-primary-foreground",
 				)}
 			>
@@ -539,8 +539,8 @@ function AllDayEventBadge({
 	};
 
 	const sharedClassName = cn(
-		"relative flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left font-medium text-[10px] leading-tight transition-all",
-		"min-w-0 max-w-full overflow-hidden",
+		"relative flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left text-[10px] leading-tight font-medium transition-all",
+		"max-w-full min-w-0 overflow-hidden",
 		event.isUnavailability
 			? "bg-destructive text-destructive-foreground"
 			: "bg-primary text-primary-foreground",
@@ -549,7 +549,7 @@ function AllDayEventBadge({
 			: "cursor-pointer hover:brightness-90",
 	);
 
-	const Content = () => (
+	const content = (
 		<>
 			<span className="min-w-0 flex-1 truncate">{event.summary ?? "Busy"}</span>
 			{locked && <Lock className="h-2.5 w-2.5 shrink-0 opacity-80" />}
@@ -557,18 +557,14 @@ function AllDayEventBadge({
 	);
 
 	if (locked) {
-		return (
-			<div className={sharedClassName}>
-				<Content />
-			</div>
-		);
+		return <div className={sharedClassName}>{content}</div>;
 	}
 
 	return (
 		<button
 			className={cn(
 				sharedClassName,
-				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+				"focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
 			)}
 			onClick={handleActivate}
 			onKeyDown={(e) => {
@@ -576,7 +572,7 @@ function AllDayEventBadge({
 			}}
 			type="button"
 		>
-			<Content />
+			{content}
 		</button>
 	);
 }
@@ -615,13 +611,13 @@ function CalendarTimedEvent({
 		height: `${Math.max(durationMinutes * PIXELS_PER_MINUTE, MIN_EVENT_HEIGHT_PX)}px`,
 	};
 
-	const Content = () => (
+	const content = (
 		<>
 			{locked && <Lock className="absolute top-1 right-1 h-3 w-3 opacity-60" />}
 
 			<div
 				className={cn(
-					"wrap-normal w-full whitespace-normal text-left font-bold",
+					"w-full text-left font-bold wrap-normal whitespace-normal",
 					locked && "pr-3",
 				)}
 			>
@@ -629,14 +625,14 @@ function CalendarTimedEvent({
 			</div>
 
 			{recurrenceDesc && durationMinutes >= 45 && (
-				<div className="wrap-break-word mt-1 flex w-full items-start gap-1 whitespace-normal text-[9px] italic leading-tight opacity-90">
+				<div className="mt-1 flex w-full items-start gap-1 text-[9px] leading-tight wrap-break-word whitespace-normal italic opacity-90">
 					<Repeat className="mt-0.5 h-2.5 w-2.5 shrink-0" />
 					<span className="min-w-0 flex-1">{recurrenceDesc}</span>
 				</div>
 			)}
 
 			{durationMinutes >= 30 && (
-				<div className="mt-auto w-full whitespace-nowrap pt-1 text-left text-[9px] opacity-80">
+				<div className="mt-auto w-full pt-1 text-left text-[9px] whitespace-nowrap opacity-80">
 					{format(start, "h:mm a")}
 				</div>
 			)}
@@ -650,7 +646,7 @@ function CalendarTimedEvent({
 				style={style}
 				title={`${format(start, "h:mm a")} - ${format(end, "h:mm a")}`}
 			>
-				<Content />
+				{content}
 			</div>
 		);
 	}
@@ -660,7 +656,7 @@ function CalendarTimedEvent({
 			className={cn(
 				sharedClassName,
 				"w-full transition-all hover:brightness-95 active:scale-[0.98]",
-				"cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+				"cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
 			)}
 			onClick={handleActivate}
 			onKeyDown={(e) => {
@@ -670,7 +666,7 @@ function CalendarTimedEvent({
 			title={`${format(start, "h:mm a")} - ${format(end, "h:mm a")}`}
 			type="button"
 		>
-			<Content />
+			{content}
 		</button>
 	);
 }
@@ -698,7 +694,7 @@ function CalendarView({
 						className="grid border-b"
 						style={{ gridTemplateColumns: gridCols }}
 					>
-						<div className="flex items-end justify-center border-r bg-muted/30 p-1 pb-2 text-center text-[10px] text-muted-foreground leading-tight">
+						<div className="flex items-end justify-center border-r bg-muted/30 p-1 pb-2 text-center text-[10px] leading-tight text-muted-foreground">
 							{format(new Date(), "xxx")}
 						</div>
 						{displayDays.map((day) => {
@@ -740,7 +736,7 @@ function CalendarView({
 										style={{ height: `${HOUR_HEIGHT_PX}px` }}
 									>
 										{hour !== 0 && (
-											<span className="absolute -top-2 right-1.5 select-none text-[10px] text-muted-foreground">
+											<span className="absolute -top-2 right-1.5 text-[10px] text-muted-foreground select-none">
 												{format(new Date().setHours(hour, 0), "h a")}
 											</span>
 										)}
@@ -764,7 +760,7 @@ function CalendarView({
 									<button
 										aria-label={`Create event on ${format(day, "PPPP")}`}
 										className={cn(
-											"relative border-muted/30 border-l outline-none transition-colors",
+											"relative border-l border-muted/30 transition-colors outline-none",
 											// Hover state only if not locked
 											!isLocked &&
 												"cursor-pointer hover:bg-primary/3 focus-visible:bg-primary/3",
@@ -828,7 +824,7 @@ function CalendarView({
 									>
 										{HOURS_OF_DAY.map((hour) => (
 											<div
-												className="pointer-events-none absolute inset-x-0 border-muted/30 border-b"
+												className="pointer-events-none absolute inset-x-0 border-b border-muted/30"
 												key={hour}
 												style={{
 													top: `${hour * HOUR_HEIGHT_PX}px`,
@@ -1000,7 +996,7 @@ export function AvailabilityList({
 			value={activeTab}
 		>
 			<div className="flex items-center justify-between">
-				<h2 className="font-bold text-2xl">{title}</h2>
+				<h2 className="text-2xl font-bold">{title}</h2>
 				<TabsList>
 					<TabsTrigger value="list">
 						<List className="mr-2 h-4 w-4" />

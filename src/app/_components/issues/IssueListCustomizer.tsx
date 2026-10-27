@@ -54,7 +54,7 @@ export function IssueListOrderEditor({
 	const renderGroup = (label: string, group: IssueListId[]) =>
 		group.length > 0 && (
 			<div className="space-y-1">
-				<p className="mb-2 font-medium text-sm">{label}</p>
+				<p className="mb-2 text-sm font-medium">{label}</p>
 				{group.map((id, idx) => (
 					<div
 						className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 p-2"

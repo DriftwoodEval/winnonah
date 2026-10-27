@@ -75,7 +75,7 @@ export function ClientCardPreferences() {
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex items-start justify-between gap-4">
-				<p className="text-muted-foreground text-sm">
+				<p className="text-sm text-muted-foreground">
 					Hover a client's name in lists, dashboards, and schedules to see a
 					small card of their info without opening the client page. Choose what
 					it shows. Turn every field off to disable the card.
@@ -93,7 +93,7 @@ export function ClientCardPreferences() {
 				<div className="flex flex-col gap-4">
 					{CLIENT_CARD_GROUPS.map((group) => (
 						<div className="flex flex-col gap-1" key={group}>
-							<p className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							<p className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 								{group}
 							</p>
 							{CLIENT_CARD_FIELDS.filter((field) => field.group === group).map(
@@ -110,12 +110,12 @@ export function ClientCardPreferences() {
 											}
 										/>
 										<Label
-											className="flex-1 cursor-pointer font-normal text-sm"
+											className="flex-1 cursor-pointer text-sm font-normal"
 											htmlFor={`client-card-${field.id}`}
 										>
 											{field.label}
 										</Label>
-										<span className="text-muted-foreground text-xs">
+										<span className="text-xs text-muted-foreground">
 											Default:{" "}
 											{DEFAULT_CLIENT_CARD_FIELDS.includes(field.id)
 												? "on"
@@ -128,11 +128,11 @@ export function ClientCardPreferences() {
 					))}
 				</div>
 				<div className="flex flex-col gap-2">
-					<p className="font-medium text-sm">Preview</p>
-					<div className="w-72 max-w-full rounded-lg bg-popover p-3 text-popover-foreground text-sm shadow-md ring-1 ring-foreground/10">
+					<p className="text-sm font-medium">Preview</p>
+					<div className="w-72 max-w-full rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
 						<ClientInfoCard client={SAMPLE_CLIENT} fields={fields} />
 					</div>
-					<p className="text-muted-foreground text-xs">
+					<p className="text-xs text-muted-foreground">
 						Sample data. A real card leaves out fields a client has no value
 						for.
 					</p>

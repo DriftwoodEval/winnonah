@@ -134,7 +134,7 @@ export function ClientHeader({
 			</ResponsiveDialog>
 			{client && (
 				<div className="flex items-center gap-4">
-					<h1 className="font-bold text-xl md:text-2xl">
+					<h1 className="text-xl font-bold md:text-2xl">
 						<Redact>{client.fullName}</Redact>
 					</h1>
 					<div className="flex h-[16px] items-center gap-2">

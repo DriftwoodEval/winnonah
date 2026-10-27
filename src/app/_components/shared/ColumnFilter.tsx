@@ -100,7 +100,7 @@ export function ColumnFilter({
 						<Filter className="h-3.5 w-3.5" />
 					</Button>
 					{selectedValues.length > 0 && (
-						<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+						<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
 							{selectedValues.length}
 						</span>
 					)}
@@ -115,7 +115,7 @@ export function ColumnFilter({
 						value={search}
 					/>
 					{filteredOptions.length === 0 && (
-						<div className="p-2 text-muted-foreground text-sm">
+						<div className="p-2 text-sm text-muted-foreground">
 							No results found
 						</div>
 					)}
@@ -165,12 +165,12 @@ export function ColumnFilter({
 									onCheckedChange={() => toggleValue(option.value)}
 								/>
 								<label
-									className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+									className="flex flex-1 cursor-pointer items-center justify-between gap-2 text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 									htmlFor={`${columnName}-${option.value}`}
 								>
 									<span className="truncate">{option.label}</span>
 									{counts && (
-										<span className="text-muted-foreground text-xs">
+										<span className="text-xs text-muted-foreground">
 											{count ?? 0}
 										</span>
 									)}

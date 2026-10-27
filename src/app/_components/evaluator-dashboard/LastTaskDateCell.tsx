@@ -31,7 +31,7 @@ export function LastTaskDateCell({
 	if (!isAdmin) {
 		const displayDate = date ?? fallbackDate;
 		return (
-			<span className="text-muted-foreground text-sm">
+			<span className="text-sm text-muted-foreground">
 				{displayDate ? format(displayDate, "MMM d, yyyy") : "-"}
 			</span>
 		);

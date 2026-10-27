@@ -28,13 +28,13 @@ function ExpandedRow({
 
 	return (
 		<Link
-			className={`no-underline! hover:no-underline! block px-3 py-1.5 text-foreground hover:bg-muted ${
+			className={`block px-3 py-1.5 text-foreground no-underline! hover:bg-muted hover:no-underline! ${
 				current ? "bg-muted" : ""
 			}`}
 			href={entryHref(entry)}
 		>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-				<span className="w-6 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+				<span className="w-6 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
 					{position}
 				</span>
 				{entry.color && isClientColor(entry.color) && (
@@ -60,7 +60,7 @@ function ExpandedRow({
 				))}
 			</div>
 			{hasSubline && (
-				<div className="pl-8 text-muted-foreground text-xs">
+				<div className="pl-8 text-xs text-muted-foreground">
 					{entry.meta.join(" · ")}
 					{entry.danger && (
 						<span className="text-destructive">
@@ -119,7 +119,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 						}`}
 					/>
 				</button>
-				<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+				<span className="ml-auto shrink-0 text-xs text-muted-foreground">
 					{onList ? `${index + 1} / ${total}` : `not on list · ${total}`}
 				</span>
 				<Button
@@ -180,7 +180,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 							</Link>
 						</Button>
 					) : (
-						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-muted-foreground text-xs">
+						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground">
 							<ChevronLeft className="h-4 w-4" />
 							Prev
 						</span>
@@ -193,7 +193,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 							</Link>
 						</Button>
 					) : (
-						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-muted-foreground text-xs">
+						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground">
 							Next
 							<ChevronRight className="h-4 w-4" />
 						</span>

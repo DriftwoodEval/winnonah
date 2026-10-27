@@ -49,7 +49,7 @@ function InfoRow({
 	if (!value) return null;
 	return (
 		<div className="flex flex-col gap-0.5">
-			<span className="text-muted-foreground text-xs">{label}</span>
+			<span className="text-xs text-muted-foreground">{label}</span>
 			<span className="text-sm">
 				{sensitive ? <Redact>{value}</Redact> : value}
 			</span>
@@ -73,7 +73,7 @@ function PaAssignedToRow({
 
 	return (
 		<div className="flex flex-col gap-0.5">
-			<span className="text-muted-foreground text-xs">PA Assigned to</span>
+			<span className="text-xs text-muted-foreground">PA Assigned to</span>
 			<ResponsiveDialog
 				description="Update who's assigned to handle this client's prior authorization. This will push the change to the Punchlist."
 				open={open}
@@ -100,7 +100,7 @@ function PaAssignedToRow({
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="mt-3 mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+		<p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
 			{children}
 		</p>
 	);
@@ -300,7 +300,7 @@ function PolicyCard({
 							<InfoRow label="CPT" value={policy.precertCpt} />
 						</div>
 						{policy.precertMemo && (
-							<p className="mt-2 text-muted-foreground text-sm">
+							<p className="mt-2 text-sm text-muted-foreground">
 								{policy.precertMemo}
 							</p>
 						)}
@@ -316,7 +316,7 @@ function PolicyCard({
 							</p>
 						)}
 						{policy.clientMemo && policy.clientMemo !== policy.memo && (
-							<p className="text-muted-foreground text-sm">
+							<p className="text-sm text-muted-foreground">
 								<Redact>{policy.clientMemo}</Redact>
 							</p>
 						)}
@@ -372,7 +372,7 @@ function PolicyCard({
 							/>
 						</div>
 						{medicaidEligibility.medicaidSpecialProgramMessage && (
-							<p className="mt-2 text-muted-foreground text-sm">
+							<p className="mt-2 text-sm text-muted-foreground">
 								{medicaidEligibility.medicaidSpecialProgramMessage}
 							</p>
 						)}
@@ -430,7 +430,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 					/>
 				))
 			) : !policies.length ? (
-				<p className="text-center text-muted-foreground text-sm">
+				<p className="text-center text-sm text-muted-foreground">
 					No insurance policies found.
 				</p>
 			) : (
@@ -449,7 +449,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 					{inactive.length > 0 && (
 						<>
 							{active.length > 0 && (
-								<p className="font-medium text-muted-foreground text-sm">
+								<p className="text-sm font-medium text-muted-foreground">
 									Inactive Policies
 								</p>
 							)}

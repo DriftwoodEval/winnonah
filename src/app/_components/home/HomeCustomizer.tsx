@@ -66,13 +66,13 @@ export function HomeWidgetsEditor({
 
 	return (
 		<div className="space-y-3">
-			<p className="font-medium text-sm">Home Page Widgets</p>
+			<p className="text-sm font-medium">Home Page Widgets</p>
 
 			<div className="space-y-2">
 				{widgets.map((w, idx) => (
 					<div className="rounded-md border bg-muted/40 p-2" key={w.id}>
 						<div className="mb-2 flex items-center justify-between gap-2">
-							<span className="flex-1 font-medium text-sm">
+							<span className="flex-1 text-sm font-medium">
 								{labelFor(w.id)}
 							</span>
 							<div className="flex items-center gap-0.5">
@@ -103,7 +103,7 @@ export function HomeWidgetsEditor({
 								)}
 							</div>
 						</div>
-						<div className="flex items-center gap-4 text-muted-foreground text-xs">
+						<div className="flex items-center gap-4 text-xs text-muted-foreground">
 							<div className="flex items-center gap-1">
 								<span>W:</span>
 								<Button
@@ -162,14 +162,14 @@ export function HomeWidgetsEditor({
 			{availableToAdd.length > 0 && (
 				<>
 					<Separator />
-					<p className="text-muted-foreground text-xs">Add widgets</p>
+					<p className="text-xs text-muted-foreground">Add widgets</p>
 					{(Object.keys(WIDGET_CATEGORY_LABELS) as WidgetCategory[]).map(
 						(cat) => {
 							const defs = availableToAdd.filter((d) => d.category === cat);
 							if (defs.length === 0) return null;
 							return (
 								<div className="space-y-1" key={cat}>
-									<p className="px-2 font-medium text-muted-foreground text-xs">
+									<p className="px-2 text-xs font-medium text-muted-foreground">
 										{WIDGET_CATEGORY_LABELS[cat]}
 									</p>
 									{defs.map((def) => (

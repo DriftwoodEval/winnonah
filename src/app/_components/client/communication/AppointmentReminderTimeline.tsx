@@ -36,7 +36,7 @@ function MessageSnippet({
 		officeLocationPhrase,
 	);
 	return (
-		<p className="mt-0.5 line-clamp-3 whitespace-pre-wrap font-mono text-[9px] text-muted-foreground/70 leading-tight">
+		<p className="mt-0.5 line-clamp-3 font-mono text-[9px] leading-tight whitespace-pre-wrap text-muted-foreground/70">
 			{preview}
 		</p>
 	);
@@ -76,7 +76,7 @@ export function AppointmentReminderTimeline({
 	const officeLocationPhrase = data.officeLocationPhrase ?? null;
 
 	return (
-		<div className="relative ml-1 space-y-2 border-border border-l pl-3">
+		<div className="relative ml-1 space-y-2 border-l border-border pl-3">
 			{data.sent.map((item) => (
 				<div
 					className="relative"
@@ -84,12 +84,12 @@ export function AppointmentReminderTimeline({
 				>
 					<span className="absolute top-1 -left-[17px] h-2 w-2 rounded-full bg-primary" />
 					<p
-						className="font-medium text-[10px] leading-tight"
+						className="text-[10px] leading-tight font-medium"
 						title={format(item.sentAt, "PPpp")}
 					>
 						Sent {formatDistanceToNow(item.sentAt, { addSuffix: true })}
 					</p>
-					<p className="text-[10px] text-muted-foreground leading-tight">
+					<p className="text-[10px] leading-tight text-muted-foreground">
 						{item.templateName}
 					</p>
 					<MessageSnippet
@@ -109,7 +109,7 @@ export function AppointmentReminderTimeline({
 						<span
 							className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
 						/>
-						<p className="font-medium text-[10px] leading-tight">
+						<p className="text-[10px] leading-tight font-medium">
 							{item.isOverdue && appointmentTime > new Date() ? (
 								<span className="text-destructive italic">
 									sending on next cycle
@@ -128,7 +128,7 @@ export function AppointmentReminderTimeline({
 								</>
 							)}
 						</p>
-						<p className={`text-[10px] text-muted-foreground leading-tight`}>
+						<p className={`text-[10px] leading-tight text-muted-foreground`}>
 							{item.templateName}
 						</p>
 						<MessageSnippet

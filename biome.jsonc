@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
 	"assist": {
 		"actions": {
 			"source": {
@@ -11,19 +11,16 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**", "!src/app/_components/ui"]
+		"includes": ["**", "!src/app/_components/ui", "!**/*.yaml"]
 	},
 	"formatter": { "enabled": true },
 	"linter": {
 		"enabled": true,
 		"rules": {
 			"nursery": {
-				"useSortedClasses": {
+				"useTailwindSortedClasses": {
 					"fix": "safe",
-					"level": "warn",
-					"options": {
-						"functions": ["clsx", "cva", "cn"]
-					}
+					"level": "warn"
 				}
 			},
 			"preset": "recommended",
@@ -47,5 +44,10 @@
 		"enabled": true,
 		"useIgnoreFile": true
 	},
-	"css": { "parser": { "tailwindDirectives": true } }
+	"css": { "parser": { "tailwindDirectives": true } },
+	"tailwind": {
+		"mergeFunctions": ["clsx", "cn"],
+		"stylesheet": "./src/styles/globals.css",
+		"variantFunctions": ["cva"]
+	}
 }

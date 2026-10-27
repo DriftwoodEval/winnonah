@@ -275,7 +275,7 @@ export function EditAvailabilityDialog({
 									name="scope"
 									render={({ field }) => (
 										<FormItem className="space-y-3 rounded-md border bg-muted/50 p-4">
-											<FormLabel className="font-semibold text-base">
+											<FormLabel className="text-base font-semibold">
 												Recurring Event Options
 											</FormLabel>
 											<FormControl>
@@ -285,7 +285,7 @@ export function EditAvailabilityDialog({
 													onValueChange={field.onChange}
 													value={field.value}
 												>
-													<FormItem className="flex items-center space-x-3 space-y-0">
+													<FormItem className="flex items-center space-y-0 space-x-3">
 														<FormControl>
 															<RadioGroupItem value="this" />
 														</FormControl>
@@ -293,7 +293,7 @@ export function EditAvailabilityDialog({
 															Just this instance
 														</FormLabel>
 													</FormItem>
-													<FormItem className="flex items-center space-x-3 space-y-0">
+													<FormItem className="flex items-center space-y-0 space-x-3">
 														<FormControl>
 															<RadioGroupItem value="future" />
 														</FormControl>
@@ -301,7 +301,7 @@ export function EditAvailabilityDialog({
 															This and future events in this series
 														</FormLabel>
 													</FormItem>
-													<FormItem className="flex items-center space-x-3 space-y-0">
+													<FormItem className="flex items-center space-y-0 space-x-3">
 														<FormControl>
 															<RadioGroupItem value="all" />
 														</FormControl>

@@ -109,8 +109,8 @@ export function ClientsList({
 				className={`flex ${heightClass} w-full items-center justify-center rounded-md border border-dashed`}
 			>
 				<div className="text-center">
-					<h3 className="font-semibold text-lg">No Clients Found</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-semibold">No Clients Found</h3>
+					<p className="text-sm text-muted-foreground">
 						Try adjusting your search or filters.
 					</p>
 				</div>
@@ -127,13 +127,13 @@ export function ClientsList({
 		>
 			<div className="p-4">
 				<div className="mb-2 flex min-h-8 items-center justify-between">
-					<h4 className="font-medium text-muted-foreground text-sm leading-none">
+					<h4 className="text-sm leading-none font-medium text-muted-foreground">
 						Showing {clients.length} Client{clients.length === 1 ? "" : "s"}
 					</h4>
 					{savedPlaceHash && (
 						<Button
 							aria-label="Scroll to saved client"
-							className="font-medium text-muted-foreground text-xs"
+							className="text-xs font-medium text-muted-foreground"
 							onClick={scrollToSavedClient}
 							size="sm"
 							type="button"

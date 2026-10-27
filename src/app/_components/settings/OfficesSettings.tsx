@@ -139,12 +139,12 @@ function OfficeDialog({
 							</Button>
 						</form>
 						{lookup.isError && (
-							<p className="text-destructive text-sm">
+							<p className="text-sm text-destructive">
 								Address lookup failed. Try again in a moment.
 							</p>
 						)}
 						{lookup.data?.length === 0 && (
-							<p className="text-muted-foreground text-sm">
+							<p className="text-sm text-muted-foreground">
 								No matches. Try adding the city and state.
 							</p>
 						)}
@@ -211,7 +211,7 @@ function OfficeDialog({
 							placeholder="at 123 Main St, Suite 100"
 							value={locationPhrase}
 						/>
-						<p className="text-muted-foreground text-xs">
+						<p className="text-xs text-muted-foreground">
 							Fills $LOCATION in message templates. Include the preposition,
 							e.g. "at 123 Main St" or "inside Business Center at 123 Main St".
 						</p>
@@ -295,10 +295,10 @@ export default function OfficesSettings() {
 								{office.prettyName}
 								{office.archived && <Badge variant="outline">Archived</Badge>}
 							</span>
-							<span className="block text-muted-foreground text-sm">
+							<span className="block text-sm text-muted-foreground">
 								{office.address ?? "No address on file"}
 							</span>
-							<span className="block text-muted-foreground text-sm italic">
+							<span className="block text-sm text-muted-foreground italic">
 								{office.locationPhrase ?? "No message phrase"}
 							</span>
 						</div>

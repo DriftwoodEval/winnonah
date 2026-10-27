@@ -1,4 +1,5 @@
 ---
+
 name: write-docs
 description: Drafts a new documentation page (or a substantial new section of one) under src/content/docs, grounded in the actual source code and written for a non-technical staff audience. Use when the user asks to document a feature, script, dashboard, or procedure that has no page yet, or to fill a real gap in an existing page. Companion to verify-docs, which audits pages that already exist. Produces an .mdx draft, reader-tests it, and validates it; does not deploy or announce anything.
 ---

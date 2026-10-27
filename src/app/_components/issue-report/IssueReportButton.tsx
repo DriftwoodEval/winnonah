@@ -194,7 +194,7 @@ export function IssueReportButton() {
 				)}
 			{!open && images.length > 0 && (
 				<div
-					className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover px-4 py-2 text-popover-foreground text-sm shadow-md"
+					className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover px-4 py-2 text-sm text-popover-foreground shadow-md"
 					data-issue-report-ignore
 				>
 					<span>

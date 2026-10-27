@@ -110,7 +110,7 @@ export default function BillingDownload() {
 										)}
 										Download {label} CSV
 									</Button>
-									<span className="text-center text-muted-foreground text-xs">
+									<span className="text-center text-xs text-muted-foreground">
 										{fileInfoLoading
 											? null
 											: mtime
@@ -126,14 +126,14 @@ export default function BillingDownload() {
 
 			<Card>
 				<CardContent>
-					<h3 className="mb-3 font-semibold text-sm">Last Script Run Times</h3>
+					<h3 className="mb-3 text-sm font-semibold">Last Script Run Times</h3>
 					<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
 						{SCRIPT_ENTRIES.map(({ key, label }) => {
 							const mtime = scriptInfo?.[key];
 							return (
 								<div className="flex flex-col" key={key}>
 									<span className="font-medium">{label}</span>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-xs text-muted-foreground">
 										{scriptInfoLoading
 											? null
 											: mtime
@@ -149,7 +149,7 @@ export default function BillingDownload() {
 
 			<Card>
 				<CardContent>
-					<h3 className="mb-3 font-semibold text-sm">Run Summary</h3>
+					<h3 className="mb-3 text-sm font-semibold">Run Summary</h3>
 					<RunSummaryList />
 				</CardContent>
 			</Card>

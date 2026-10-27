@@ -169,11 +169,11 @@ function PunchListAccordionItem({
 			<AccordionTrigger>
 				<span className="flex items-center gap-1">
 					{title}
-					<span className="text-muted-foreground text-sm">
+					<span className="text-sm text-muted-foreground">
 						({clients?.length})
 					</span>
 					{isQsBackSection && (
-						<span className="text-muted-foreground text-sm">
+						<span className="text-sm text-muted-foreground">
 							&middot; {schedulingAddedCount}/{clients?.length} on scheduling
 							page
 						</span>
@@ -194,7 +194,7 @@ function PunchListAccordionItem({
 					<div className="mb-2 flex justify-end">
 						<Button
 							aria-label="Scroll to saved client"
-							className="font-medium text-muted-foreground text-xs"
+							className="text-xs font-medium text-muted-foreground"
 							onClick={scrollToSavedClient}
 							size="sm"
 							type="button"
@@ -223,7 +223,7 @@ function PunchListAccordionItem({
 								>
 									<div className="flex items-center justify-between gap-4">
 										<Link
-											className="no-underline! hover:no-underline! block grow"
+											className="block grow no-underline! hover:no-underline!"
 											href={`/clients/${client.hash}${isOutreachSection ? "?tab=referral" : ""}`}
 										>
 											<div>
@@ -250,20 +250,20 @@ function PunchListAccordionItem({
 														</span>
 														{isRecordsNotReturnedSection &&
 															punchClient.asdAdhd && (
-																<span className="text-muted-foreground text-xs">
+																<span className="text-xs text-muted-foreground">
 																	{punchClient.asdAdhd}
 																</span>
 															)}
 														{isOutreachSection &&
 															language &&
 															language.toLowerCase() !== "english" && (
-																<span className="font-bold text-destructive text-xs">
+																<span className="text-xs font-bold text-destructive">
 																	({language})
 																</span>
 															)}
 														{isClaimableSection &&
 															client.referralData?.outreachClaimedBy && (
-																<span className="text-muted-foreground text-xs">
+																<span className="text-xs text-muted-foreground">
 																	Claimed by{" "}
 																	{
 																		client.referralData.outreachClaimedBy.split(
@@ -329,7 +329,7 @@ function PunchListAccordionItem({
 													</div>
 													{(punchClient.extraInfo ||
 														punchClient.dangerInfo) && (
-														<span className="text-muted-foreground text-xs">
+														<span className="text-xs text-muted-foreground">
 															{punchClient.extraInfo}
 															{punchClient.extraInfo &&
 																punchClient.dangerInfo &&
@@ -343,7 +343,7 @@ function PunchListAccordionItem({
 													)}
 												</div>
 												{punchClient.matchedSections && (
-													<span className="block text-muted-foreground text-xs">
+													<span className="block text-xs text-muted-foreground">
 														{punchClient.matchedSections.join(", ")}
 													</span>
 												)}
@@ -741,7 +741,7 @@ export function Dashboard() {
 					</Alert>
 				)}
 
-				<p className="text-muted-foreground text-sm">
+				<p className="text-sm text-muted-foreground">
 					Punchlist: {dashboardData?.punchlistCount ?? 0}
 				</p>
 
@@ -751,14 +751,14 @@ export function Dashboard() {
 							canAdminReview &&
 							(adminReviewClients?.length ?? 0) > 0 && (
 								<>
-									<h2 className="mt-6 mb-2 self-start font-bold text-lg">
+									<h2 className="mt-6 mb-2 self-start text-lg font-bold">
 										Admin Review
 									</h2>
 									<AccordionItem value="admin-review">
 										<AccordionTrigger>
 											<span className="flex items-center gap-1">
 												Admin Review
-												<span className="text-muted-foreground text-sm">
+												<span className="text-sm text-muted-foreground">
 													({visibleAdminClients.length})
 												</span>
 											</span>
@@ -800,7 +800,7 @@ export function Dashboard() {
 												<div className="mb-2 flex justify-end">
 													<Button
 														aria-label="Scroll to saved client"
-														className="font-medium text-muted-foreground text-xs"
+														className="text-xs font-medium text-muted-foreground"
 														onClick={scrollToSavedAdminClient}
 														size="sm"
 														type="button"
@@ -828,7 +828,7 @@ export function Dashboard() {
 														>
 															<div className="flex items-center justify-between gap-2">
 																<Link
-																	className="no-underline! hover:no-underline! flex grow items-center gap-2"
+																	className="flex grow items-center gap-2 no-underline! hover:no-underline!"
 																	href={`/clients/${c.clientHash}?tab=admin-review`}
 																>
 																	<span>
@@ -914,7 +914,7 @@ export function Dashboard() {
 								</>
 							)}
 						{section.subheading && (
-							<h2 className="mt-6 mb-2 self-start font-bold text-lg">
+							<h2 className="mt-6 mb-2 self-start text-lg font-bold">
 								{section.subheading}
 							</h2>
 						)}

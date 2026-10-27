@@ -258,7 +258,7 @@ export default function QuestionnaireRemindersSettings() {
 
 	return (
 		<div className="space-y-8 px-4">
-			<h3 className="font-bold text-lg">Questionnaire Reminders</h3>
+			<h3 className="text-lg font-bold">Questionnaire Reminders</h3>
 
 			<CadenceCard canEdit={canEdit} settings={settings} />
 
@@ -276,7 +276,7 @@ export default function QuestionnaireRemindersSettings() {
 								<code className="rounded bg-muted px-1 font-mono text-xs">
 									{token}
 								</code>{" "}
-								<span className="text-muted-foreground text-xs">({desc})</span>
+								<span className="text-xs text-muted-foreground">({desc})</span>
 							</span>
 						))}
 					</CardDescription>
@@ -284,11 +284,11 @@ export default function QuestionnaireRemindersSettings() {
 				<CardContent className="space-y-6">
 					{QUESTIONNAIRE_REMINDER_STAGES.map((stage) => (
 						<div className="space-y-3" key={stage.index}>
-							<h4 className="font-semibold text-sm">{stage.label}</h4>
+							<h4 className="text-sm font-semibold">{stage.label}</h4>
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 								{VARIANTS.map((variant) => (
 									<div className="space-y-1" key={variant.key}>
-										<Label className="text-muted-foreground text-xs">
+										<Label className="text-xs text-muted-foreground">
 											{variant.label}
 										</Label>
 										<TemplateEditor

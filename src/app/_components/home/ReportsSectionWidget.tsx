@@ -25,7 +25,7 @@ export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 font-medium text-sm">
+			<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-sm font-medium">
 				{section.title}{" "}
 				<span className="text-muted-foreground">
 					({section.reports.length})

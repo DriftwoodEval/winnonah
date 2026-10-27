@@ -133,7 +133,7 @@ export function AdminReviewSubmitDialog({
 						>
 							<ChevronDown className="size-4" />
 						</Button>
-						<span className="text-muted-foreground text-sm">
+						<span className="text-sm text-muted-foreground">
 							Move insertion point
 						</span>
 					</div>

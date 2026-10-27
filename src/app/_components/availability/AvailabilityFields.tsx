@@ -112,7 +112,7 @@ export function AvailabilityFields({
 						name="officeKeys"
 						render={({ field }) => (
 							<FormItem className="space-y-3 rounded-md border p-4">
-								<FormLabel className="font-semibold text-base">
+								<FormLabel className="text-base font-semibold">
 									Available Office Locations
 								</FormLabel>
 
@@ -202,7 +202,7 @@ export function AvailabilityFields({
 						render={({ field }) => (
 							<FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
 								<div className="space-y-0.5">
-									<FormLabel className="font-semibold text-base">
+									<FormLabel className="text-base font-semibold">
 										All Day
 									</FormLabel>
 									<FormDescription>
@@ -364,7 +364,7 @@ export function AvailabilityFields({
 				name="isRecurring"
 				render={({ field }) => (
 					<FormItem className="flex flex-row items-center justify-between">
-						<FormLabel className="font-semibold text-base">
+						<FormLabel className="text-base font-semibold">
 							Repeating Event
 						</FormLabel>
 						<FormControl>
@@ -391,7 +391,7 @@ export function AvailabilityFields({
 						name="recurrenceFreq"
 						render={({ field }) => (
 							<FormItem className="space-y-3">
-								<FormLabel className="font-medium text-sm">
+								<FormLabel className="text-sm font-medium">
 									Repeat Frequency
 								</FormLabel>
 								<FormControl>
@@ -400,19 +400,19 @@ export function AvailabilityFields({
 										onValueChange={field.onChange}
 										value={field.value}
 									>
-										<FormItem className="flex items-center space-x-3 space-y-0">
+										<FormItem className="flex items-center space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem value="daily" />
 											</FormControl>
 											<FormLabel className="font-normal">Daily</FormLabel>
 										</FormItem>
-										<FormItem className="flex items-center space-x-3 space-y-0">
+										<FormItem className="flex items-center space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem value="weekly" />
 											</FormControl>
 											<FormLabel className="font-normal">Weekly</FormLabel>
 										</FormItem>
-										<FormItem className="flex items-center space-x-3 space-y-0">
+										<FormItem className="flex items-center space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem value="monthly" />
 											</FormControl>
@@ -430,7 +430,7 @@ export function AvailabilityFields({
 						name="interval"
 						render={({ field }) => (
 							<FormItem className="space-y-2">
-								<FormLabel className="font-medium text-sm">
+								<FormLabel className="text-sm font-medium">
 									Repeat every
 								</FormLabel>
 								<div className="flex items-center gap-2">
@@ -442,7 +442,7 @@ export function AvailabilityFields({
 											value={field.value}
 										/>
 									</FormControl>
-									<span className="text-muted-foreground text-sm">
+									<span className="text-sm text-muted-foreground">
 										{recurrenceFreq === "daily"
 											? field.value === 1
 												? "day"
@@ -467,7 +467,7 @@ export function AvailabilityFields({
 							name="weeklyDays"
 							render={() => (
 								<FormItem className="space-y-3">
-									<FormLabel className="font-medium text-sm">
+									<FormLabel className="text-sm font-medium">
 										Repeat on Days
 									</FormLabel>
 									<div className="flex flex-wrap gap-3">
@@ -477,7 +477,7 @@ export function AvailabilityFields({
 												key={day.value}
 												name="weeklyDays"
 												render={({ field }) => (
-													<FormItem className="flex items-center space-x-2 space-y-0">
+													<FormItem className="flex items-center space-y-0 space-x-2">
 														<FormControl>
 															<Checkbox
 																checked={field.value?.includes(day.value)}
@@ -490,7 +490,7 @@ export function AvailabilityFields({
 																}}
 															/>
 														</FormControl>
-														<FormLabel className="font-normal text-sm">
+														<FormLabel className="text-sm font-normal">
 															{day.label}
 														</FormLabel>
 													</FormItem>
@@ -510,7 +510,7 @@ export function AvailabilityFields({
 							name="monthlyDay"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel className="font-medium text-sm">
+									<FormLabel className="text-sm font-medium">
 										Day of Month
 									</FormLabel>
 									<FormControl>
@@ -538,7 +538,7 @@ export function AvailabilityFields({
 						name="recurrenceEndType"
 						render={({ field }) => (
 							<FormItem className="space-y-3">
-								<FormLabel className="font-medium text-sm">Ends</FormLabel>
+								<FormLabel className="text-sm font-medium">Ends</FormLabel>
 								<FormControl>
 									<RadioGroup
 										className="flex flex-col space-y-3"
@@ -556,14 +556,14 @@ export function AvailabilityFields({
 										}}
 										value={field.value}
 									>
-										<FormItem className="flex items-center space-x-3 space-y-0">
+										<FormItem className="flex items-center space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem value="never" />
 											</FormControl>
 											<FormLabel className="font-normal">Never</FormLabel>
 										</FormItem>
 
-										<FormItem className="flex items-start space-x-3 space-y-0">
+										<FormItem className="flex items-start space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem className="mt-2" value="on" />
 											</FormControl>
@@ -594,7 +594,7 @@ export function AvailabilityFields({
 											</div>
 										</FormItem>
 
-										<FormItem className="flex items-start space-x-3 space-y-0">
+										<FormItem className="flex items-start space-y-0 space-x-3">
 											<FormControl>
 												<RadioGroupItem className="mt-2" value="after" />
 											</FormControl>

@@ -179,7 +179,7 @@ function ReportSectionItem({
 			<AccordionTrigger>
 				<span className="flex items-center gap-1">
 					{title}
-					<span className="text-muted-foreground text-sm">
+					<span className="text-sm text-muted-foreground">
 						({reports.length})
 					</span>
 				</span>
@@ -190,7 +190,7 @@ function ReportSectionItem({
 					<div className="mb-2 flex justify-end">
 						<Button
 							aria-label="Scroll to saved client"
-							className="font-medium text-muted-foreground text-xs"
+							className="text-xs font-medium text-muted-foreground"
 							onClick={() =>
 								savedClientRef.current?.scrollIntoView({ behavior: "smooth" })
 							}
@@ -280,7 +280,7 @@ export function ReportsDashboardSections() {
 
 	return (
 		<>
-			<h2 className="mt-6 mb-2 self-start font-bold text-lg">Reports</h2>
+			<h2 className="mt-6 mb-2 self-start text-lg font-bold">Reports</h2>
 			<div className="mb-2 w-full">
 				<ReportsLegend />
 			</div>

@@ -96,7 +96,7 @@ function Pager({
 }) {
 	return (
 		<div className="flex items-center justify-between">
-			<span className="text-muted-foreground text-sm">
+			<span className="text-sm text-muted-foreground">
 				{total > 0
 					? `${offset + 1}-${Math.min(offset + pageSize, total)} of ${total}`
 					: null}
@@ -220,7 +220,7 @@ function RunLines({
 						) : (
 							rows.map((row) => (
 								<TableRow key={row.id}>
-									<TableCell className="whitespace-nowrap align-top">
+									<TableCell className="align-top whitespace-nowrap">
 										{formatInBusinessTime(
 											row.time,
 											runId ? "h:mm:ss a" : "M/d/yy h:mm:ss a",
@@ -248,9 +248,9 @@ function RunLines({
 											<span className="text-muted-foreground">—</span>
 										)}
 									</TableCell>
-									<TableCell className="whitespace-pre-wrap break-words">
+									<TableCell className="break-words whitespace-pre-wrap">
 										{row.message}
-										<span className="block text-muted-foreground text-xs">
+										<span className="block text-xs text-muted-foreground">
 											{row.source}
 										</span>
 										{row.exception && (
@@ -297,7 +297,7 @@ export default function RunLogsTable({
 	if (selectedRunId || showAllLines) {
 		return (
 			<div className="space-y-4 px-4">
-				<h3 className="font-bold text-lg">Run Logs</h3>
+				<h3 className="text-lg font-bold">Run Logs</h3>
 				<RunLines
 					initialClient={client}
 					onBack={() => {
@@ -312,7 +312,7 @@ export default function RunLogsTable({
 
 	return (
 		<div className="space-y-4 px-4">
-			{!lockedClient && <h3 className="font-bold text-lg">Run Logs</h3>}
+			{!lockedClient && <h3 className="text-lg font-bold">Run Logs</h3>}
 
 			<div className="flex flex-wrap gap-2">
 				<Select

@@ -203,7 +203,7 @@ export function AvailabilityForm() {
 
 	return (
 		<div className="flex flex-col">
-			<h2 className="mb-4 font-bold text-2xl">
+			<h2 className="mb-4 text-2xl font-bold">
 				Declare Your {isUnavailability ? "Unavailability" : "Availability"}
 			</h2>
 			{IS_DEV && !session?.user.isImpersonating && (

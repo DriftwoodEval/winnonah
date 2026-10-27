@@ -11,5 +11,5 @@ export function Redact({ children }: { children: string | null | undefined }) {
 
 	const scrambled = scrambleText(children);
 
-	return <span className="select-none blur-sm">{scrambled}</span>;
+	return <span className="blur-sm select-none">{scrambled}</span>;
 }

@@ -29,7 +29,7 @@ function AuthError() {
 
 	return (
 		<main className="flex min-h-screen min-w-screen flex-col items-center justify-center gap-6">
-			<h1 className="text-center font-bold text-2xl">Sign-in failed</h1>
+			<h1 className="text-center text-2xl font-bold">Sign-in failed</h1>
 			<p className="text-muted-foreground">{message}</p>
 			{canRetry && (
 				<Button onClick={() => signIn("google")} size="lg" variant="secondary">

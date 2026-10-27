@@ -186,14 +186,14 @@ export const IssueList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex h-96 w-full sm:w-96"}>
 			<ScrollArea
-				className={`[&>[data-slot=scroll-area-viewport]>div]:!block h-full w-full rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`h-full w-full rounded-md border bg-card text-card-foreground shadow-sm [&>[data-slot=scroll-area-viewport]>div]:!block`}
 				type="auto"
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-1 font-bold text-lg leading-none">
+						<h1 className="mb-1 text-lg leading-none font-bold">
 							{title}{" "}
-							<span className="font-medium text-muted-foreground text-sm">
+							<span className="text-sm font-medium text-muted-foreground">
 								({clients.length})
 							</span>
 						</h1>
@@ -201,7 +201,7 @@ export const IssueList = ({
 							{savedPlaceKey && savedPlaceHash && (
 								<Button
 									aria-label="Scroll to saved client"
-									className="font-medium text-muted-foreground text-xs"
+									className="text-xs font-medium text-muted-foreground"
 									onClick={scrollToSavedClient}
 									size="sm"
 									type="button"
@@ -215,7 +215,7 @@ export const IssueList = ({
 						</div>
 					</div>
 					{description && (
-						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
+						<p className="mb-4 text-xs text-muted-foreground">{description}</p>
 					)}
 					{clients.length === 0 && (
 						<EmptyState compact title="No clients in this list" />
@@ -232,7 +232,7 @@ export const IssueList = ({
 									href={`/clients/${client.hash}`}
 									key={client.hash}
 								>
-									<div className="break-words text-sm" key={client.hash}>
+									<div className="text-sm break-words" key={client.hash}>
 										<ClientHoverCard clientHash={client.hash}>
 											<Redact>{client.fullName}</Redact>{" "}
 										</ClientHoverCard>
@@ -242,7 +242,7 @@ export const IssueList = ({
 											</span>
 										)}
 										{client.initialFailureDate && (
-											<div className="text-muted-foreground text-xs">
+											<div className="text-xs text-muted-foreground">
 												(first failed{" "}
 												{format(
 													new Date(client.initialFailureDate),
@@ -257,7 +257,7 @@ export const IssueList = ({
 												const lastAttempt = attempts.at(-1);
 												if (!lastAttempt) return null;
 												return (
-													<div className="text-muted-foreground text-xs">
+													<div className="text-xs text-muted-foreground">
 														{attempts.length} attempt
 														{attempts.length === 1 ? "" : "s"} logged, last{" "}
 														{format(
@@ -565,9 +565,9 @@ export const SuggestionIssueList = ({
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-1 font-bold text-lg leading-none">
+						<h1 className="mb-1 text-lg leading-none font-bold">
 							{title}{" "}
-							<span className="font-medium text-muted-foreground text-sm">
+							<span className="text-sm font-medium text-muted-foreground">
 								({items.length})
 							</span>
 						</h1>
@@ -575,7 +575,7 @@ export const SuggestionIssueList = ({
 							{savedPlaceKey && savedPlaceHash && (
 								<Button
 									aria-label="Scroll to saved client"
-									className="font-medium text-muted-foreground text-xs"
+									className="text-xs font-medium text-muted-foreground"
 									onClick={scrollToSavedItem}
 									size="sm"
 									type="button"
@@ -589,7 +589,7 @@ export const SuggestionIssueList = ({
 						</div>
 					</div>
 					{description && (
-						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
+						<p className="mb-4 text-xs text-muted-foreground">{description}</p>
 					)}
 					<div>
 						{items.length === 0 && (
@@ -604,16 +604,16 @@ export const SuggestionIssueList = ({
 								<div className="mb-1 flex items-center justify-between gap-2">
 									{item.hash ? (
 										<Link href={`/clients/${item.hash}`}>
-											<div className="font-medium text-sm hover:underline">
+											<div className="text-sm font-medium hover:underline">
 												<ClientHoverCard clientHash={item.hash}>
 													<Redact>{item.name}</Redact>
 												</ClientHoverCard>
 											</div>
 										</Link>
 									) : (
-										<div className="font-medium text-sm">
+										<div className="text-sm font-medium">
 											<Redact>{item.name}</Redact>{" "}
-											<span className="font-normal text-muted-foreground text-xs">
+											<span className="text-xs font-normal text-muted-foreground">
 												(ID: <Redact>{item.id}</Redact>)
 											</span>
 										</div>
@@ -622,7 +622,7 @@ export const SuggestionIssueList = ({
 
 								{item.suggestions.length > 0 && (
 									<div className="mt-2 rounded-md border bg-muted p-2">
-										<p className="mb-1 font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+										<p className="mb-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
 											Suggestions:
 										</p>
 										<div className="space-y-2">
@@ -750,13 +750,13 @@ export const DuplicateNamesList = ({
 				type="auto"
 			>
 				<div className="p-4">
-					<h1 className="mb-1 font-bold text-lg leading-none">
+					<h1 className="mb-1 text-lg leading-none font-bold">
 						{ISSUE_TITLES.duplicateNames}{" "}
-						<span className="font-medium text-muted-foreground text-sm">
+						<span className="text-sm font-medium text-muted-foreground">
 							({totalPairs} pair{totalPairs !== 1 ? "s" : ""})
 						</span>
 					</h1>
-					<p className="mb-4 text-muted-foreground text-xs">
+					<p className="mb-4 text-xs text-muted-foreground">
 						Active clients sharing the same first and last name
 						(case-insensitive).
 					</p>
@@ -766,7 +766,7 @@ export const DuplicateNamesList = ({
 						)}
 						{groups.map((group) => (
 							<div className="rounded-md border bg-muted p-3" key={group.name}>
-								<div className="mb-2 font-medium text-sm">
+								<div className="mb-2 text-sm font-medium">
 									<Redact>{group.name}</Redact>
 								</div>
 								<div className="space-y-2">
@@ -874,9 +874,9 @@ export const DuplicateDriveFoldersList = ({
 			>
 				<div className="flex flex-col p-4">
 					<div className="flex items-center justify-between">
-						<h1 className="font-bold text-lg leading-none">
+						<h1 className="text-lg leading-none font-bold">
 							{ISSUE_TITLES.duplicateDriveFolders}{" "}
-							<span className="font-medium text-muted-foreground text-sm">
+							<span className="text-sm font-medium text-muted-foreground">
 								({duplicates.length} client{duplicates.length !== 1 ? "s" : ""})
 							</span>
 						</h1>
@@ -911,7 +911,7 @@ export const DuplicateDriveFoldersList = ({
 								{formatInBusinessTime(new Date(lastFetched), "MM/dd h:mm a")}
 							</span>
 						</p>
-						<p className="max-w-md text-muted-foreground text-sm">
+						<p className="max-w-md text-sm text-muted-foreground">
 							Multiple Google Drive folders found for the same client ID.
 						</p>
 					</div>
@@ -924,7 +924,7 @@ export const DuplicateDriveFoldersList = ({
 								className="rounded-md border bg-muted p-3"
 								key={group.clientId}
 							>
-								<div className="mb-2 font-bold text-lg">
+								<div className="mb-2 text-lg font-bold">
 									<Link href={`/clients/${group.clientHash}`}>
 										<span className="hover:underline">
 											<ClientHoverCard clientHash={group.clientHash}>
@@ -932,7 +932,7 @@ export const DuplicateDriveFoldersList = ({
 											</ClientHoverCard>
 										</span>
 									</Link>
-									<span className="ml-2 font-medium text-muted-foreground text-sm">
+									<span className="ml-2 text-sm font-medium text-muted-foreground">
 										[<Redact>{String(group.clientId)}</Redact>]
 									</span>
 								</div>
@@ -950,7 +950,7 @@ export const DuplicateDriveFoldersList = ({
 														<Redact>{folder.name}</Redact>
 													</span>
 													{folder.isDbMatch && (
-														<span className="font-semibold text-primary text-xs">
+														<span className="text-xs font-semibold text-primary">
 															(Canonical Folder)
 														</span>
 													)}
@@ -982,14 +982,14 @@ export const ClientsSharingQuestionnaires = ({
 				type="auto"
 			>
 				<div className="p-4">
-					<h1 className="mb-1 font-bold text-lg leading-none">
+					<h1 className="mb-1 text-lg leading-none font-bold">
 						{ISSUE_TITLES.sharedQuestionnaires}{" "}
-						<span className="font-medium text-muted-foreground text-sm">
+						<span className="text-sm font-medium text-muted-foreground">
 							({sharedLinksData.length} shared link
 							{sharedLinksData.length > 1 ? "s" : ""})
 						</span>
 					</h1>
-					<p className="mb-4 text-muted-foreground text-xs">
+					<p className="mb-4 text-xs text-muted-foreground">
 						Multiple clients with the same questionnaire link between them.
 					</p>
 					<div className="space-y-4">
@@ -998,7 +998,7 @@ export const ClientsSharingQuestionnaires = ({
 						)}
 						{sharedLinksData.map(({ link, clients }) => (
 							<div className="rounded-md border p-3" key={link}>
-								<div className="mb-2 font-medium text-muted-foreground text-sm">
+								<div className="mb-2 text-sm font-medium text-muted-foreground">
 									Link:{" "}
 									<Link href={link ?? "#"} target="_blank">
 										<Redact>{link}</Redact>
@@ -1012,7 +1012,7 @@ export const ClientsSharingQuestionnaires = ({
 													<ClientHoverCard clientHash={client.hash}>
 														<Redact>{client.fullName}</Redact>
 													</ClientHoverCard>
-													<span className="ml-2 text-muted-foreground text-xs">
+													<span className="ml-2 text-xs text-muted-foreground">
 														({count} count{count > 1 ? "s" : ""})
 													</span>
 												</div>
@@ -1092,13 +1092,13 @@ export const PartialBatteryList = ({
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
-					<h1 className="font-bold text-lg leading-none">
+					<h1 className="text-lg leading-none font-bold">
 						{ISSUE_TITLES.partialBatteries}{" "}
-						<span className="font-medium text-muted-foreground text-sm">
+						<span className="text-sm font-medium text-muted-foreground">
 							({clients.length} client{clients.length !== 1 ? "s" : ""})
 						</span>
 					</h1>
-					<p className="mb-4 text-muted-foreground text-xs">
+					<p className="mb-4 text-xs text-muted-foreground">
 						Clients with some but not all needed questionnaires sent.
 					</p>
 					<div className="flex flex-col gap-4">
@@ -1116,7 +1116,7 @@ export const PartialBatteryList = ({
 										</span>
 									</Link>
 									{client.language && client.language !== "English" && (
-										<span className="text-muted-foreground text-xs">
+										<span className="text-xs text-muted-foreground">
 											({client.language})
 										</span>
 									)}
@@ -1194,9 +1194,9 @@ const EmptyListsCard = ({ titles }: { titles: string[] }) => {
 	return (
 		<Card className="h-96 w-full gap-3 rounded-md border py-4 shadow-sm ring-0 sm:w-96">
 			<CardHeader className="px-4">
-				<CardTitle className="font-bold text-lg leading-none">
+				<CardTitle className="text-lg leading-none font-bold">
 					Empty Lists{" "}
-					<span className="font-medium text-muted-foreground text-sm">
+					<span className="text-sm font-medium text-muted-foreground">
 						({titles.length})
 					</span>
 				</CardTitle>
@@ -2100,14 +2100,14 @@ export function IssuesList() {
 			</div>
 			{actionItemCounts.length > 0 && (
 				<>
-					<h2 className="font-semibold text-xl">Action Items</h2>
+					<h2 className="text-xl font-semibold">Action Items</h2>
 					<div className="flex flex-wrap justify-center gap-10">
 						{actionItemIds.map((id) => (
 							<Fragment key={id}>{issueBlocks[id]}</Fragment>
 						))}
 						<EmptyListsCard titles={emptyActionItems} />
 					</div>
-					<h2 className="font-semibold text-xl">Issues</h2>
+					<h2 className="text-xl font-semibold">Issues</h2>
 				</>
 			)}
 			<div className="flex flex-wrap justify-center gap-10">

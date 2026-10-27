@@ -1,4 +1,5 @@
 ---
+
 name: verify-docs
 description: Audits one or more docs pages under src/content/docs against the actual source code they describe, reporting where the prose has drifted (renamed labels, changed permissions, removed features, changed business rules) and where it leaves a non-technical reader stuck (coverage and clarity gaps). Use when the user asks to verify, audit, or check a docs page for accuracy, or periodically to sanity-check the docs site. Read-only, does not edit files. Takes an optional argument naming a page by its path or slug under src/content/docs (e.g. "<section>/<page>"); without one, audits every page.
 ---

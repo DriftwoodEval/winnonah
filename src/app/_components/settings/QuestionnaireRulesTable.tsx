@@ -294,7 +294,7 @@ function RuleForm({
 								<MultipleSelector
 									badgeClassName="bg-secondary text-secondary-foreground"
 									emptyIndicator={
-										<p className="text-center text-muted-foreground text-sm">
+										<p className="text-center text-sm text-muted-foreground">
 											No online assessments found.
 										</p>
 									}
@@ -324,7 +324,7 @@ function RuleForm({
 								<MultipleSelector
 									badgeClassName="bg-muted text-muted-foreground"
 									emptyIndicator={
-										<p className="text-center text-muted-foreground text-sm">
+										<p className="text-center text-sm text-muted-foreground">
 											No in-person assessments found.
 										</p>
 									}
@@ -508,8 +508,8 @@ export default function QuestionnaireRulesTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<div>
-					<h3 className="font-bold text-lg">Assessment Battery</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-bold">Assessment Battery</h3>
+					<p className="text-sm text-muted-foreground">
 						Which assessments to include based on appointment type, diagnosis,
 						and age. ASD+ADHD combines ASD and ADHD rules automatically.
 					</p>
@@ -578,7 +578,7 @@ export default function QuestionnaireRulesTable() {
 													{DIAGNOSIS_LABELS[rule.diagnosis] ?? rule.diagnosis}
 												</Badge>
 											) : (
-												<span className="text-muted-foreground text-sm italic">
+												<span className="text-sm text-muted-foreground italic">
 													Any
 												</span>
 											)}
@@ -596,7 +596,7 @@ export default function QuestionnaireRulesTable() {
 													))}
 												</div>
 											) : (
-												<span className="text-muted-foreground text-sm italic">
+												<span className="text-sm text-muted-foreground italic">
 													None
 												</span>
 											)}
@@ -611,7 +611,7 @@ export default function QuestionnaireRulesTable() {
 													))}
 												</div>
 											) : (
-												<span className="text-muted-foreground text-sm italic">
+												<span className="text-sm text-muted-foreground italic">
 													None
 												</span>
 											)}
@@ -665,11 +665,11 @@ export default function QuestionnaireRulesTable() {
 												{DIAGNOSIS_LABELS[rule.diagnosis] ?? rule.diagnosis}
 											</Badge>
 										) : (
-											<span className="text-muted-foreground text-sm italic">
+											<span className="text-sm text-muted-foreground italic">
 												Any diagnosis
 											</span>
 										)}
-										<span className="text-muted-foreground text-sm">
+										<span className="text-sm text-muted-foreground">
 											· Ages {rule.minAge}–
 											{rule.maxAge === 150 ? "∞" : rule.maxAge}
 										</span>
@@ -678,12 +678,12 @@ export default function QuestionnaireRulesTable() {
 								</div>
 
 								<div className="mt-3">
-									<div className="text-muted-foreground text-xs">Online</div>
+									<div className="text-xs text-muted-foreground">Online</div>
 									{rule.questionnaires.length > 0 ? (
 										<div className="mt-1 flex flex-wrap gap-1">
 											{rule.questionnaires.map((q) => (
 												<Badge
-													className="h-auto max-w-full whitespace-normal break-words text-left"
+													className="h-auto max-w-full text-left break-words whitespace-normal"
 													key={q}
 													variant="secondary"
 												>
@@ -692,19 +692,19 @@ export default function QuestionnaireRulesTable() {
 											))}
 										</div>
 									) : (
-										<span className="text-muted-foreground text-sm italic">
+										<span className="text-sm text-muted-foreground italic">
 											None
 										</span>
 									)}
 								</div>
 
 								<div className="mt-3">
-									<div className="text-muted-foreground text-xs">In-Person</div>
+									<div className="text-xs text-muted-foreground">In-Person</div>
 									{(rule.inPersonAssessments ?? []).length > 0 ? (
 										<div className="mt-1 flex flex-wrap gap-1">
 											{(rule.inPersonAssessments ?? []).map((a) => (
 												<Badge
-													className="h-auto max-w-full whitespace-normal break-words text-left"
+													className="h-auto max-w-full text-left break-words whitespace-normal"
 													key={a}
 													variant="outline"
 												>
@@ -713,7 +713,7 @@ export default function QuestionnaireRulesTable() {
 											))}
 										</div>
 									) : (
-										<span className="text-muted-foreground text-sm italic">
+										<span className="text-sm text-muted-foreground italic">
 											None
 										</span>
 									)}

@@ -79,7 +79,7 @@ export function CommunicationTimeline({
 	return (
 		<Card className="w-full gap-1 rounded-md p-1">
 			<CardHeader className="px-3 py-2">
-				<CardTitle className="font-semibold text-sm">Communication</CardTitle>
+				<CardTitle className="text-sm font-semibold">Communication</CardTitle>
 				<CardDescription className="text-[10px] leading-tight">
 					Recent messages and calls. View only.
 				</CardDescription>
@@ -99,9 +99,9 @@ export function CommunicationTimeline({
 						))}
 					</div>
 				) : error ? (
-					<div className="p-2 text-destructive text-xs">{error.message}</div>
+					<div className="p-2 text-xs text-destructive">{error.message}</div>
 				) : !timeline || timeline.length === 0 ? (
-					<div className="p-4 text-center text-muted-foreground text-xs">
+					<div className="p-4 text-center text-xs text-muted-foreground">
 						No history found.
 					</div>
 				) : (
@@ -126,7 +126,7 @@ export function CommunicationTimeline({
 														: "rounded-tr-none bg-secondary text-secondary-foreground",
 												)}
 											>
-												<p className="mb-1 whitespace-pre-wrap text-[11px] leading-tight">
+												<p className="mb-1 text-[11px] leading-tight whitespace-pre-wrap">
 													{automatedMap.get(event.id) ? (
 														event.text
 													) : (
@@ -195,12 +195,12 @@ export function CommunicationTimeline({
 														<PhoneOutgoing className="h-3 w-3" />
 													)}
 												</div>
-												<span className="truncate font-medium capitalize leading-tight">
+												<span className="truncate leading-tight font-medium capitalize">
 													{event.direction} Call
 												</span>
 											</div>
 											<div className="flex shrink-0 flex-col items-end gap-0.5">
-												<div className="flex w-full items-center justify-end gap-1 border-border/20 border-t pt-0.5 text-muted-foreground">
+												<div className="flex w-full items-center justify-end gap-1 border-t border-border/20 pt-0.5 text-muted-foreground">
 													<div className="flex items-center gap-0.5">
 														<Clock className="h-2 w-2" />
 														<span className="text-[9px] leading-none">
@@ -210,12 +210,12 @@ export function CommunicationTimeline({
 														</span>
 													</div>
 													{event.status !== "completed" && (
-														<span className="font-medium text-[9px] capitalize leading-none">
+														<span className="text-[9px] leading-none font-medium capitalize">
 															• {event.status}
 														</span>
 													)}
 												</div>
-												<span className="text-[9px] text-muted-foreground leading-none">
+												<span className="text-[9px] leading-none text-muted-foreground">
 													{format(
 														new Date(event.createdAt),
 														new Date(event.createdAt).getFullYear() ===

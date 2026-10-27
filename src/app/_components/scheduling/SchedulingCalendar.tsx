@@ -437,13 +437,13 @@ export function SchedulingCalendar({
 			</div>
 
 			{shown.length === 0 ? (
-				<p className="p-4 text-muted-foreground text-sm">
+				<p className="p-4 text-sm text-muted-foreground">
 					Turn on at least one evaluator above.
 				</p>
 			) : (
 				<div
 					className={cn(
-						"max-h-[75vh] overflow-y-auto overflow-x-hidden",
+						"max-h-[75vh] overflow-x-hidden overflow-y-auto",
 						dragging && "select-none",
 					)}
 				>
@@ -460,7 +460,7 @@ export function SchedulingCalendar({
 						{days.map((day) => (
 							<div
 								className={cn(
-									"sticky top-0 z-20 flex items-center justify-center border-b border-l-2 bg-background font-medium text-sm",
+									"sticky top-0 z-20 flex items-center justify-center border-b border-l-2 bg-background text-sm font-medium",
 									day === today && "text-primary",
 								)}
 								key={day}
@@ -585,7 +585,7 @@ export function SchedulingCalendar({
 													className={cn(
 														"group absolute inset-x-0.5 overflow-hidden rounded-sm border px-1 py-0.5 text-[11px] leading-tight shadow-sm",
 														isPlaceholder
-															? "cursor-grab border-2 border-warning border-dashed bg-warning/15 active:cursor-grabbing dark:bg-warning/25"
+															? "cursor-grab border-2 border-dashed border-warning bg-warning/15 active:cursor-grabbing dark:bg-warning/25"
 															: `border-l-4 ${colorByNpi.get(ev.npi) ?? ""}`,
 														beingDragged && "pointer-events-none opacity-40",
 													)}
@@ -624,7 +624,7 @@ export function SchedulingCalendar({
 													{isPlaceholder && (
 														<button
 															aria-label="Delete placeholder"
-															className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
+															className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-destructive"
 															onClick={() => onDelete(appt.id)}
 															onPointerDown={(e) => e.stopPropagation()}
 															type="button"
@@ -637,7 +637,7 @@ export function SchedulingCalendar({
 										})}
 										{showPreview && preview && (
 											<div
-												className="pointer-events-none absolute inset-x-0.5 animate-pulse overflow-hidden rounded-sm border-2 border-primary border-dashed bg-primary/10 px-1 py-0.5 text-[11px] dark:bg-primary/20"
+												className="pointer-events-none absolute inset-x-0.5 animate-pulse overflow-hidden rounded-sm border-2 border-dashed border-primary bg-primary/10 px-1 py-0.5 text-[11px] dark:bg-primary/20"
 												data-slot-preview=""
 												style={{
 													top: blockTop(preview.start),

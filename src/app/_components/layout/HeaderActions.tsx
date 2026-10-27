@@ -60,7 +60,7 @@ export function HeaderActions() {
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent align="end" className="w-64 p-2">
-						<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+						<p className="mb-2 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 							Recent Clients
 						</p>
 						<div className="flex flex-col">
@@ -155,7 +155,7 @@ export function HeaderActions() {
 								Sign out
 							</button>
 							<div className="-mx-1 my-1 h-px bg-border" />
-							<p className="px-1.5 py-1 font-mono font-normal text-[10px] text-muted-foreground">
+							<p className="px-1.5 py-1 font-mono text-[10px] font-normal text-muted-foreground">
 								{process.env.NODE_ENV === "development" ? (
 									<span>Branch: {process.env.NEXT_PUBLIC_GIT_BRANCH}</span>
 								) : (
@@ -193,7 +193,7 @@ export function HeaderActions() {
 							}}
 						>
 							<button
-								className="flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
+								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 								onClick={() => setAvatarView("menu")}
 								type="button"
 							>

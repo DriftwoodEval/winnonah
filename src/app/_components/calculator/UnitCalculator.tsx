@@ -105,7 +105,7 @@ export default function UnitCalculator() {
 				</div>
 			</CardHeader>
 			<CardContent>
-				<div className="columns-1 gap-x-6 space-y-2 md:columns-2 lg:columns-3">
+				<div className="columns-1 space-y-2 gap-x-6 md:columns-2 lg:columns-3">
 					{tests.map((test) => (
 						<div
 							className="flex break-inside-avoid items-center space-x-2"
@@ -141,7 +141,7 @@ export default function UnitCalculator() {
 						/>
 						<Label htmlFor="show-units">Show Units</Label>
 					</div>
-					<div className="font-bold text-xl">
+					<div className="text-xl font-bold">
 						Total Time: {totalHours} hours{" "}
 						<span className="font-normal text-muted-foreground">
 							({totalMinutes} minutes)
@@ -155,7 +155,7 @@ export default function UnitCalculator() {
 						<div className="flex w-full flex-col gap-3">
 							{aggregatedCodes.length > 0 ? (
 								<div className="rounded-md border bg-muted/40 p-4">
-									<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+									<div className="grid grid-cols-2 gap-2 text-xs font-medium text-muted-foreground uppercase">
 										<div>CPT</div>
 										<div className="text-right">Units</div>
 									</div>
@@ -172,7 +172,7 @@ export default function UnitCalculator() {
 									))}
 								</div>
 							) : (
-								<p className="text-muted-foreground text-sm">
+								<p className="text-sm text-muted-foreground">
 									Select tests above to see units.
 								</p>
 							)}

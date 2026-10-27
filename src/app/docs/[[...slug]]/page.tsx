@@ -48,8 +48,8 @@ export default async function DocsPage({ params }: PageProps) {
 	if (isChangelog) {
 		return (
 			<div className="flex items-start gap-8">
-				<article className="flex min-w-0 max-w-[75ch] flex-1 flex-col gap-6">
-					<h1 className="font-heading font-semibold text-2xl">
+				<article className="flex max-w-[75ch] min-w-0 flex-1 flex-col gap-6">
+					<h1 className="font-heading text-2xl font-semibold">
 						{doc.frontmatter.title}
 					</h1>
 					<MobileTableOfContents headings={getChangelogHeadings()} />
@@ -64,7 +64,7 @@ export default async function DocsPage({ params }: PageProps) {
 
 	return (
 		<div className="flex items-start gap-8">
-			<article className="prose dark:prose-invert min-w-0 max-w-[75ch] flex-1">
+			<article className="prose dark:prose-invert max-w-[75ch] min-w-0 flex-1">
 				<h1>{doc.frontmatter.title}</h1>
 				{doc.frontmatter.needsCleanup && (
 					<DocStatusNotice variant="needsCleanup" />

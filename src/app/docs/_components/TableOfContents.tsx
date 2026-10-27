@@ -75,7 +75,7 @@ export function TableOfContents({
 		<nav className="sticky top-14 hidden max-h-[calc(100vh-5.5rem)] shrink-0 overflow-y-auto lg:block lg:w-56">
 			{headings.length > 0 && (
 				<>
-					<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+					<h2 className="px-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
 						On this page
 					</h2>
 					<ul className="mt-2 flex flex-col gap-0.5">
@@ -99,7 +99,7 @@ export function TableOfContents({
 			)}
 			{editPath && (
 				<a
-					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
+					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 					href={`${EDIT_BASE_URL}/${editPath}`}
 					rel="noreferrer"
 					target="_blank"

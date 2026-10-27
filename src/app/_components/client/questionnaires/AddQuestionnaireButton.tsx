@@ -309,7 +309,7 @@ export function AddQuestionnaireButton({
 										</span>
 									</div>
 								) : (
-									<p className="text-muted-foreground text-sm">
+									<p className="text-sm text-muted-foreground">
 										Mark DA questionnaires as sent?
 									</p>
 								)}
@@ -344,7 +344,7 @@ export function AddQuestionnaireButton({
 										</span>
 									</div>
 								) : (
-									<p className="text-muted-foreground text-sm">
+									<p className="text-sm text-muted-foreground">
 										Mark Eval questionnaires as sent?
 									</p>
 								)}
@@ -382,7 +382,7 @@ export function AddQuestionnaireButton({
 										</span>
 									</div>
 								) : (
-									<p className="text-muted-foreground text-sm">
+									<p className="text-sm text-muted-foreground">
 										DA+Eval battery
 									</p>
 								)}

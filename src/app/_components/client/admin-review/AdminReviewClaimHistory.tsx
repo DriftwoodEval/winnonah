@@ -15,7 +15,7 @@ export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 
 	if (!claimHistory?.length)
 		return (
-			<div className="text-muted-foreground text-sm">No history found.</div>
+			<div className="text-sm text-muted-foreground">No history found.</div>
 		);
 
 	return (
@@ -37,7 +37,7 @@ export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex flex-col">
-									<span className="font-medium text-sm">
+									<span className="text-sm font-medium">
 										Assigned to {userName}
 										{setByName && setByName !== userName && (
 											<span className="font-normal text-muted-foreground">
@@ -46,7 +46,7 @@ export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 											</span>
 										)}
 									</span>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-xs text-muted-foreground">
 										{format(new Date(entry.createdAt), "MMM d, yyyy h:mm a")} (
 										{formatDistanceToNowStrict(new Date(entry.createdAt), {
 											addSuffix: true,

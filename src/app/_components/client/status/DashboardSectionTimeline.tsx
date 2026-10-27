@@ -33,7 +33,7 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 	return (
 		<Card className="w-full gap-1 rounded-md p-1">
 			<CardHeader className="px-3 py-2">
-				<CardTitle className="font-semibold text-sm">History</CardTitle>
+				<CardTitle className="text-sm font-semibold">History</CardTitle>
 			</CardHeader>
 			<CardContent className="px-2 pb-2">
 				{isLoading ? (
@@ -42,11 +42,11 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 						<Skeleton className="h-3 w-1/2" />
 					</div>
 				) : !history?.length ? (
-					<p className="px-1 text-muted-foreground text-xs italic">
+					<p className="px-1 text-xs text-muted-foreground italic">
 						No section history yet.
 					</p>
 				) : (
-					<div className="relative ml-1 space-y-3 border-border border-l pl-3">
+					<div className="relative ml-1 space-y-3 border-l border-border pl-3">
 						{[...history].reverse().map((entry, i) => (
 							<div className="relative" key={entry.id}>
 								<span
@@ -56,7 +56,7 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 											: "absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 border-muted-foreground bg-background"
 									}
 								/>
-								<p className="font-medium text-sm leading-tight">
+								<p className="text-sm leading-tight font-medium">
 									{format(entry.createdAt, "PPp")}{" "}
 									<span className="font-normal text-muted-foreground">
 										(
@@ -67,7 +67,7 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 									</span>
 								</p>
 								{entry.sections.length === 0 ? (
-									<p className="text-muted-foreground text-xs italic leading-tight">
+									<p className="text-xs leading-tight text-muted-foreground italic">
 										No matching section
 									</p>
 								) : (

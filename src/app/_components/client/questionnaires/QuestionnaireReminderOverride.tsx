@@ -92,7 +92,7 @@ function StageEditor({
 		<div className="space-y-1.5">
 			<Label className="text-sm">{label}</Label>
 			{alreadySent && (
-				<p className="text-warning text-xs">
+				<p className="text-xs text-warning">
 					This reminder has already gone out for this batch (or the reminder
 					limit has been reached), so it can no longer be edited.
 				</p>
@@ -200,7 +200,7 @@ export function QuestionnaireReminderOverrideDialog({
 						Customize Reminder Messages ({formatShortDate(sent)})
 					</DialogTitle>
 				</DialogHeader>
-				<p className="text-muted-foreground text-xs">
+				<p className="text-xs text-muted-foreground">
 					Applies to every questionnaire sent to this client on this date. Each
 					stage starts pre-filled with the current default message for this
 					client, edit it to override just that stage. Placeholders (like
@@ -249,7 +249,7 @@ export function QuestionnaireReminderOverridesSummary({
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
-			<span className="text-muted-foreground text-xs">Reminder overrides:</span>
+			<span className="text-xs text-muted-foreground">Reminder overrides:</span>
 			{sentDates.map((sent) => {
 				const count = overrides?.filter((o) => o.sent === sent).length ?? 0;
 				return (

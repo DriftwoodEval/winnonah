@@ -100,8 +100,8 @@ export default function ReportQueue({
 							<p
 								className={
 									atLimit
-										? "font-medium text-sm text-warning"
-										: "text-muted-foreground text-sm"
+										? "text-sm font-medium text-warning"
+										: "text-sm text-muted-foreground"
 								}
 							>
 								{claimedFolders.length} of {effectiveMax} report
@@ -162,7 +162,7 @@ export default function ReportQueue({
 								{claimedFolders.length > 0 && (
 									<div className="my-2 border-b pb-2">
 										{atLimit && (
-											<div className="mb-2 flex items-center gap-2 font-medium text-sm text-warning">
+											<div className="mb-2 flex items-center gap-2 text-sm font-medium text-warning">
 												<AlertCircleIcon size={16} />
 												{effectiveMax === 1
 													? "Must be approved before claiming another."
@@ -180,7 +180,7 @@ export default function ReportQueue({
 															className="fill-warning/20 text-warning"
 															size={18}
 														/>
-														<span className="font-bold text-sm leading-none">
+														<span className="text-sm leading-none font-bold">
 															{folder.name}
 														</span>
 													</div>
@@ -225,7 +225,7 @@ export default function ReportQueue({
 														className="fill-primary/20 text-primary"
 														size={18}
 													/>
-													<span className="font-medium text-sm leading-none">
+													<span className="text-sm leading-none font-medium">
 														{folder.name}
 													</span>
 												</div>
@@ -251,7 +251,7 @@ export default function ReportQueue({
 					) : (
 						<div className="flex flex-col items-center text-center text-muted-foreground">
 							<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
-							<p className="font-semibold text-foreground text-lg">
+							<p className="text-lg font-semibold text-foreground">
 								{queueCountLoading ? "..." : (queueCount ?? 0)}
 							</p>
 							<p className="text-sm italic">

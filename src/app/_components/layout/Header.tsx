@@ -17,10 +17,10 @@ export async function Header() {
 		>
 			<div className="m-2 flex items-center gap-4">
 				<Link className="shrink-0" href="/">
-					<h1 className="hidden whitespace-nowrap font-bold text-2xl lg:block">
+					<h1 className="hidden text-2xl font-bold whitespace-nowrap lg:block">
 						{title}
 					</h1>
-					<h1 className="block font-black text-2xl lg:hidden">{title[0]}</h1>
+					<h1 className="block text-2xl font-black lg:hidden">{title[0]}</h1>
 				</Link>
 				<NavigationLinks />
 			</div>

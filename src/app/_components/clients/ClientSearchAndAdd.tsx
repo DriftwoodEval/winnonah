@@ -158,24 +158,24 @@ export function ClientSearchAndAdd({
 									key={client.id}
 								>
 									<div className="flex flex-col">
-										<span className="font-medium text-sm">
+										<span className="text-sm font-medium">
 											<ClientHoverCard clientId={client.id}>
 												<Redact>{client.fullName}</Redact>
 											</ClientHoverCard>
 										</span>
 										{!isNotesOnlyClientId(client.id) && (
-											<span className="text-muted-foreground text-xs">
+											<span className="text-xs text-muted-foreground">
 												ID: <Redact>{String(client.id)}</Redact>
 											</span>
 										)}
 										{showDob && (
-											<span className="text-muted-foreground text-xs">
+											<span className="text-xs text-muted-foreground">
 												DOB: <Redact>{formatDateOnlyLong(client.dob)}</Redact>
 											</span>
 										)}
 									</div>
 									{alreadyAdded.has(client.id) ? (
-										<span className="text-muted-foreground text-xs">
+										<span className="text-xs text-muted-foreground">
 											{alreadyAddedLabel}
 										</span>
 									) : (
@@ -196,7 +196,7 @@ export function ClientSearchAndAdd({
 						clients.length === 0 &&
 						debouncedSearchTerm.length >= 3 &&
 						searchTerm.length >= 3 && (
-							<p className="p-4 text-center text-muted-foreground text-sm">
+							<p className="p-4 text-center text-sm text-muted-foreground">
 								No clients found.
 							</p>
 						)}

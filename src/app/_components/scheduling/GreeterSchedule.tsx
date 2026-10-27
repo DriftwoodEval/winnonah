@@ -56,7 +56,7 @@ export default function GreeterSchedule() {
 							>
 								<ChevronLeft className="h-5 w-5" />
 							</Button>
-							<span className="w-44 shrink-0 text-center font-medium text-base sm:w-64 sm:text-lg">
+							<span className="w-44 shrink-0 text-center text-base font-medium sm:w-64 sm:text-lg">
 								{format(new Date(`${selectedDate}T12:00:00`), "EEEE, MMMM d")}
 							</span>
 							<Button
@@ -94,7 +94,7 @@ export default function GreeterSchedule() {
 										className="hover:bg-transparent"
 										key={`${entry.location}-${entry.name}`}
 									>
-										<TableCell className="py-3 font-medium text-lg">
+										<TableCell className="py-3 text-lg font-medium">
 											{entry.location}
 										</TableCell>
 										<TableCell className="py-3 text-lg">

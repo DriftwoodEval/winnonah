@@ -438,7 +438,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						<ReferralHistoryButton clientId={client.id} />
 						{(isNeedsReachOut || isNeedsReview) &&
 							client.referralData?.outreachClaimedBy && (
-								<span className="text-muted-foreground text-sm">
+								<span className="text-sm text-muted-foreground">
 									Claimed by{" "}
 									{client.referralData.outreachClaimedBy.split(" ")[0]}
 								</span>
@@ -640,7 +640,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						{!isNotesOnlyClientId(client.id) && (
 							<div className="space-y-2">
 								<Label>Insurance</Label>
-								<div className="py-2 font-medium text-sm">
+								<div className="py-2 text-sm font-medium">
 									{client.primaryInsurance
 										? `${client.primaryInsurance}${client.secondaryInsurance && client.secondaryInsurance.length > 0 ? ` | ${client.secondaryInsurance.join(", ")}` : ""}`
 										: "No insurance information"}
@@ -914,7 +914,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 														value={schoolExplanation}
 													/>
 													{client.referralData?.charterSchoolConfirmed ? (
-														<p className="text-muted-foreground text-sm">
+														<p className="text-sm text-muted-foreground">
 															Confirmed as a charter school.
 														</p>
 													) : can("clients:referral:confirmcharterschool") ? (
@@ -930,7 +930,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 															Confirm Charter School
 														</Button>
 													) : (
-														<p className="text-muted-foreground text-sm">
+														<p className="text-sm text-muted-foreground">
 															Records requests wait until this is confirmed as a
 															charter school.
 														</p>
@@ -1042,7 +1042,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</div>
 
 								<div className="space-y-4">
-									<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground text-sm">
+									<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-sm text-secondary-foreground">
 										<div className="flex w-full items-center justify-between">
 											<h3 className="font-semibold">
 												Invite to TherapyAppointment
@@ -1199,7 +1199,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									</div>
 								</div>
 
-								<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground text-sm">
+								<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-sm text-secondary-foreground">
 									<div className="flex w-full items-center justify-between">
 										<h3 className="font-semibold">
 											TherapyAppointment Message

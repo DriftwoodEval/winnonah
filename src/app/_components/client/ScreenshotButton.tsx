@@ -63,8 +63,8 @@ export function ScreenshotButton({
 			<PopoverContent className="w-[600px] max-w-[90vw]">
 				<div className="grid gap-4">
 					<div className="space-y-2">
-						<h4 className="font-medium leading-none">Latest Screenshot</h4>
-						<p className="text-muted-foreground text-sm">
+						<h4 className="leading-none font-medium">Latest Screenshot</h4>
+						<p className="text-sm text-muted-foreground">
 							{data?.viaMhsPortal
 								? "Completed - found on MHS Completed Assessments (not from the link itself)."
 								: "What we saw on our last automatic check of this link."}
@@ -74,7 +74,7 @@ export function ScreenshotButton({
 						{isLoading || isFetching ? (
 							<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 						) : error ? (
-							<p className="text-destructive text-xs">Error: {error.message}</p>
+							<p className="text-xs text-destructive">Error: {error.message}</p>
 						) : data?.url ? (
 							<div className="w-full space-y-2">
 								<Image
@@ -85,12 +85,12 @@ export function ScreenshotButton({
 									unoptimized
 									width={1200}
 								/>
-								<p className="break-all text-center text-[10px] text-muted-foreground">
+								<p className="text-center text-[10px] break-all text-muted-foreground">
 									{data.url.split("/").pop()}
 								</p>
 							</div>
 						) : (
-							<p className="text-muted-foreground text-xs">
+							<p className="text-xs text-muted-foreground">
 								No screenshot found.
 							</p>
 						)}

@@ -491,7 +491,7 @@ export function RecordsNoteEditor({
 			)}
 			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 				<div className="flex flex-wrap items-center gap-3">
-					<h4 className="font-bold leading-none">School Records</h4>
+					<h4 className="leading-none font-bold">School Records</h4>
 					<Select
 						disabled={!canEditRecordsNeeded}
 						onValueChange={handleNeededChange}
@@ -537,7 +537,7 @@ export function RecordsNoteEditor({
 								>
 									<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 										<Label className="font-semibold">{`Request ${i + 1}`}</Label>
-										<span className="text-muted-foreground text-sm">
+										<span className="text-sm text-muted-foreground">
 											Queued {formatShortInstantDate(req.createdAt)}
 											{!isSent && ", not yet sent"}
 										</span>
@@ -580,7 +580,7 @@ export function RecordsNoteEditor({
 									</div>
 									{!isSent && (
 										<div className="mt-2">
-											<Label className="mb-1 block text-muted-foreground text-xs">
+											<Label className="mb-1 block text-xs text-muted-foreground">
 												Email request line
 											</Label>
 											<Textarea

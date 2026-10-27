@@ -36,8 +36,8 @@ export function SelectableClientsList({
 		return (
 			<div className="flex h-[400px] w-full items-center justify-center rounded-md border border-dashed">
 				<div className="text-center">
-					<h3 className="font-semibold text-lg">No Clients Found</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-semibold">No Clients Found</h3>
+					<p className="text-sm text-muted-foreground">
 						Try adjusting your search.
 					</p>
 				</div>
@@ -54,7 +54,7 @@ export function SelectableClientsList({
 	return (
 		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 			<div className="p-4">
-				<h4 className="mb-4 font-medium text-muted-foreground text-sm leading-none">
+				<h4 className="mb-4 text-sm leading-none font-medium text-muted-foreground">
 					Showing {clients.length} Client{clients.length === 1 ? "" : "s"}
 				</h4>
 				{clients.map((client, index) => (

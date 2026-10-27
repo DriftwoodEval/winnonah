@@ -260,7 +260,7 @@ export function ReminderTemplateDialog({
 
 							<div className="relative flex items-center py-2">
 								<div className="grow border-t" />
-								<span className="mx-4 shrink text-muted-foreground text-xs uppercase">
+								<span className="mx-4 shrink text-xs text-muted-foreground uppercase">
 									Or
 								</span>
 								<div className="grow border-t" />
@@ -429,7 +429,7 @@ export function ReminderTemplateDialog({
 										/>
 										{field.value && (
 											<HighlightedPreview
-												className="rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm"
+												className="rounded-md bg-muted p-3 font-mono text-sm text-muted-foreground"
 												template={field.value}
 												values={previewValues}
 											/>
@@ -461,7 +461,7 @@ export function ReminderTemplateDialog({
 										/>
 										{field.value && (
 											<HighlightedPreview
-												className="rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm"
+												className="rounded-md bg-muted p-3 font-mono text-sm text-muted-foreground"
 												template={field.value}
 												values={previewValues}
 											/>

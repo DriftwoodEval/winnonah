@@ -55,7 +55,7 @@ export function CreateDocPageDialog({
 		<Dialog onOpenChange={setOpen} open={open}>
 			<DialogTrigger asChild>
 				<button
-					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
+					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
 					type="button"
 				>
 					<FilePlus2 className="size-3.5" />

@@ -76,7 +76,7 @@ export function DashboardSectionWidget({
 	return (
 		<div className="flex h-full flex-col">
 			<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
-				<span className="font-medium text-sm">
+				<span className="text-sm font-medium">
 					{sectionTitle}{" "}
 					<span className="text-muted-foreground">({clients.length})</span>
 				</span>
@@ -163,17 +163,17 @@ function DashboardClientRow({
 							</ClientHoverCard>
 						</span>
 						{isRecordsNotReturnedSection && full.asdAdhd && (
-							<span className="shrink-0 text-muted-foreground text-xs">
+							<span className="shrink-0 text-xs text-muted-foreground">
 								{full.asdAdhd}
 							</span>
 						)}
 						{showLanguage && (
-							<span className="shrink-0 font-bold text-destructive text-xs">
+							<span className="shrink-0 text-xs font-bold text-destructive">
 								({language})
 							</span>
 						)}
 						{claimedBy && (
-							<span className="shrink-0 text-muted-foreground text-xs">
+							<span className="shrink-0 text-xs text-muted-foreground">
 								{isClaimedByMe
 									? "Claimed by you"
 									: `Claimed by ${claimedBy.split(" ")[0]}`}
@@ -209,13 +209,13 @@ function DashboardClientRow({
 						))}
 					</span>
 					{full.matchedSections && (
-						<span className="text-muted-foreground text-xs">
+						<span className="text-xs text-muted-foreground">
 							{full.matchedSections.join(", ")}
 						</span>
 					)}
 				</span>
 				{extraInfo && (
-					<span className="mt-0.5 shrink-0 text-muted-foreground text-xs">
+					<span className="mt-0.5 shrink-0 text-xs text-muted-foreground">
 						{extraInfo}
 					</span>
 				)}

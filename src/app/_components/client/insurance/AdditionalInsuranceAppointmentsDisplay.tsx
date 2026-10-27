@@ -153,9 +153,9 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		return (
 			<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
 				<div className="flex w-full flex-col gap-3 px-4 pt-4">
-					<h4 className="font-bold leading-none">Insurance Codes</h4>
+					<h4 className="leading-none font-bold">Insurance Codes</h4>
 				</div>
-				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
+				<div className="px-4 pt-2 pb-4 text-sm text-muted-foreground">
 					Insurance not configured for billing code calculation.
 				</div>
 			</div>
@@ -190,7 +190,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
 			<div className="flex w-full flex-col gap-3 px-4 pt-4">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h4 className="font-bold leading-none">Insurance Codes</h4>
+					<h4 className="leading-none font-bold">Insurance Codes</h4>
 					<div className="flex min-w-0 items-center gap-1.5">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -249,7 +249,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				</div>
 
 				{snapshot && !fromPrecert && (
-					<p className="text-muted-foreground text-xs">
+					<p className="text-xs text-muted-foreground">
 						Computed {computedAt} · Age {snapshot.ageInYears} ·{" "}
 						{snapshot.asdAdhd ?? "No diagnosis"} ·{" "}
 						{snapshot.includedTypes.length} assessment
@@ -281,14 +281,14 @@ export function AdditionalInsuranceAppointmentsDisplay({
 			</div>
 
 			{displayAppointments.length === 0 && !snapshot && (
-				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
+				<div className="px-4 pt-2 pb-4 text-sm text-muted-foreground">
 					Click Compute to calculate appointments based on this client's age and
 					diagnosis.
 				</div>
 			)}
 
 			{displayAppointments.length === 0 && snapshot && (
-				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
+				<div className="px-4 pt-2 pb-4 text-sm text-muted-foreground">
 					No billing appointments calculated (0 minutes from applicable
 					assessments).
 				</div>
@@ -322,7 +322,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					{combined ? (
 						<div className="rounded-md border bg-background p-4 text-foreground">
 							<div className="space-y-2">
-								<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+								<div className="grid grid-cols-2 gap-2 text-xs font-medium text-muted-foreground uppercase">
 									<div>CPT</div>
 									<div className="text-right">Units</div>
 								</div>
@@ -358,7 +358,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 									<Separator />
 
 									<div className="space-y-2">
-										<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+										<div className="grid grid-cols-2 gap-2 text-xs font-medium text-muted-foreground uppercase">
 											<div>CPT</div>
 											<div className="text-right">Units</div>
 										</div>

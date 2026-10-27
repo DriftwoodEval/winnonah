@@ -409,7 +409,7 @@ export default function PieceworkSummary() {
 				<div className="mx-1 hidden h-6 w-px bg-border sm:block" />
 
 				<div className="flex items-center gap-2">
-					<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					<span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
 						Display
 					</span>
 					<ToggleGroup
@@ -468,7 +468,7 @@ export default function PieceworkSummary() {
 										</div>
 										{(displayData.showProjectedHours ||
 											displayData.showLoggedHours) && (
-											<div className="mt-0.5 flex gap-3 text-muted-foreground text-xs">
+											<div className="mt-0.5 flex gap-3 text-xs text-muted-foreground">
 												{displayData.showProjectedHours && (
 													<span>Proj {fmtHours(row.estMinutes)}</span>
 												)}
@@ -477,7 +477,7 @@ export default function PieceworkSummary() {
 												)}
 											</div>
 										)}
-										<div className="mt-1 flex flex-wrap gap-3 text-muted-foreground text-sm">
+										<div className="mt-1 flex flex-wrap gap-3 text-sm text-muted-foreground">
 											{displayData.colGroups
 												.filter((g) =>
 													g.cols.some((c) => c.key in row.keyValues),
@@ -500,7 +500,7 @@ export default function PieceworkSummary() {
 									</div>
 									{(displayData.showProjectedHours ||
 										displayData.showLoggedHours) && (
-										<div className="mt-0.5 flex gap-3 text-muted-foreground text-xs">
+										<div className="mt-0.5 flex gap-3 text-xs text-muted-foreground">
 											{displayData.showProjectedHours && (
 												<span>
 													Proj {fmtHours(displayData.footerEstMinutes)}
@@ -513,7 +513,7 @@ export default function PieceworkSummary() {
 											)}
 										</div>
 									)}
-									<div className="mt-1 flex flex-wrap gap-3 text-muted-foreground text-sm">
+									<div className="mt-1 flex flex-wrap gap-3 text-sm text-muted-foreground">
 										{displayData.colGroups.map((g) => (
 											<span key={g.daEval}>
 												<span className="font-medium">{g.daEval}</span>{" "}

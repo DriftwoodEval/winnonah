@@ -141,8 +141,8 @@ export default function WorkSummaryDefaultsSection() {
 		<div className="mt-8 px-4">
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<h3 className="font-bold text-lg">Default Appointment Durations</h3>
-					<p className="text-muted-foreground text-sm">
+					<h3 className="text-lg font-bold">Default Appointment Durations</h3>
+					<p className="text-sm text-muted-foreground">
 						Hours per appointment type used when an evaluator has no duration
 						configured.
 					</p>
@@ -174,12 +174,12 @@ export default function WorkSummaryDefaultsSection() {
 				<div className="grid min-w-[600px] grid-cols-7 items-center gap-x-2 gap-y-2 text-sm">
 					{/* Column headers */}
 					<div />
-					<div className="text-center font-medium text-muted-foreground text-xs">
+					<div className="text-center text-xs font-medium text-muted-foreground">
 						(any)
 					</div>
 					{DIAG_COLS.map((d) => (
 						<div
-							className="text-center font-medium text-muted-foreground text-xs"
+							className="text-center text-xs font-medium text-muted-foreground"
 							key={d.key}
 						>
 							{d.label}

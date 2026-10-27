@@ -37,7 +37,7 @@ const SelectableClientListItemComponent = forwardRef<
 			{showId && (
 				<span
 					className={cn(
-						"text-muted-foreground text-xs",
+						"text-xs text-muted-foreground",
 						isSelected ? "bg-secondary text-secondary-foreground" : "",
 					)}
 				>

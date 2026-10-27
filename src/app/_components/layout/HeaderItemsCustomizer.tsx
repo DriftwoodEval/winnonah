@@ -189,19 +189,19 @@ export function HeaderItemsCustomizer() {
 					<div className="flex items-center gap-2 px-2">
 						<div className="min-w-0 flex-1" />
 						<p
-							className={`text-center font-medium text-muted-foreground text-xs uppercase tracking-wide ${CHECKBOX_COLUMN_WIDTH}`}
+							className={`text-center text-xs font-medium tracking-wide text-muted-foreground uppercase ${CHECKBOX_COLUMN_WIDTH}`}
 						>
 							Desktop
 						</p>
 						<p
-							className={`text-center font-medium text-muted-foreground text-xs uppercase tracking-wide ${CHECKBOX_COLUMN_WIDTH}`}
+							className={`text-center text-xs font-medium tracking-wide text-muted-foreground uppercase ${CHECKBOX_COLUMN_WIDTH}`}
 						>
 							Mobile
 						</p>
 					</div>
 					{GROUP_ORDER.filter((group) => navGroups.has(group)).map((group) => (
 						<div key={group}>
-							<p className="mb-1 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							<p className="mb-1 px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 								{group}
 							</p>
 							<div className="flex flex-col">
@@ -223,7 +223,7 @@ export function HeaderItemsCustomizer() {
 					))}
 					{actionItems.length > 0 && (
 						<div>
-							<p className="mb-1 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							<p className="mb-1 px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 								Actions
 							</p>
 							<div className="flex flex-col">

@@ -786,8 +786,8 @@ function UnreviewedFaxesWidget() {
 			className="flex h-full w-full flex-col items-center justify-center gap-1 p-3 hover:bg-accent hover:text-accent-foreground"
 			href="/fax-categorization"
 		>
-			<span className="font-semibold text-3xl">{data ?? 0}</span>
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+			<span className="text-3xl font-semibold">{data ?? 0}</span>
+			<span className="text-xs tracking-wide text-muted-foreground uppercase">
 				Unreviewed Faxes
 			</span>
 		</Link>

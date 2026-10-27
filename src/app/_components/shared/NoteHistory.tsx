@@ -61,7 +61,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 					<React.Fragment key={`${value}-truncated`}>
 						{leadingContext && (
 							<span
-								className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
+								className={`${color} rounded px-0.5 wrap-break-word whitespace-pre-wrap`}
 							>
 								{leadingContext}
 							</span>
@@ -69,7 +69,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 
 						{/* Ellipsis/Expand Control */}
 						<button
-							className="inline-flex cursor-pointer items-center px-2 text-muted-foreground text-sm"
+							className="inline-flex cursor-pointer items-center px-2 text-sm text-muted-foreground"
 							key={`ellipsis-${value}`}
 							onClick={() => setExpanded(true)}
 							title={`Click to show ${hiddenLength} unchanged characters`}
@@ -85,7 +85,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 						{/* Trailing Context (if applicable) */}
 						{trailingContext && (
 							<span
-								className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
+								className={`${color} rounded px-0.5 wrap-break-word whitespace-pre-wrap`}
 							>
 								{trailingContext}
 							</span>
@@ -96,7 +96,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 				// Expanded: Show full text
 				elements.push(
 					<span
-						className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
+						className={`${color} rounded px-0.5 wrap-break-word whitespace-pre-wrap`}
 						key={`${value}`}
 					>
 						{value}
@@ -107,7 +107,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 			// Show full text for short unchanged parts or all changed parts
 			elements.push(
 				<span
-					className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
+					className={`${color} rounded px-0.5 wrap-break-word whitespace-pre-wrap`}
 					key={`${value}`}
 				>
 					{value}
@@ -246,8 +246,8 @@ export function NoteHistory({
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex flex-col">
-									<span className="font-medium text-sm">{userName}</span>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-sm font-medium">{userName}</span>
+									<span className="text-xs text-muted-foreground">
 										{version.createdAt && (
 											<>
 												{format(
@@ -278,8 +278,8 @@ export function NoteHistory({
 						{/* Title Diff Display */}
 						{type === "note" && hasTitleChanges && (
 							<div className="rounded-md border p-3">
-								<h4 className="mb-1 font-semibold text-sm">Title Change:</h4>
-								<div className="font-bold text-lg leading-snug">
+								<h4 className="mb-1 text-sm font-semibold">Title Change:</h4>
+								<div className="text-lg leading-snug font-bold">
 									<DiffRenderer diffChanges={titleDiffChanges} />
 								</div>
 							</div>
@@ -299,7 +299,7 @@ export function NoteHistory({
 
 	if (!versionCards?.length)
 		return (
-			<div className="text-muted-foreground text-sm">No history found.</div>
+			<div className="text-sm text-muted-foreground">No history found.</div>
 		);
 
 	return (

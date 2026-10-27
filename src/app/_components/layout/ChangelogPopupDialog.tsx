@@ -64,10 +64,10 @@ export function ChangelogPopupDialog({
 					<div className="flex flex-col divide-y divide-border">
 						{entries.map((entry) => (
 							<div className="flex flex-col gap-2 p-4" key={entry.date}>
-								<h3 className="font-medium text-muted-foreground text-sm">
+								<h3 className="text-sm font-medium text-muted-foreground">
 									{formatChangelogDate(entry.date)}
 								</h3>
-								<div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>p:first-child]:mt-0 [&>p]:mt-4 [&>p]:mb-1 [&>ul]:my-0">
+								<div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>p]:mt-4 [&>p]:mb-1 [&>p:first-child]:mt-0 [&>ul]:my-0">
 									{entry.body}
 								</div>
 							</div>
@@ -76,7 +76,7 @@ export function ChangelogPopupDialog({
 				</ScrollArea>
 				<div className="flex items-center justify-between rounded-b-xl border-t p-4">
 					<Link
-						className="text-muted-foreground text-sm underline-offset-4 hover:underline"
+						className="text-sm text-muted-foreground underline-offset-4 hover:underline"
 						href="/docs/changelog"
 						onClick={() => markChangelogSeen.mutate({ marker: latestMarker })}
 					>

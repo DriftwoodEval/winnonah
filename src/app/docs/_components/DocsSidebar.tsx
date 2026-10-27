@@ -87,9 +87,9 @@ function Subcategory({
 	const open = manualOpen ?? categoryContainsPath(category, pathname);
 
 	return (
-		<div className="mt-1 ml-3 border-border border-l pl-2">
+		<div className="mt-1 ml-3 border-l border-border pl-2">
 			<button
-				className="flex w-full items-center justify-between rounded-md px-3 py-1 text-left font-semibold text-muted-foreground text-xs uppercase tracking-wide hover:text-foreground"
+				className="flex w-full items-center justify-between rounded-md px-3 py-1 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:text-foreground"
 				onClick={() => setManualOpen(!open)}
 				type="button"
 			>
@@ -188,7 +188,7 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 					) : (
 						group.map((category) => (
 							<div key={category.slug}>
-								<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+								<h2 className="px-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
 									{category.title}
 								</h2>
 								<ItemList

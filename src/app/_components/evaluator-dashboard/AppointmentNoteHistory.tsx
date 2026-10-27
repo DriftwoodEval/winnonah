@@ -25,7 +25,7 @@ function DiffRenderer({
 						: "text-foreground";
 				return (
 					<span
-						className={`${color} whitespace-pre-wrap rounded px-0.5`}
+						className={`${color} rounded px-0.5 whitespace-pre-wrap`}
 						key={`${part.value}-${part.added ? "add" : part.removed ? "rm" : "eq"}`}
 					>
 						{part.value}
@@ -83,8 +83,8 @@ export function AppointmentNoteHistory({
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex flex-col">
-									<span className="font-medium text-sm">{userName}</span>
-									<span className="text-muted-foreground text-xs">
+									<span className="text-sm font-medium">{userName}</span>
+									<span className="text-xs text-muted-foreground">
 										{version.createdAt && (
 											<>
 												{format(
@@ -123,7 +123,7 @@ export function AppointmentNoteHistory({
 
 	if (!versionCards?.length) {
 		return (
-			<div className="text-muted-foreground text-sm">No history found.</div>
+			<div className="text-sm text-muted-foreground">No history found.</div>
 		);
 	}
 

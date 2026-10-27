@@ -265,8 +265,8 @@ export default function TimeCalculator() {
 			</CardContent>
 			<CardFooter className="justify-end border-t p-6">
 				<div className="text-right">
-					<p className="text-muted-foreground text-sm">Total Time</p>
-					<p className="font-bold text-2xl">{formatDuration(totalDuration)}</p>
+					<p className="text-sm text-muted-foreground">Total Time</p>
+					<p className="text-2xl font-bold">{formatDuration(totalDuration)}</p>
 				</div>
 			</CardFooter>
 		</Card>

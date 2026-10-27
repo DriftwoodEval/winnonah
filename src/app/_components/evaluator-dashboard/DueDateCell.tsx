@@ -38,7 +38,7 @@ export function DueDateCell({
 			>
 				{format(localDueDate, "MMM d, yyyy")}
 				{dueDateOverride && (
-					<span className="ml-1 text-muted-foreground text-xs">(override)</span>
+					<span className="ml-1 text-xs text-muted-foreground">(override)</span>
 				)}
 			</span>
 		);
@@ -59,7 +59,7 @@ export function DueDateCell({
 				}}
 			/>
 			{dueDateOverride && (
-				<span className="text-muted-foreground text-xs">overridden</span>
+				<span className="text-xs text-muted-foreground">overridden</span>
 			)}
 		</div>
 	);

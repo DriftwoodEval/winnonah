@@ -76,7 +76,7 @@ export default function AppointmentsSyncSettings() {
 
 	return (
 		<div className="px-4">
-			<h3 className="pb-4 font-bold text-lg">Appointment Sync Settings</h3>
+			<h3 className="pb-4 text-lg font-bold">Appointment Sync Settings</h3>
 			<Form {...form}>
 				<form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
 					<FormField
@@ -95,7 +95,7 @@ export default function AppointmentsSyncSettings() {
 										creatable={true}
 										disabled={!canEdit}
 										emptyIndicator={
-											<p className="text-center text-muted-foreground text-sm">
+											<p className="text-center text-sm text-muted-foreground">
 												Type an ID and press enter to add.
 											</p>
 										}
@@ -130,7 +130,7 @@ export default function AppointmentsSyncSettings() {
 										creatable={true}
 										disabled={!canEdit}
 										emptyIndicator={
-											<p className="text-center text-muted-foreground text-sm">
+											<p className="text-center text-sm text-muted-foreground">
 												Type an ID and press enter to add.
 											</p>
 										}

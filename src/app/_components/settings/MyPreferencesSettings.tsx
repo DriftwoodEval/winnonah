@@ -14,7 +14,7 @@ export default function MyPreferencesSettings() {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<p className="text-muted-foreground text-sm">
+			<p className="text-sm text-muted-foreground">
 				These settings only change what you see. Changes save as you make them.
 			</p>
 			<Card>

@@ -116,7 +116,7 @@ export function ClientAppointments({
 					className={`p-3 transition-colors ${isDimmed ? "opacity-60" : ""} ${isBilling ? "bg-muted/40" : ""}`}
 				>
 					<div className="mb-1.5 flex items-center justify-between">
-						<div className="flex items-center gap-2 font-semibold text-sm">
+						<div className="flex items-center gap-2 text-sm font-semibold">
 							<CalendarIcon className="h-3.5 w-3.5" />
 							{format(startTime, "MMM d, yyyy")}
 							{IS_DEV && !session?.user.isImpersonating && (
@@ -176,7 +176,7 @@ export function ClientAppointments({
 							</div>
 						</div>
 						<div className="flex items-center gap-1">
-							<div className="flex items-center gap-1 text-muted-foreground text-sm">
+							<div className="flex items-center gap-1 text-sm text-muted-foreground">
 								<Clock className="h-3 w-3" />
 								{format(startTime, "p")} - {format(endTime, "p")}
 							</div>
@@ -273,7 +273,7 @@ export function ClientAppointments({
 							<span>{appt.evaluatorName}</span>
 						</div>
 
-						<div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 							{!isBilling && appt.locationKey && (
 								<div className="flex items-center gap-1">
 									<MapPin className="h-3 w-3" />
@@ -289,7 +289,7 @@ export function ClientAppointments({
 						</div>
 
 						{isSuppressed && !isBilling && (
-							<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+							<p className="text-[10px] tracking-wider text-muted-foreground uppercase">
 								No further reminders
 							</p>
 						)}
@@ -374,13 +374,13 @@ export function ClientAppointments({
 					<>
 						{regular.length > 0 && <Separator />}
 						<Collapsible onOpenChange={setBillingOpen} open={billingOpen}>
-							<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-muted-foreground text-xs transition-colors hover:text-foreground">
+							<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground">
 								{billingOpen ? (
 									<ChevronDown className="h-3 w-3 shrink-0" />
 								) : (
 									<ChevronRight className="h-3 w-3 shrink-0" />
 								)}
-								<span className="font-medium uppercase tracking-wider">
+								<span className="font-medium tracking-wider uppercase">
 									Billing Only
 								</span>
 								<Badge
@@ -391,7 +391,7 @@ export function ClientAppointments({
 								</Badge>
 							</CollapsibleTrigger>
 							<CollapsibleContent>
-								<div className="ml-3 border-muted border-l-2">
+								<div className="ml-3 border-l-2 border-muted">
 									{billing.map((appt, index) =>
 										renderAppointment(appt, index, billing, true),
 									)}

@@ -46,7 +46,7 @@ export function ReportsView() {
 
 	return (
 		<div className="flex w-full min-w-0 flex-col gap-4">
-			<h1 className="font-semibold text-xl">Reports</h1>
+			<h1 className="text-xl font-semibold">Reports</h1>
 
 			{canClaim && <ReportQueue className="w-full" />}
 

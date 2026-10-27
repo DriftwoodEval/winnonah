@@ -420,7 +420,7 @@ function InfoField({
 }) {
 	return (
 		<div className={cn("min-w-0", wrap && "col-span-2")}>
-			<div className="text-muted-foreground text-xs">{label}</div>
+			<div className="text-xs text-muted-foreground">{label}</div>
 			<div
 				className={cn(
 					"text-muted-foreground",
@@ -1841,8 +1841,8 @@ export function ClientDirectory() {
 	return (
 		<div className="flex w-full min-w-0 flex-col gap-4 p-4 sm:h-[calc(100vh-2.5rem)] sm:overflow-hidden">
 			<div className="flex items-baseline gap-2">
-				<h1 className="font-bold text-lg">Client Directory</h1>
-				<span className="text-muted-foreground text-sm">
+				<h1 className="text-lg font-bold">Client Directory</h1>
+				<span className="text-sm text-muted-foreground">
 					{isLoading
 						? ""
 						: `${clients?.length ?? 0} client${clients?.length === 1 ? "" : "s"}`}

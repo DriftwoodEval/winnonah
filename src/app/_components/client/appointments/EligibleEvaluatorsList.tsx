@@ -65,7 +65,7 @@ export function EligibleEvaluatorsList({
 		<div className="flex w-full flex-col gap-2">
 			<div className="max-h-64 w-full overflow-auto rounded-md border shadow-sm">
 				<div className="flex w-full items-center justify-between bg-background p-4">
-					<h4 className="sticky top-0 z-10 h-full font-bold leading-none">
+					<h4 className="sticky top-0 z-10 h-full leading-none font-bold">
 						Eligible Evaluators
 					</h4>
 					<Select
@@ -139,7 +139,7 @@ export function EligibleEvaluatorsList({
 						<EmptyState compact title="No eligibility details available" />
 					) : (
 						<div className="flex flex-col gap-3">
-							<div className="text-muted-foreground text-xs">
+							<div className="text-xs text-muted-foreground">
 								{debugData.clientContext.isPrivatePay ? (
 									<p>Client is private pay, so insurance is not a factor.</p>
 								) : (

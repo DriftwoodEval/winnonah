@@ -239,7 +239,7 @@ export function QuestionnairesTable({
 			<div className="w-full rounded-md border shadow-sm">
 				<div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 p-4">
 					<div className="flex flex-wrap items-center gap-4">
-						<h4 className="font-bold leading-none">Questionnaires</h4>
+						<h4 className="leading-none font-bold">Questionnaires</h4>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button
@@ -340,7 +340,7 @@ export function QuestionnairesTable({
 
 				{!readOnly && someSelected && (
 					<div className="flex items-center gap-2 border-t bg-muted/40 px-4 py-2">
-						<span className="text-muted-foreground text-xs">
+						<span className="text-xs text-muted-foreground">
 							{selectedIds.size} selected
 						</span>
 						<Select onValueChange={setBulkStatus} value={bulkStatus}>

@@ -44,21 +44,21 @@ export function GreeterScheduleWidget() {
 							className="flex items-center gap-2 py-1.5"
 							key={`${entry.location}-${entry.name}`}
 						>
-							<span className="truncate font-medium text-sm">
+							<span className="truncate text-sm font-medium">
 								{entry.location}
 							</span>
-							<span className="truncate text-muted-foreground text-sm">
+							<span className="truncate text-sm text-muted-foreground">
 								<Redact>{entry.name}</Redact>
 							</span>
 							{entry.phone ? (
 								<a
-									className="ml-auto shrink-0 text-secondary text-xs hover:underline"
+									className="ml-auto shrink-0 text-xs text-secondary hover:underline"
 									href={`tel:${entry.phone}`}
 								>
 									<Redact>{formatPhoneNumber(entry.phone)}</Redact>
 								</a>
 							) : (
-								<span className="ml-auto shrink-0 text-muted-foreground text-xs italic">
+								<span className="ml-auto shrink-0 text-xs text-muted-foreground italic">
 									No number
 								</span>
 							)}

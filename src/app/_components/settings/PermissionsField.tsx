@@ -197,7 +197,7 @@ export function PermissionsField({
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between border-b pb-2">
-				<span className="font-bold text-lg">Permissions</span>
+				<span className="text-lg font-bold">Permissions</span>
 			</div>
 
 			<div className="relative">
@@ -211,7 +211,7 @@ export function PermissionsField({
 			</div>
 
 			{hasQuery && categoryEntries.every((c) => !c.visible) && (
-				<p className="py-2 text-muted-foreground text-sm">
+				<p className="py-2 text-sm text-muted-foreground">
 					No permissions match "{query}".
 				</p>
 			)}
@@ -228,7 +228,7 @@ export function PermissionsField({
 					.filter((c) => c.visible)
 					.map(({ categoryKey, category, subgroupEntries }) => (
 						<AccordionItem key={categoryKey} value={categoryKey}>
-							<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
+							<AccordionTrigger className="px-4 text-base font-semibold hover:no-underline">
 								{category.title}
 							</AccordionTrigger>
 							<AccordionContent className="px-4 pt-2 pb-4">
@@ -262,13 +262,13 @@ export function PermissionsField({
 																}
 															/>
 															<FormLabel
-																className="font-semibold text-md"
+																className="text-md font-semibold"
 																htmlFor={`${categoryKey}-${subgroupKey}`}
 															>
 																{subgroup.title}
 															</FormLabel>
 															{groupState === true && (
-																<span className="text-muted-foreground text-xs">
+																<span className="text-xs text-muted-foreground">
 																	All, including new permissions
 																</span>
 															)}
@@ -278,7 +278,7 @@ export function PermissionsField({
 																	subgroup.permissions,
 																) && (
 																	<Button
-																		className="h-6 px-2 font-normal text-xs"
+																		className="h-6 px-2 text-xs font-normal"
 																		disabled={disabled}
 																		onClick={() =>
 																			resetSubgroupOverrides(
@@ -363,7 +363,7 @@ export function PermissionsField({
 																					!locked &&
 																					isOverridden(pid) && (
 																						<Button
-																							className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																							className="h-5 gap-1 px-1.5 text-xs font-normal text-muted-foreground"
 																							disabled={disabled}
 																							onClick={() => resetOverride(pid)}
 																							size="sm"
@@ -421,7 +421,7 @@ export function PermissionsField({
 																									sub.id as PermissionId,
 																								) && (
 																									<Button
-																										className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																										className="h-5 gap-1 px-1.5 text-xs font-normal text-muted-foreground"
 																										disabled={disabled}
 																										onClick={() =>
 																											resetOverride(

@@ -19,7 +19,7 @@ export default function BabynetReportSettings() {
 	return (
 		<Card>
 			<CardContent>
-				<h3 className="mb-3 font-semibold text-sm">BabyNet Weekly Report</h3>
+				<h3 className="mb-3 text-sm font-semibold">BabyNet Weekly Report</h3>
 				<Table>
 					<TableHeader>
 						<TableRow>

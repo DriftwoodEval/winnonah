@@ -275,7 +275,7 @@ export default function InvitesTable() {
 	return (
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
-				<h3 className="font-bold text-lg">Pending Invites</h3>
+				<h3 className="text-lg font-bold">Pending Invites</h3>
 				{canInvite && <AddInviteButton />}
 			</div>
 
@@ -343,7 +343,7 @@ export default function InvitesTable() {
 							key={invite.id}
 						>
 							<div>
-								<p className="font-medium text-sm">{invite.email}</p>
+								<p className="text-sm font-medium">{invite.email}</p>
 							</div>
 							{canInvite && <InvitesTableActionsMenu invite={invite} />}
 						</div>

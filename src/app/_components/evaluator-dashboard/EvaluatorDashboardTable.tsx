@@ -115,7 +115,7 @@ export function EvaluatorDashboardTable({
 
 	if (appointments.length === 0) {
 		return (
-			<p className="py-8 text-center text-muted-foreground text-sm">
+			<p className="py-8 text-center text-sm text-muted-foreground">
 				No appointments to show.
 			</p>
 		);
@@ -143,7 +143,7 @@ export function EvaluatorDashboardTable({
 	].filter(Boolean);
 
 	const count = (
-		<p className="mb-2 text-muted-foreground text-sm">
+		<p className="mb-2 text-sm text-muted-foreground">
 			{countParts.length > 0
 				? countParts.join(" / ")
 				: `${appointments.length} appointment${appointments.length !== 1 ? "s" : ""}`}
@@ -174,7 +174,7 @@ export function EvaluatorDashboardTable({
 									<div>
 										<Link
 											className={cn(
-												"font-medium text-sm hover:underline",
+												"text-sm font-medium hover:underline",
 												isCompleted && "line-through",
 											)}
 											href={`/clients/${appt.clientHash}`}
@@ -185,7 +185,7 @@ export function EvaluatorDashboardTable({
 										</Link>
 										<p
 											className={cn(
-												"text-muted-foreground text-xs",
+												"text-xs text-muted-foreground",
 												isCompleted && "line-through",
 											)}
 										>
@@ -209,7 +209,7 @@ export function EvaluatorDashboardTable({
 
 								<div className="mb-3 grid grid-cols-2 gap-3 text-sm">
 									<div>
-										<p className="mb-1 text-muted-foreground text-xs">
+										<p className="mb-1 text-xs text-muted-foreground">
 											Last Task
 										</p>
 										<LastTaskDateCell
@@ -225,7 +225,7 @@ export function EvaluatorDashboardTable({
 										/>
 									</div>
 									<div>
-										<p className="mb-1 text-muted-foreground text-xs">
+										<p className="mb-1 text-xs text-muted-foreground">
 											Due Date
 										</p>
 										<DueDateCell
@@ -244,7 +244,7 @@ export function EvaluatorDashboardTable({
 													appointmentId={appt.id}
 													showAnyway={appt.showAnyway}
 												/>
-												<span className="text-muted-foreground text-xs">
+												<span className="text-xs text-muted-foreground">
 													Show anyway
 												</span>
 											</div>
@@ -380,7 +380,7 @@ export function EvaluatorDashboardTable({
 														appointmentId={appt.id}
 														showAnyway={appt.showAnyway}
 													/>
-													<span className="text-muted-foreground text-xs">
+													<span className="text-xs text-muted-foreground">
 														Show anyway
 													</span>
 												</div>

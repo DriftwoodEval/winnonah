@@ -71,7 +71,7 @@ export function DayNav({
 					Today
 				</Button>
 			)}
-			<span className="text-muted-foreground text-xs tabular-nums">
+			<span className="text-xs text-muted-foreground tabular-nums">
 				{format(new Date(`${date}T12:00:00`), "EEE, MMM d")}
 			</span>
 			<Button
@@ -110,13 +110,13 @@ export function WidgetShell({
 			<div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
 				{linkHref ? (
 					<Link
-						className="truncate font-semibold text-sm hover:text-secondary"
+						className="truncate text-sm font-semibold hover:text-secondary"
 						href={linkHref}
 					>
 						{title}
 					</Link>
 				) : (
-					<h2 className="truncate font-semibold text-sm">{title}</h2>
+					<h2 className="truncate text-sm font-semibold">{title}</h2>
 				)}
 				{nav}
 			</div>
@@ -196,11 +196,11 @@ export function MyDayWidget() {
 							className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2"
 							key={appt.id}
 						>
-							<span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+							<span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
 								{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 							</span>
 							<Link
-								className="min-w-32 flex-1 truncate font-medium text-sm hover:text-secondary"
+								className="min-w-32 flex-1 truncate text-sm font-medium hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
 								<ClientHoverCard clientHash={appt.clientHash}>
@@ -233,7 +233,7 @@ export function MyDayWidget() {
 									/>
 								)}
 							{!allSameLocation && appt.officeName && (
-								<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+								<span className="ml-auto shrink-0 text-xs text-muted-foreground">
 									{appt.officeName}
 								</span>
 							)}
@@ -304,7 +304,7 @@ export function WhosInWidget() {
 					{otherOffices.map((office) => (
 						<div key={office.locationKey}>
 							<div className="mb-1 flex items-center justify-between gap-2">
-								<p className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+								<p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									{office.officeName}
 								</p>
 								<GreeterInline
@@ -393,7 +393,7 @@ function ExpandableEvaluator({
 					>
 						<Redact>{evaluator.name}</Redact>
 					</span>
-					<span className="shrink-0 text-muted-foreground text-xs">
+					<span className="shrink-0 text-xs text-muted-foreground">
 						{evaluator.appointments.length}
 					</span>
 				</CollapsibleTrigger>
@@ -411,19 +411,19 @@ function ExpandableEvaluator({
 						/>
 					)}
 				{timeRange && (
-					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+					<span className="shrink-0 text-xs text-muted-foreground tabular-nums">
 						{timeRange}
 					</span>
 				)}
 			</div>
 			<CollapsibleContent>
-				<div className="ml-6 border-border border-l pl-3">
+				<div className="ml-6 border-l border-border pl-3">
 					{evaluator.appointments.map((appt) => (
 						<div
 							className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5"
 							key={appt.id}
 						>
-							<span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+							<span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
 								{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 							</span>
 							<Link

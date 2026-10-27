@@ -20,7 +20,7 @@ export function PinListButton({ pinned }: { pinned: PinnedList }) {
 			aria-label={
 				active ? "Unpin this list" : "Pin this list for prev/next navigation"
 			}
-			className="font-medium text-muted-foreground text-xs"
+			className="text-xs font-medium text-muted-foreground"
 			onClick={() => (active ? clearPinned() : setPinned(pinned))}
 			size="sm"
 			type="button"

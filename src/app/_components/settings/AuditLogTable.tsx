@@ -97,7 +97,7 @@ export default function AuditLogTable() {
 		<>
 			{row.userName ?? row.userEmail}
 			{row.impersonatedBy && (
-				<span className="block text-muted-foreground text-xs">
+				<span className="block text-xs text-muted-foreground">
 					impersonated by {row.impersonatedBy}
 				</span>
 			)}
@@ -121,7 +121,7 @@ export default function AuditLogTable() {
 				</Badge>
 				{detail && (
 					<button
-						className={`mt-1 block w-full max-w-md break-all text-left text-muted-foreground text-xs ${expanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}
+						className={`mt-1 block w-full max-w-md text-left text-xs break-all text-muted-foreground ${expanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}
 						onClick={() => toggleExpanded(row.id)}
 						title={expanded ? undefined : "Show full detail"}
 						type="button"
@@ -162,7 +162,7 @@ export default function AuditLogTable() {
 
 	return (
 		<div className="space-y-4 px-4">
-			<h3 className="font-bold text-lg">Audit Log</h3>
+			<h3 className="text-lg font-bold">Audit Log</h3>
 
 			<div className="flex flex-wrap gap-2">
 				<Select
@@ -300,7 +300,7 @@ export default function AuditLogTable() {
 							key={row.id}
 						>
 							<div className="flex items-center justify-between gap-2">
-								<span className="text-muted-foreground text-xs">
+								<span className="text-xs text-muted-foreground">
 									{formatTime(row)}
 								</span>
 								{renderStatus(row)}
@@ -316,7 +316,7 @@ export default function AuditLogTable() {
 			</div>
 
 			<div className="flex items-center justify-between">
-				<span className="text-muted-foreground text-sm">
+				<span className="text-sm text-muted-foreground">
 					{total > 0
 						? `${offset + 1}-${Math.min(offset + PAGE_SIZE, total)} of ${total}`
 						: null}
