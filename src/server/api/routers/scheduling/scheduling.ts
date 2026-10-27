@@ -694,17 +694,29 @@ export const schedulingRouter = createTRPCRouter({
 				}
 			}
 
+			// Clients whose language is not English get the Interpreter color.
+			const languageClient = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { language: true },
+			});
+			const language = languageClient?.language?.trim();
+			const autoColor =
+				language && language.toLowerCase() !== "english" ? "Interpreter" : null;
+
 			await ctx.db
 				.insert(schedulingClients)
 				.values({
 					clientId: input.clientId,
 					code: input.code,
 					office: targetOffice,
+					color: autoColor,
 					archived: false,
 					sort: nextSort,
 				})
 				.onDuplicateKeyUpdate({
 					set: {
+						// Keep a color someone already picked.
+						color: sql`COALESCE(${schedulingClients.color}, ${autoColor})`,
 						archived: false,
 						code: input.code,
 						office: targetOffice,
