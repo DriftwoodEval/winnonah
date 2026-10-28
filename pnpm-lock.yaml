@@ -336,7 +336,7 @@ importers:
         version: 6.0.0
       remark-flexible-toc:
         specifier: ^1.2.6
-        version: 1.2.7(unified@11.0.5)
+        version: 1.3.2(unified@11.0.5)
       remark-frontmatter:
         specifier: ^5.0.0
         version: 5.0.0
@@ -5634,8 +5634,8 @@ packages:
   rehype-slug@6.0.0:
     resolution: {integrity: sha512-lWyvf/jwu+oS5+hL5eClVd3hNdmwM1kAC0BUvEGD19pajQMIzcNUd/k9GsfQ+FfECvX+JE+e9/btsKH0EjJT6A==}
 
-  remark-flexible-toc@1.2.7:
-    resolution: {integrity: sha512-ZtFQPR4B0CkVztjnaxlm4JCwrionOxR5Q2ulMiYeBuMTprZ+Zbk3S1omTpE07sZ+yrVHGVPl2HXGjpgm1C7fZg==}
+  remark-flexible-toc@1.3.2:
+    resolution: {integrity: sha512-jysvDSViSu7RNh/AKRor/ZKMKaaqSq5yDry9ITM8tErMPC5uwxm/QtAxeVpSPCd1pqFolvqH6yrMm0Y9yZU0oA==}
     peerDependencies:
       unified: ^11
 
@@ -11472,12 +11472,14 @@ snapshots:
       hast-util-to-string: 3.0.1
       unist-util-visit: 5.1.0
 
-  remark-flexible-toc@1.2.7(unified@11.0.5):
+  remark-flexible-toc@1.3.2(unified@11.0.5):
     dependencies:
       '@types/mdast': 4.0.4
+      '@ungap/structured-clone': 1.4.0
       github-slugger: 2.0.0
       mdast-util-to-string: 4.0.0
       unified: 11.0.5
+      unist-util-is: 6.0.1
       unist-util-visit: 5.1.0
 
   remark-frontmatter@5.0.0:
