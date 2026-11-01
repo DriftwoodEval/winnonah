@@ -76,7 +76,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
 	memo,
 	type RefObject,
@@ -90,6 +89,7 @@ import { ListSkeleton } from "~/app/_components/shared/ListSkeleton";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { ScheduledClient } from "~/lib/api-types";
+import { useSession } from "~/lib/auth-client";
 import {
 	formatColorName,
 	isSchedulingColor,

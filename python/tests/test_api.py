@@ -108,8 +108,12 @@ class TestGetCurrentUser:
             get_current_user(request)
         assert exc_info.value.status_code == 401
 
-    def test_checks_each_known_cookie_name_in_order(self):
-        request = _mock_request({"next-auth.session-token": "tok"})
+    @pytest.mark.parametrize(
+        "cookie_name",
+        ["better-auth.session_token", "__Secure-better-auth.session_token"],
+    )
+    def test_accepts_each_known_cookie_name(self, cookie_name):
+        request = _mock_request({cookie_name: "tok.sig"})
         row = {
             "id": "u1",
             "email": "a@example.com",
@@ -125,8 +129,34 @@ class TestGetCurrentUser:
             user = get_current_user(request)
         assert user["email"] == "a@example.com"
 
-    def test_raises_401_for_unknown_session_token(self):
+    @pytest.mark.parametrize(
+        ("cookie_value", "expected_token"),
+        [
+            ("tok.sig", "tok"),
+            ("tok.abc%2Bdef%3D", "tok"),
+            ("tok", "tok"),
+        ],
+    )
+    def test_looks_up_the_token_without_its_signature(
+        self, cookie_value, expected_token
+    ):
+        request = _mock_request({"better-auth.session_token": cookie_value})
+        cursor = FakeCursor(fetchone_result=None)
+        with (
+            patch("api.app.get_db", return_value=FakeConnection(cursor)),
+            pytest.raises(HTTPException),
+        ):
+            get_current_user(request)
+        assert cursor.executed[0][1] == (expected_token,)
+
+    def test_ignores_legacy_nextauth_cookies(self):
         request = _mock_request({"authjs.session-token": "tok"})
+        with pytest.raises(HTTPException) as exc_info:
+            get_current_user(request)
+        assert exc_info.value.status_code == 401
+
+    def test_raises_401_for_unknown_session_token(self):
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         conn = FakeConnection(FakeCursor(fetchone_result=None))
         with (
             patch("api.app.get_db", return_value=conn),
@@ -136,7 +166,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
 
     def test_raises_401_for_expired_session(self):
-        request = _mock_request({"authjs.session-token": "tok"})
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         row = {
             "id": "u1",
             "email": "a@example.com",
@@ -156,7 +186,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
 
     def test_raises_403_for_archived_account(self):
-        request = _mock_request({"authjs.session-token": "tok"})
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         row = {
             "id": "u1",
             "email": "a@example.com",
@@ -176,7 +206,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 403
 
     def test_merges_role_permissions_under_user_overrides(self):
-        request = _mock_request({"authjs.session-token": "tok"})
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         row = {
             "id": "u1",
             "email": "a@example.com",
@@ -198,7 +228,7 @@ class TestGetCurrentUser:
         }
 
     def test_closes_connection_after_lookup(self):
-        request = _mock_request({"authjs.session-token": "tok"})
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         row = {
             "id": "u1",
             "email": "a@example.com",
@@ -215,7 +245,7 @@ class TestGetCurrentUser:
         assert conn.closed
 
     def test_closes_connection_even_when_session_invalid(self):
-        request = _mock_request({"authjs.session-token": "tok"})
+        request = _mock_request({"better-auth.session_token": "tok.sig"})
         conn = FakeConnection(FakeCursor(fetchone_result=None))
         with (
             patch("api.app.get_db", return_value=conn),

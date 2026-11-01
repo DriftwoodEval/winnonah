@@ -1,7 +1,7 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
+import { signOut, useSession } from "~/lib/auth-client";
 
 export function SessionExpiryMonitor() {
 	const { status } = useSession();
@@ -12,8 +12,8 @@ export function SessionExpiryMonitor() {
 
 		// Check session validity every 30 seconds
 		checkIntervalRef.current = setInterval(async () => {
-			// Trigger a session check - if expired, useSession will return null
-			const response = await fetch("/api/auth/session");
+			// The endpoint returns null once the session has expired
+			const response = await fetch("/api/auth/get-session");
 			const currentSession = await response.json();
 
 			if (!currentSession?.user) {

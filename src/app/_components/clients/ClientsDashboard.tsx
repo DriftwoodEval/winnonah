@@ -17,9 +17,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,

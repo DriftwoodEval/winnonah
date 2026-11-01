@@ -35,10 +35,10 @@ import {
 	User,
 } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";

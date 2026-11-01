@@ -12,10 +12,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { ArrowLeft, Clock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signIn, signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { signInWithGoogle, signOut, useSession } from "~/lib/auth-client";
 import type { HeaderItemId } from "~/lib/layout/header-items";
 import { api } from "~/trpc/react";
 import { GlobalClientSearch } from "./GlobalClientSearch";
@@ -97,7 +97,7 @@ export function HeaderActions() {
 			{!session && (
 				<Button
 					className="max-md:h-8"
-					onClick={() => signIn("google")}
+					onClick={() => signInWithGoogle()}
 					size="sm"
 					variant="secondary"
 				>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 export function SystemUpdateMonitor() {

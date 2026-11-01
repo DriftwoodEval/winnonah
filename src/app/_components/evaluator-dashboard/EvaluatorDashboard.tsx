@@ -6,9 +6,9 @@ import { Button } from "@ui/button";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { EvaluatorDashboardTable } from "./EvaluatorDashboardTable";
 

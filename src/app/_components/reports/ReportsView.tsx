@@ -3,9 +3,9 @@
 import ReportQueue from "@components/reports/ReportQueue";
 import { ErrorState } from "@components/shared/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";

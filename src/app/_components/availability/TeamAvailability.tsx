@@ -9,8 +9,8 @@ import {
 } from "@ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { AvailabilityList } from "./AvailabilityList";
 import { TeamMonthView } from "./TeamMonthView";

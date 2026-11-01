@@ -1,5 +1,4 @@
 import { and, eq, not, sql } from "drizzle-orm";
-import type { Session } from "next-auth";
 import { fetchWithCache } from "~/lib/cache";
 import {
 	getDashboardSections,
@@ -13,6 +12,7 @@ import {
 	getPunchData,
 } from "~/lib/integrations/google";
 import type { Context } from "~/server/api/trpc";
+import type { Session } from "~/server/auth/types";
 import { clients } from "~/server/db/schema";
 
 /**

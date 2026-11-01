@@ -8,10 +8,10 @@ import { Skeleton } from "@ui/skeleton";
 import { Switch } from "@ui/switch";
 import { addMonths } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { signInWithGoogle, useSession } from "~/lib/auth-client";
 import { IS_DEV } from "~/lib/utils";
 import {
 	type AvailabilityFormValues,
@@ -159,11 +159,10 @@ export function AvailabilityForm() {
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signIn(
-								"google",
-								{ callbackUrl: window.location.href },
-								{ prompt: "consent" },
-							),
+							signInWithGoogle({
+								callbackUrl: window.location.href,
+								forceConsent: true,
+							}),
 					},
 				});
 			} else {

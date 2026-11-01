@@ -2,8 +2,8 @@
 
 import { Button } from "@ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
 import { Suspense, useEffect } from "react";
+import { signInWithGoogle, useSession } from "~/lib/auth-client";
 
 function LoginPage() {
 	const params = useSearchParams();
@@ -31,7 +31,7 @@ function LoginPage() {
 				</p>
 			)}
 			<Button
-				onClick={() => signIn("google", { callbackUrl })}
+				onClick={() => signInWithGoogle({ callbackUrl })}
 				size="lg"
 				variant="secondary"
 			>

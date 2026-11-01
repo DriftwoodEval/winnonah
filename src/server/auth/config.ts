@@ -1,16 +1,13 @@
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { and, eq } from "drizzle-orm/sql";
-import { cookies } from "next/headers";
-import type { DefaultSession, NextAuthConfig } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
+import { nextCookies } from "better-auth/next-js";
+import { customSession } from "better-auth/plugins";
+import { and, eq } from "drizzle-orm";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import {
-	getImpersonationCookieId,
-	IMPERSONATION_COOKIE,
-} from "~/server/auth/impersonation";
-
+import type { ClientSession } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	accounts,
@@ -20,305 +17,205 @@ import {
 	roles,
 	sessions,
 	users,
-	verificationTokens,
+	verifications,
 } from "~/server/db/schema";
+import { IMPERSONATION_COOKIE } from "./impersonation";
 
-/**
- * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
- * object and keep type safety.
- *
- * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
- */
-declare module "next-auth" {
-	interface Session extends DefaultSession {
-		accessToken?: string;
-		user: {
-			id: string;
-			accessToken?: string;
-			refreshToken?: string;
-			permissions: PermissionsObject;
-			roleId?: number | null;
-			isEvaluator?: boolean;
-			hasEvaluatorDashboard?: boolean;
-			clientFilters?: string;
-			archived?: boolean | null;
-			claimedReportFolder?: { name: string; id: string }[] | null;
-			maxClaimedReports?: number | null;
-			/** True when a permitted user is viewing the app as this user via the impersonation cookie. */
-			isImpersonating?: boolean;
-			/** The real signed-in user's id, set only while `isImpersonating` is true. */
-			impersonatorId?: string | null;
-			/** The real signed-in user's email, set only while `isImpersonating` is true. */
-			impersonatorEmail?: string | null;
-			/** The real signed-in user's own permissions, regardless of any active impersonation. */
-			realPermissions: PermissionsObject;
-		} & DefaultSession["user"];
-	}
+const GOOGLE_SCOPES = [
+	"https://www.googleapis.com/auth/spreadsheets",
+	"https://www.googleapis.com/auth/drive",
+	"https://www.googleapis.com/auth/calendar",
+	"https://www.googleapis.com/auth/gmail.send",
+];
 
-	interface User {
-		permissions: PermissionsObject;
-		roleId?: number | null;
-		savedPlaces: string;
-		archived?: boolean | null;
-		claimedReportFolder?: { name: string; id: string }[] | null;
-		maxClaimedReports?: number | null;
-	}
+/** A user's own permissions layered over their role's permissions. */
+async function resolvePermissions(user: {
+	permissions: PermissionsObject | null;
+	roleId: number | null;
+}): Promise<PermissionsObject> {
+	const own = user.permissions ?? {};
+	if (!user.roleId) return own;
+
+	const role = await db.query.roles.findFirst({
+		where: eq(roles.id, user.roleId),
+	});
+	return role ? { ...role.permissions, ...own } : own;
 }
 
 /**
- * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
- *
- * @see https://next-auth.js.org/configuration/options
+ * Gives a brand-new user their starting permissions: the pending invitation
+ * for their email if there is one, otherwise the default role with no
+ * extra permissions. Also marks the invitation accepted and audits it.
  */
-export const authConfig = {
-	trustHost: true,
-	providers: [
-		GoogleProvider({
-			clientId: process.env.AUTH_GOOGLE_ID,
-			clientSecret: process.env.AUTH_GOOGLE_SECRET,
-			authorization: {
-				params: {
-					hd: env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
-					access_type: "offline",
-					response_type: "code",
-					include_granted_scopes: "true",
-					scope:
-						"openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send",
+async function applyInvitationOrDefaults(user: { id: string; email: string }) {
+	const invitation = await db.query.invitations.findFirst({
+		where: and(
+			eq(invitations.email, user.email),
+			eq(invitations.status, "pending"),
+		),
+	});
+	const defaultRole = await db.query.roles.findFirst({
+		where: eq(roles.isDefault, true),
+	});
+	const roleId = invitation?.roleId ?? defaultRole?.id ?? null;
+
+	await db
+		.update(users)
+		.set({
+			permissions: (invitation?.permissions as PermissionsObject) ?? {},
+			savedPlaces: invitation?.savedPlaces ?? null,
+			roleId,
+		})
+		.where(eq(users.id, user.id));
+
+	if (!invitation) return;
+
+	await db
+		.update(invitations)
+		.set({ status: "accepted", usedAt: new Date() })
+		.where(eq(invitations.id, invitation.id));
+
+	await db.insert(auditLogs).values({
+		userId: user.id,
+		userEmail: user.email,
+		action: "invitation.accepted",
+		detail: { invitationId: invitation.id, roleId },
+		success: true,
+	});
+}
+
+export const authInstance = betterAuth({
+	baseURL: env.AUTH_URL,
+	secret: env.AUTH_SECRET,
+	database: drizzleAdapter(db, {
+		provider: "mysql",
+		schema: {
+			user: users,
+			session: sessions,
+			account: accounts,
+			verification: verifications,
+		},
+	}),
+	// Existing user ids are UUIDs, so new rows get the same format.
+	advanced: { database: { generateId: "uuid" } },
+	// Keep the existing column names. Better Auth field names are on the left,
+	// the Drizzle schema keys in `~/server/db/schema` on the right.
+	session: {
+		expiresIn: 60 * 60 * 5, // 5 hours
+		updateAge: 60 * 10, // 10 minutes
+		fields: { token: "sessionToken", expiresAt: "expires" },
+	},
+	account: {
+		fields: {
+			providerId: "provider",
+			accountId: "providerAccountId",
+			accessToken: "access_token",
+			refreshToken: "refresh_token",
+			idToken: "id_token",
+		},
+	},
+	socialProviders: {
+		google: {
+			clientId: env.AUTH_GOOGLE_ID,
+			clientSecret: env.AUTH_GOOGLE_SECRET,
+			// Rejects any sign-in whose verified ID token lacks this Workspace domain.
+			hd: env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
+			accessType: "offline",
+			scope: GOOGLE_SCOPES,
+		},
+	},
+	onAPIError: { errorURL: "/auth/error" },
+	databaseHooks: {
+		user: {
+			create: {
+				before: async (user) => {
+					if (!user.email || user.emailVerified !== true) return false;
+				},
+				after: async (user) => {
+					await applyInvitationOrDefaults(user);
 				},
 			},
-		}),
-	],
-	pages: {
-		signIn: "/login",
-		error: "/auth/error",
+		},
+		session: {
+			create: {
+				// Archived users cannot sign in, on first login or any later one.
+				before: async (session) => {
+					const userInDb = await db.query.users.findFirst({
+						where: eq(users.id, session.userId),
+						columns: { archived: true },
+					});
+					if (!userInDb || userInDb.archived) return false;
+				},
+			},
+		},
 	},
-	session: {
-		maxAge: 60 * 60 * 5, // 5 hours
-		updateAge: 60 * 10, // 10 minutes
-	},
-	adapter: DrizzleAdapter(db, {
-		usersTable: users,
-		accountsTable: accounts,
-		sessionsTable: sessions,
-		verificationTokensTable: verificationTokens,
-	}),
-	events: {
+	hooks: {
 		/**
-		 * The "view as" cookie is app-set, not part of the NextAuth session, so
-		 * it survives sign-out on its own. On a shared browser that leaves it
+		 * The "view as" cookie is app-set, not part of the auth session, so it
+		 * survives sign-out on its own. On a shared browser that leaves it
 		 * pointing at whatever user the previous person was impersonating, and
 		 * the next person to sign in inherits it if they also hold
 		 * settings:impersonate.
 		 */
-		async signOut() {
-			const store = await cookies();
-			store.delete(IMPERSONATION_COOKIE);
-		},
-		/**
-		 * Runs after the adapter has persisted a new user, so `user.id` is
-		 * populated here, unlike in the `signIn` callback where it isn't yet
-		 * for a first-time sign-in.
-		 */
-		async signIn({ user, isNewUser }) {
-			if (!isNewUser || !user.email || !user.id) return;
-
-			const invitation = await db.query.invitations.findFirst({
-				where: and(
-					eq(invitations.email, user.email),
-					eq(invitations.status, "accepted"),
-				),
-			});
-			if (!invitation) return;
-
-			await db.insert(auditLogs).values({
-				userId: user.id,
-				userEmail: user.email,
-				action: "invitation.accepted",
-				detail: { invitationId: invitation.id, roleId: user.roleId ?? null },
-				success: true,
-			});
-		},
+		after: createAuthMiddleware(async (ctx) => {
+			if (ctx.path === "/sign-out") {
+				ctx.setCookie(IMPERSONATION_COOKIE, "", { maxAge: 0, path: "/" });
+			}
+		}),
 	},
-	callbacks: {
-		async signIn({ user, account, profile }) {
-			if (!user.email) return false;
-
-			if (account?.provider === "google") {
-				const googleProfile = profile as
-					| { hd?: string; email_verified?: boolean }
-					| undefined;
-
-				// `hd` in the authorization request is only a client-side hint; Google
-				// does not enforce it, so the returned profile must be checked here too.
-				if (
-					googleProfile?.hd !== env.AUTH_GOOGLE_WORKSPACE_DOMAIN ||
-					googleProfile.email_verified !== true
-				) {
-					return false;
-				}
-			}
-
-			const userInDb = await db.query.users.findFirst({
-				where: eq(users.email, user.email),
+	plugins: [
+		customSession(async ({ user, session }, ctx): Promise<ClientSession> => {
+			const realUser = await db.query.users.findFirst({
+				where: eq(users.id, user.id),
 			});
+			if (!realUser) throw new Error("Session user not found");
 
-			if (userInDb?.archived) {
-				return false;
-			}
-			if (account?.provider === "google" && user.id) {
-				const existingAccount = await db.query.accounts.findFirst({
-					where: and(
-						eq(accounts.userId, user.id),
-						eq(accounts.provider, "google"),
-						eq(accounts.providerAccountId, account.providerAccountId),
-					),
-				});
+			const realPermissions = await resolvePermissions(realUser);
 
-				if (existingAccount) {
-					await db
-						.update(accounts)
-						.set({
-							access_token: account.access_token,
-							refresh_token:
-								account.refresh_token ?? existingAccount.refresh_token,
-							scope: account.scope,
-							expires_at: account.expires_at,
-							token_type: account.token_type,
-							id_token: account.id_token,
-						})
-						.where(eq(accounts.userId, existingAccount.userId));
-				}
-			}
-
-			if (userInDb) {
-				return true;
-			}
-
-			const invitation = await db.query.invitations.findFirst({
-				where: and(
-					eq(invitations.email, user.email ?? ""),
-					eq(invitations.status, "pending"),
-				),
-			});
-
-			const defaultRole = await db.query.roles.findFirst({
-				where: eq(roles.isDefault, true),
-			});
-
-			if (invitation) {
-				user.permissions = invitation.permissions as PermissionsObject;
-				user.savedPlaces = invitation.savedPlaces as string;
-				user.roleId = invitation.roleId ?? defaultRole?.id ?? null;
-
-				await db
-					.update(invitations)
-					.set({
-						status: "accepted",
-						usedAt: new Date(),
+			const impersonationId = ctx.getCookie(IMPERSONATION_COOKIE);
+			const canImpersonate =
+				!!impersonationId &&
+				impersonationId !== realUser.id &&
+				hasPermission(realPermissions, "settings:impersonate");
+			const impersonatedUser = canImpersonate
+				? await db.query.users.findFirst({
+						where: eq(users.id, impersonationId),
 					})
-					.where(eq(invitations.id, invitation.id));
-			} else {
-				user.permissions = {};
-				user.roleId = defaultRole?.id ?? null;
-			}
+				: undefined;
 
-			return true;
-		},
+			const isImpersonating = !!impersonatedUser;
+			const targetUser = impersonatedUser ?? realUser;
+			const permissions = isImpersonating
+				? await resolvePermissions(targetUser)
+				: realPermissions;
 
-		async session({ session, user }) {
-			const impersonationCookieId = await getImpersonationCookieId();
-
-			let realUserPermissions = (user.permissions as PermissionsObject) ?? {};
-			if (user.roleId) {
-				const role = await db.query.roles.findFirst({
-					where: eq(roles.id, user.roleId),
-				});
-				if (role) {
-					realUserPermissions = {
-						...role.permissions,
-						...user.permissions,
-					};
-				}
-			}
-
-			let approvedImpersonationTargetId: string | null = null;
-			if (
-				impersonationCookieId &&
-				impersonationCookieId !== user.id &&
-				hasPermission(realUserPermissions, "settings:impersonate")
-			) {
-				approvedImpersonationTargetId = impersonationCookieId;
-			}
-
-			const isImpersonating = !!approvedImpersonationTargetId;
-			const targetUser = approvedImpersonationTargetId
-				? ((await db.query.users.findFirst({
-						where: eq(users.id, approvedImpersonationTargetId),
-					})) ?? user)
-				: user;
-
-			const accountInDb = await db.query.accounts.findFirst({
-				where: eq(accounts.userId, targetUser.id),
+			const evaluatorProfile = await db.query.evaluators.findFirst({
+				where: eq(evaluators.email, targetUser.email),
+				columns: { npi: true, evaluatorDashboard: true },
 			});
 
-			let accessToken: string | null = null;
-			let refreshToken: string | null = null;
-
-			if (accountInDb) {
-				accessToken = accountInDb.access_token;
-				refreshToken = accountInDb.refresh_token;
-			}
-			session.user.accessToken = accessToken ?? undefined;
-			session.user.refreshToken = refreshToken ?? undefined;
-			session.user.realPermissions = realUserPermissions;
-
-			if (targetUser) {
-				session.user.id = targetUser.id;
-				session.user.name = targetUser.name;
-				session.user.email = targetUser.email;
-				session.user.image = targetUser.image;
-
-				let effectivePermissions = realUserPermissions;
-				if (isImpersonating) {
-					effectivePermissions =
-						(targetUser.permissions as PermissionsObject) ?? {};
-					if (targetUser.roleId) {
-						const role = await db.query.roles.findFirst({
-							where: eq(roles.id, targetUser.roleId),
-						});
-						if (role) {
-							effectivePermissions = {
-								...role.permissions,
-								...targetUser.permissions,
-							};
-						}
-					}
-				}
-				session.user.permissions = effectivePermissions;
-				session.user.roleId = targetUser.roleId;
-
-				session.user.archived = targetUser.archived;
-				session.user.claimedReportFolder = targetUser.claimedReportFolder;
-				session.user.maxClaimedReports = targetUser.maxClaimedReports;
-
-				const evaluatorProfile = await db.query.evaluators.findFirst({
-					where: eq(evaluators.email, targetUser.email ?? ""),
-					columns: { npi: true, evaluatorDashboard: true },
-				});
-				session.user.isEvaluator = !!evaluatorProfile;
-				session.user.hasEvaluatorDashboard =
-					evaluatorProfile?.evaluatorDashboard ?? false;
-
-				session.user.isImpersonating =
-					isImpersonating && targetUser.id === approvedImpersonationTargetId;
-				session.user.impersonatorId = session.user.isImpersonating
-					? user.id
-					: null;
-				session.user.impersonatorEmail = session.user.isImpersonating
-					? user.email
-					: null;
-			}
-			return session;
-		},
-	},
-} satisfies NextAuthConfig;
+			return {
+				session: { id: session.id, expiresAt: session.expiresAt },
+				user: {
+					id: targetUser.id,
+					name: targetUser.name,
+					email: targetUser.email,
+					image: targetUser.image,
+					permissions,
+					roleId: targetUser.roleId,
+					isEvaluator: !!evaluatorProfile,
+					hasEvaluatorDashboard: evaluatorProfile?.evaluatorDashboard ?? false,
+					archived: targetUser.archived,
+					claimedReportFolder: targetUser.claimedReportFolder,
+					maxClaimedReports: targetUser.maxClaimedReports,
+					isImpersonating,
+					impersonatorId: isImpersonating ? realUser.id : null,
+					impersonatorEmail: isImpersonating ? realUser.email : null,
+					realPermissions,
+				},
+			};
+		}),
+		// Must be the last plugin: lets server actions set the session cookie.
+		nextCookies(),
+	],
+});

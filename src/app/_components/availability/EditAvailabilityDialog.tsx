@@ -31,10 +31,10 @@ import {
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { sub } from "date-fns";
 import { AlertCircle, Trash2 } from "lucide-react";
-import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { signInWithGoogle } from "~/lib/auth-client";
 import {
 	type AvailabilityFormValues,
 	availabilityFormSchema,
@@ -185,11 +185,10 @@ export function EditAvailabilityDialog({
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signIn(
-								"google",
-								{ callbackUrl: window.location.href },
-								{ prompt: "consent" },
-							),
+							signInWithGoogle({
+								callbackUrl: window.location.href,
+								forceConsent: true,
+							}),
 					},
 				});
 			} else {
@@ -211,11 +210,10 @@ export function EditAvailabilityDialog({
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signIn(
-								"google",
-								{ callbackUrl: window.location.href },
-								{ prompt: "consent" },
-							),
+							signInWithGoogle({
+								callbackUrl: window.location.href,
+								forceConsent: true,
+							}),
 					},
 				});
 			} else {

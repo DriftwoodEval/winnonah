@@ -1,7 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import type { PermissionId } from "~/lib/types";
 import { AuthRejection } from "./AuthRejection";
 
