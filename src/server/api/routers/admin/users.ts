@@ -16,7 +16,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { invitations, users } from "~/server/db/schema";
+import { invitations, sessions, users } from "~/server/db/schema";
 import { systemEmitter } from "~/server/services/systemEmitter";
 
 export const userRouter = createTRPCRouter({
@@ -125,6 +125,11 @@ export const userRouter = createTRPCRouter({
 					archived: input.archived,
 				})
 				.where(eq(users.id, input.userId));
+
+			// Archiving signs the user out everywhere right away.
+			if (input.archived) {
+				await ctx.db.delete(sessions).where(eq(sessions.userId, input.userId));
+			}
 		}),
 
 	createInvitation: protectedProcedure

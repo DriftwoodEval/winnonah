@@ -3,11 +3,11 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import unquote
 from uuid import uuid4
 
+import httpx
 from dotenv import load_dotenv
 from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import business_to_utc, now_business, now_utc
@@ -31,7 +31,6 @@ from utils.constants import (
     TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_OFFICE,
     TABLE_ROLE,
-    TABLE_SESSION,
     TABLE_USER,
 )
 from utils.database import (
@@ -184,110 +183,49 @@ def get_google_services():
     return {"drive": drive_service, "sheets": sheets_service}
 
 
-SESSION_COOKIE_NAMES = (
-    "better-auth.session_token",
-    "__Secure-better-auth.session_token",
-)
-
-
-def _session_token_from_cookie(cookie_value: str) -> str:
-    """Extracts the raw session token from a Better Auth session cookie.
-
-    The cookie value is `<token>.<signature>`, URL-encoded. Only the token is
-    stored in the session table. It is a long random string, so looking it up
-    is enough to authenticate; the signature adds nothing the lookup does not.
-    """
-    return unquote(cookie_value).split(".", 1)[0]
-
-
 def get_current_user(request: Request):
-    cookie_value = next(
-        (
-            request.cookies.get(name)
-            for name in SESSION_COOKIE_NAMES
-            if request.cookies.get(name)
-        ),
-        None,
-    )
+    """Resolves the signed-in user by asking the web app, which owns sessions.
 
-    if not cookie_value:
+    The app returns the user the request acts as, with permissions already
+    merged, so "view as another user" sessions need no handling here.
+    """
+    cookie = request.headers.get("cookie")
+    if not cookie:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    session_token = _session_token_from_cookie(cookie_value)
+    app_url = os.getenv("EMR_APP_URL")
+    if not app_url:
+        raise HTTPException(status_code=500, detail="EMR_APP_URL is not configured")
 
-    impersonate_user_id = request.cookies.get("impersonate-user-id")
-
-    conn = get_db()
     try:
-        with conn.cursor() as cursor:
-            sql = f"""
-                SELECT
-                    u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
-                    r.permissions AS role_permissions,
-                    s.expiresAt
-                FROM {TABLE_SESSION} s
-                JOIN {TABLE_USER} u ON s.userId = u.id
-                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                WHERE s.token = %s
-            """
-            cursor.execute(sql, (session_token,))
-            row = cursor.fetchone()
+        response = httpx.get(
+            f"{app_url.rstrip('/')}/api/auth/get-session",
+            headers={"Cookie": cookie},
+            timeout=5,
+        )
+    except httpx.HTTPError as error:
+        logger.error(f"Could not reach the web app to check a session: {error}")
+        raise HTTPException(
+            status_code=503, detail="Authentication service unavailable"
+        ) from error
 
-            if not row:
-                raise HTTPException(status_code=401, detail="Invalid session")
-            if row["expiresAt"].replace(tzinfo=UTC) < datetime.now(UTC):
-                raise HTTPException(status_code=401, detail="Session expired")
-            if row.get("archived"):
-                raise HTTPException(status_code=403, detail="Account archived")
+    if response.status_code >= 500:
+        raise HTTPException(
+            status_code=503, detail="Authentication service unavailable"
+        )
+    session = response.json() if response.status_code == 200 else None
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid session")
 
-            permissions = effective_permissions(
-                row["permissions"], row.get("role_permissions")
-            )
-
-            # Mirror the "view as another user" behavior in src/server/auth/config.ts:
-            # when a permitted user has an impersonation cookie set, everything
-            # downstream sees the impersonated user's identity and permissions.
-            if (
-                impersonate_user_id
-                and impersonate_user_id != row["id"]
-                and has_permission(permissions, "settings:impersonate")
-            ):
-                target = _lookup_user(cursor, impersonate_user_id)
-                if target:
-                    return target
-
-            return {
-                "user_id": row["id"],
-                "email": row["email"],
-                "name": row["name"],
-                "permissions": permissions,
-            }
-    finally:
-        conn.close()
-
-
-def _lookup_user(cursor, user_id: str) -> dict | None:
-    """Resolves a user's identity and effective permissions by id."""
-    sql = f"""
-        SELECT
-            u.id, u.email, u.name, u.permissions, u.archived,
-            r.permissions AS role_permissions
-        FROM {TABLE_USER} u
-        LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-        WHERE u.id = %s
-    """
-    cursor.execute(sql, (user_id,))
-    row = cursor.fetchone()
-    if not row or row.get("archived"):
-        return None
-
-    permissions = effective_permissions(row["permissions"], row.get("role_permissions"))
+    user = session["user"]
+    if user.get("archived"):
+        raise HTTPException(status_code=403, detail="Account archived")
 
     return {
-        "user_id": row["id"],
-        "email": row["email"],
-        "name": row["name"],
-        "permissions": permissions,
+        "user_id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "permissions": user.get("permissions") or {},
     }
 
 

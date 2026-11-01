@@ -1354,6 +1354,8 @@ export const sessions = createTable(
 		expiresAt: d.timestamp({ mode: "date" }).notNull(),
 		ipAddress: d.varchar({ length: 255 }),
 		userAgent: d.text(),
+		/** Set on a "view as another user" session: the id of the real signed-in user. */
+		impersonatedBy: d.varchar({ length: 255 }),
 		createdAt: d.timestamp().defaultNow().notNull(),
 		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 		clientFilters: d.text(),
