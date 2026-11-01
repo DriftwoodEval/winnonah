@@ -5,12 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { authClient } from "~/lib/auth-client";
 
+/** Only same-site paths are allowed, so a crafted link cannot send people elsewhere. */
+function toSitePath(value: string | null) {
+	return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
+
 function LoginPage() {
 	const params = useSearchParams();
 	const router = useRouter();
 	const { data: session } = authClient.useSession();
 	const timedOut = params.get("timeout") === "true";
-	const callbackUrl = params.get("callbackUrl") || "/";
+	const callbackUrl = toSitePath(params.get("callbackUrl"));
 
 	// If we already have a session (e.g. we just finished signing back in),
 	// leave this page instead of sitting on it.

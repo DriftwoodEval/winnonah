@@ -1,4 +1,3 @@
-import json
 import re
 
 from dotenv import load_dotenv
@@ -81,8 +80,7 @@ def check_report_queue_and_notify():
 
         for user in eligible_users:
             if evaluator_npi is not None:
-                blocked_raw = user.get("blockedEvaluatorNpis")
-                blocked = json.loads(blocked_raw) if blocked_raw else []
+                blocked = user.get("blockedEvaluatorNpis") or []
                 if evaluator_npi in blocked:
                     logger.info(
                         f"Skipping {user['email']} for folder {folder_name} - evaluator {evaluator_npi} is blocked"
