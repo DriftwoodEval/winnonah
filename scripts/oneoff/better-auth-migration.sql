@@ -25,6 +25,8 @@
 --   * Linked Google accounts (and their refresh tokens) are kept.
 --   * Every existing user is marked email-verified (sign-in already required a
 --     verified Google Workspace email).
+--   * Saved table filters move from the session to emr_user.savedFilters. The
+--     old per-session filters are dropped; they reset at every sign-in anyway.
 
 -- 1. Sessions: sign everyone out. Old cookies would not be recognised anyway.
 DELETE FROM `emr_session`;
