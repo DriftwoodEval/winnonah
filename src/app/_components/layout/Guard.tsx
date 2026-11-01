@@ -1,7 +1,7 @@
 "use client";
 
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import type { PermissionId } from "~/lib/types";
 import { AuthRejection } from "./AuthRejection";
 
@@ -14,10 +14,10 @@ interface GuardProps {
 }
 
 export function Guard({ children, permission, anyOf }: GuardProps) {
-	const { data: session, status } = useSession();
+	const { data: session, isPending } = authClient.useSession();
 	const can = useCheckPermission();
 
-	if (status === "loading") return null;
+	if (isPending) return null;
 
 	if (!session) {
 		return <AuthRejection reason="unauthenticated" />;

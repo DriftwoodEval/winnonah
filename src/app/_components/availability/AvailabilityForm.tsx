@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { signInWithGoogle, useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { IS_DEV } from "~/lib/utils";
 import {
 	type AvailabilityFormValues,
@@ -52,7 +52,7 @@ function OutOfOfficePriorityDevToggle({
 
 export function AvailabilityForm() {
 	const utils = api.useUtils();
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	const { data: outOfOfficePriority, isLoading: isLoadingOoO } =
 		useOutOfOfficePriority();
@@ -159,9 +159,10 @@ export function AvailabilityForm() {
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signInWithGoogle({
-								callbackUrl: window.location.href,
-								forceConsent: true,
+							authClient.signIn.social({
+								provider: "google",
+								callbackURL: window.location.href,
+								additionalParams: { prompt: "consent" },
 							}),
 					},
 				});

@@ -10,57 +10,9 @@ const impersonationClient = () =>
 		$InferServerPlugin: {} as ReturnType<typeof impersonation>,
 	}) satisfies BetterAuthClientPlugin;
 
-const authClient = createAuthClient({
+export const authClient = createAuthClient({
 	plugins: [customSessionClient<typeof authInstance>(), impersonationClient()],
-	sessionOptions: { refetchOnWindowFocus: false },
+	// Re-check the session every 30 seconds so a revoked or expired session
+	// shows up without a page load.
+	sessionOptions: { refetchOnWindowFocus: false, refetchInterval: 30 },
 });
-
-type SessionStatus = "loading" | "authenticated" | "unauthenticated";
-
-/** The signed-in session (without Google tokens) and whether it has loaded yet. */
-export function useSession() {
-	const { data, isPending } = authClient.useSession();
-	const status: SessionStatus = isPending
-		? "loading"
-		: data
-			? "authenticated"
-			: "unauthenticated";
-	return { data: data ?? null, status };
-}
-
-/**
- * Starts the Google sign-in flow. `forceConsent` makes Google show the consent
- * screen again, which re-grants any scope the user previously declined.
- */
-export function signInWithGoogle(
-	options: { callbackUrl?: string; forceConsent?: boolean } = {},
-) {
-	return authClient.signIn.social({
-		provider: "google",
-		callbackURL: options.callbackUrl ?? "/",
-		errorCallbackURL: "/auth/error",
-		additionalParams: options.forceConsent ? { prompt: "consent" } : undefined,
-	});
-}
-
-export function signOut(options: { callbackUrl?: string } = {}) {
-	return authClient.signOut({
-		fetchOptions: {
-			onSuccess: () => {
-				window.location.assign(options.callbackUrl ?? "/");
-			},
-		},
-	});
-}
-
-/** Starts viewing the app as another user. Throws with the server's message on failure. */
-export async function startImpersonating(userId: string) {
-	const { error } = await authClient.impersonation.start({ userId });
-	if (error) throw new Error(error.message);
-}
-
-/** Returns to your own session. Throws with the server's message on failure. */
-export async function stopImpersonating() {
-	const { error } = await authClient.impersonation.stop();
-	if (error) throw new Error(error.message);
-}

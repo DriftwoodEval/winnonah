@@ -14,7 +14,8 @@ from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import now_business
 from loguru import logger
 
-from utils.database import get_active_workers, get_exclusion_check_notify_users
+from utils.app_api import get_exclusion_check_notify_users
+from utils.database import get_active_workers
 from utils.google import send_gmail, upload_file
 
 logger.add(

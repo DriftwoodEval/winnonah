@@ -89,7 +89,7 @@ import { ListSkeleton } from "~/app/_components/shared/ListSkeleton";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { ScheduledClient } from "~/lib/api-types";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import {
 	formatColorName,
 	isSchedulingColor,
@@ -241,9 +241,9 @@ function useSchedulingFilterState(type: "active" | "archived") {
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
 	const [isInitialized, setIsInitialized] = useState(false);
 	const lastSavedFiltersRef = useRef<string | null>(null);
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
-	const savedFiltersQuery = api.sessions.getSchedulingFilters.useQuery(
+	const savedFiltersQuery = api.savedFilters.getSchedulingFilters.useQuery(
 		{ type },
 		{
 			enabled: !!session,
@@ -253,14 +253,15 @@ function useSchedulingFilterState(type: "active" | "archived") {
 		},
 	);
 
-	const saveFiltersMutation = api.sessions.saveSchedulingFilters.useMutation({
-		onSuccess: (_data, variables) => {
-			utils.sessions.getSchedulingFilters.setData(
-				{ type: variables.type },
-				{ schedulingFilters: variables.schedulingFilters },
-			);
-		},
-	});
+	const saveFiltersMutation =
+		api.savedFilters.saveSchedulingFilters.useMutation({
+			onSuccess: (_data, variables) => {
+				utils.savedFilters.getSchedulingFilters.setData(
+					{ type: variables.type },
+					{ schedulingFilters: variables.schedulingFilters },
+				);
+			},
+		});
 
 	useEffect(() => {
 		if (savedFiltersQuery.isSuccess && !isInitialized) {

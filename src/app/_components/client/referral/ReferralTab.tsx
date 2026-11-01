@@ -45,7 +45,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
 import { REFERRAL_FIELD_LABELS } from "~/lib/referral-history";
@@ -89,7 +89,7 @@ function PostPunchBadge({ edit }: { edit?: PostPunchEdit }) {
 }
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 

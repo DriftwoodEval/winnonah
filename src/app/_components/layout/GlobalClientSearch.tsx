@@ -17,13 +17,13 @@ import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 export function GlobalClientSearch() {
 	const router = useRouter();
 	const pathname = usePathname();
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	const [open, setOpen] = useState(false);
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -32,7 +32,7 @@ export function GlobalClientSearch() {
 	const [osKey, setOsKey] = useState("Ctrl");
 
 	// Fetch saved filters from the session
-	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
+	const { data: savedFiltersData } = api.savedFilters.getClientFilters.useQuery(
 		undefined,
 		{
 			enabled: !!session,
@@ -41,9 +41,9 @@ export function GlobalClientSearch() {
 
 	// Mutation to save filters to the session
 	const utils = api.useUtils();
-	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation({
+	const saveFiltersMutation = api.savedFilters.saveClientFilters.useMutation({
 		onSuccess: (_data, variables) => {
-			utils.sessions.getClientFilters.setData(undefined, {
+			utils.savedFilters.getClientFilters.setData(undefined, {
 				clientFilters: variables.clientFilters,
 			});
 		},

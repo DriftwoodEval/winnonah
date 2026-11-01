@@ -22,6 +22,8 @@ export const env = createEnv({
 				? z.string()
 				: z.string().optional(),
 		AUTH_URL: z.string(),
+		// Extra origins allowed to sign in, comma separated. `AUTH_URL` is always allowed.
+		AUTH_TRUSTED_ORIGINS: z.string().optional(),
 		AUTH_GOOGLE_ID: z.string(),
 		AUTH_GOOGLE_SECRET: z.string(),
 		AUTH_GOOGLE_WORKSPACE_DOMAIN: z.string(),
@@ -62,6 +64,7 @@ export const env = createEnv({
 	runtimeEnv: {
 		AUTH_SECRET: process.env.AUTH_SECRET,
 		AUTH_URL: process.env.AUTH_URL,
+		AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS,
 		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
 		AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
 		AUTH_GOOGLE_WORKSPACE_DOMAIN: process.env.AUTH_GOOGLE_WORKSPACE_DOMAIN,

@@ -9,6 +9,7 @@ import { expireCookie, setSessionCookie } from "better-auth/cookies";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { hasPermission } from "~/lib/utils";
+import { recordAuthAudit } from "~/server/auth/audit";
 import { resolvePermissions } from "~/server/auth/permissions";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
@@ -117,6 +118,12 @@ export const impersonation = () =>
 
 					// `true` marks the session as non-renewing, so the one-hour cap holds.
 					await setSessionCookie(ctx, { session, user: target }, true);
+					await recordAuthAudit({
+						userId: realUserId,
+						userEmail: realUser?.email ?? "",
+						action: "impersonation.started",
+						detail: { targetUserId: target.id, targetEmail: target.email },
+					});
 					return ctx.json({ ok: true });
 				},
 			),

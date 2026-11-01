@@ -1242,8 +1242,9 @@ export function ClientDirectory() {
 	}, [punchData]);
 
 	const { data: savedFiltersData } =
-		api.sessions.getDirectoryFilters.useQuery();
-	const saveFiltersMutation = api.sessions.saveDirectoryFilters.useMutation();
+		api.savedFilters.getDirectoryFilters.useQuery();
+	const saveFiltersMutation =
+		api.savedFilters.saveDirectoryFilters.useMutation();
 
 	// The raw parsed blob, ungated by the 24h expiry - used for the fields
 	// (columns/columnOrder/sort/sortDir) that should persist indefinitely.

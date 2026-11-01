@@ -22,7 +22,7 @@ import {
 	useHeaderItemAvailability,
 	useHeaderItemLabels,
 } from "~/hooks/use-header-items";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import {
 	HEADER_ITEM_DEFS,
 	HEADER_NAV_CATEGORIES,
@@ -177,7 +177,7 @@ function NavigationCategory({
 }
 
 export default function NavigationLinks() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const pathname = usePathname();
 	const availability = useHeaderItemAvailability();
 	const labels = useHeaderItemLabels();

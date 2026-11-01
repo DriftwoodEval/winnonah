@@ -18,6 +18,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from api import appointment_reminders, greeter_proxy
+from utils.app_api import get_users_with_permission
 from utils.appointments import (
     DAEvalType,
     build_placeholder_description,
@@ -30,8 +31,6 @@ from utils.constants import (
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_OFFICE,
-    TABLE_ROLE,
-    TABLE_USER,
 )
 from utils.database import (
     delete_appointment,
@@ -66,7 +65,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.location import search_addresses
-from utils.permissions import effective_permissions, has_permission
+from utils.permissions import has_permission
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,
@@ -646,34 +645,13 @@ def notify_admin_review_claimed(
             detail="Not authorized to send admin review notifications",
         )
 
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"""
-                    SELECT u.permissions, r.permissions AS role_permissions
-                    FROM {TABLE_USER} u
-                    LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                    WHERE u.email = %s AND u.archived = 0
-                """,
-                (request.user_email,),
-            )
-            row = cursor.fetchone()
-    finally:
-        conn.close()
-
-    if not row:
-        return {"status": "skipped", "reason": "recipient not found"}
-
-    recipient_permissions = effective_permissions(
-        row["permissions"], row["role_permissions"]
+    recipients = get_users_with_permission(
+        "clients:admin:review:email-notifications", email=request.user_email
     )
-    if not has_permission(
-        recipient_permissions, "clients:admin:review:email-notifications"
-    ):
+    if not recipients:
         return {
             "status": "skipped",
-            "reason": "recipient has not opted in to email notifications",
+            "reason": "recipient is not an active user or has not opted in to email notifications",
         }
 
     subject = (

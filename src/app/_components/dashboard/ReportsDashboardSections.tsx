@@ -17,7 +17,7 @@ import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { canAccessReportsBeta } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
@@ -51,7 +51,7 @@ export function useReportSectionsQuery(): {
 	isError: boolean;
 	refetch: () => void;
 } {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const enabled = !!session?.user && canAccessReportsBeta(session.user);
 	const {
 		data: reports,

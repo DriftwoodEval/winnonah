@@ -5,7 +5,7 @@ import { ErrorState } from "@components/shared/ErrorState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
@@ -36,7 +36,7 @@ function TabContent({
 
 export function ReportsView() {
 	const can = useCheckPermission();
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const isApprover = can("reports:approve") || can("reports:billing");
 	const canApprove = can("reports:approve");
 	// The claim toolbar is only useful to people who actually claim from the pool.
