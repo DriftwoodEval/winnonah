@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { inArray, lt, max } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import type { Session } from "next-auth";
 import {
 	getClientFailureSections,
 	getClientIssueListSections,
@@ -31,6 +30,7 @@ import {
 	getUnreviewedRecordsList,
 } from "~/lib/issues/issue-lists";
 import { logger } from "~/lib/logger";
+import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	clientDashboardSectionHistory,

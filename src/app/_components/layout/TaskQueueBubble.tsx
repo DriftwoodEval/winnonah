@@ -5,8 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Progress } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
 import { Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 const PROGRESS_UNIT_LABELS: Record<string, string> = {

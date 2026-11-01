@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
-import type { Session } from "next-auth";
 import { env } from "~/env";
+import type { Session } from "~/server/auth/types";
 
 interface EmailAttachment {
 	filename: string;

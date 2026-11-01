@@ -4,15 +4,19 @@ import { hasPermission } from "~/lib/utils";
 import { auth } from "~/server/auth";
 
 /** Streams the completed DDS fax for a request from the Python sidecar. */
-export const GET = auth(async (req, { params }) => {
-	if (!req.auth) {
+export async function GET(
+	req: Request,
+	{ params }: { params: Promise<{ id: string }> },
+) {
+	const session = await auth();
+	if (!session) {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
-	if (!hasPermission(req.auth.user.permissions, "issues:dds-requests")) {
+	if (!hasPermission(session.user.permissions, "issues:dds-requests")) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
-	const { id } = (await params) as { id: string };
+	const { id } = await params;
 	if (!/^\d+$/.test(id)) {
 		return new NextResponse("Invalid id", { status: 400 });
 	}
@@ -34,4 +38,4 @@ export const GET = auth(async (req, { params }) => {
 	return new NextResponse(await res.arrayBuffer(), {
 		headers: { "Content-Type": "application/pdf" },
 	});
-});
+}

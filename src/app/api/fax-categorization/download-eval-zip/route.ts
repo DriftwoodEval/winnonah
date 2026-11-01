@@ -15,12 +15,13 @@ function sanitizeForFilename(value: string): string {
 	return value.replace(/\.pdf$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "-");
 }
 
-export const GET = auth(async (req) => {
-	if (!req.auth) {
+export async function GET(req: Request) {
+	const session = await auth();
+	if (!session) {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
 
-	if (!hasPermission(req.auth.user.permissions, "fax:categorization:review")) {
+	if (!hasPermission(session.user.permissions, "fax:categorization:review")) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 
@@ -55,7 +56,7 @@ export const GET = auth(async (req) => {
 		});
 	}
 
-	const driveApi = getDriveClient(req.auth);
+	const driveApi = getDriveClient(session);
 	const zip = new JSZip();
 
 	for (const fax of reviewed) {
@@ -83,4 +84,4 @@ export const GET = auth(async (req) => {
 				'attachment; filename="fax-categorization-eval.zip"',
 		},
 	});
-});
+}

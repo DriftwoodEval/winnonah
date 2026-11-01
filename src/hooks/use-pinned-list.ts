@@ -1,5 +1,5 @@
-import { useSession } from "next-auth/react";
 import { useMemo } from "react";
+import { useSession } from "~/lib/auth-client";
 import {
 	type PinnedList,
 	type PinnedListEntry,

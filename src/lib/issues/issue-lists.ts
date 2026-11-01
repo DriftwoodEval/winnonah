@@ -12,7 +12,6 @@ import {
 	not,
 	sql,
 } from "drizzle-orm";
-import type { Session } from "next-auth";
 import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
 import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/integrations/google";
@@ -24,6 +23,7 @@ import {
 	isPolicyActive,
 } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
+import type { Session } from "~/server/auth/types";
 import {
 	appointments,
 	clientInsurancePolicies,

@@ -16,7 +16,6 @@ import {
 	sql,
 } from "drizzle-orm";
 import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
-import type { Session } from "next-auth";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
 import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
@@ -33,6 +32,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import type { Session } from "~/server/auth/types";
 import {
 	clients,
 	evaluators,

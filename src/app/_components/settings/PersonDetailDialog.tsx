@@ -36,12 +36,12 @@ import {
 } from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useSession } from "~/lib/auth-client";
 import { logger } from "~/lib/logger";
 import type { Evaluator, User } from "~/lib/models";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";

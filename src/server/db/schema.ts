@@ -6,7 +6,6 @@ import {
 	primaryKey,
 	uniqueIndex,
 } from "drizzle-orm/mysql-core";
-import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import {
@@ -1248,12 +1247,7 @@ export const users = createTable("user", (d) => ({
 		.$defaultFn(() => crypto.randomUUID()),
 	name: d.varchar({ length: 255 }),
 	email: d.varchar({ length: 255 }).notNull(),
-	emailVerified: d
-		.timestamp({
-			mode: "date",
-			fsp: 3,
-		})
-		.default(sql`CURRENT_TIMESTAMP(3)`),
+	emailVerified: d.boolean().notNull().default(false),
 	image: d.varchar({ length: 255 }),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
@@ -1269,6 +1263,8 @@ export const users = createTable("user", (d) => ({
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),
 	pinnedList: d.json().$type<PinnedList>(),
+	createdAt: d.timestamp().defaultNow().notNull(),
+	updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -1285,28 +1281,41 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	}),
 }));
 
+/**
+ * Better Auth account rows. The Google tokens live here: the session
+ * callback in ~/server/auth/config.ts copies them onto the session user.
+ * The OAuth column names (`provider`, `access_token`, ...) are kept and mapped
+ * in the `account.fields` option of the auth config.
+ */
 export const accounts = createTable(
 	"account",
 	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
 		userId: d
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		type: d.varchar({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
 		provider: d.varchar({ length: 255 }).notNull(),
 		providerAccountId: d.varchar({ length: 255 }).notNull(),
 		refresh_token: d.text(),
 		access_token: d.text(),
-		expires_at: d.int(),
-		token_type: d.varchar({ length: 255 }),
+		accessTokenExpiresAt: d.timestamp(),
+		refreshTokenExpiresAt: d.timestamp(),
 		scope: d.text(),
 		id_token: d.text(),
-		session_state: d.varchar({ length: 255 }),
+		password: d.text(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
 	(t) => [
-		primaryKey({
-			columns: [t.provider, t.providerAccountId],
-		}),
+		uniqueIndex("account_provider_account_idx").on(
+			t.provider,
+			t.providerAccountId,
+		),
 		index("account_user_id_idx").on(t.userId),
 	],
 );
@@ -1336,35 +1345,60 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 	}),
 }));
 
+/**
+ * Better Auth session rows. `sessionToken` and `expires` are mapped in the
+ * `session.fields` option of the auth config. The `*Filters` columns hold
+ * per-session UI state and are declared as `session.additionalFields` there.
+ */
 export const sessions = createTable(
 	"session",
 	(d) => ({
-		sessionToken: d.varchar({ length: 255 }).notNull().primaryKey(),
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		sessionToken: d.varchar({ length: 255 }).notNull(),
 		userId: d
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
 		expires: d.timestamp({ mode: "date" }).notNull(),
+		ipAddress: d.varchar({ length: 255 }),
+		userAgent: d.text(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 		clientFilters: d.text(),
 		schedulingFilters: d.text(),
 		directoryFilters: d.text(),
 		reportsFilters: d.text(),
 	}),
-	(t) => [index("session_user_id_idx").on(t.userId)],
+	(t) => [
+		uniqueIndex("session_token_idx").on(t.sessionToken),
+		index("session_user_id_idx").on(t.userId),
+	],
 );
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
-export const verificationTokens = createTable(
-	"verification_token",
+/** Short-lived Better Auth state, such as the OAuth state for a sign-in in progress. */
+export const verifications = createTable(
+	"verification",
 	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
 		identifier: d.varchar({ length: 255 }).notNull(),
-		token: d.varchar({ length: 255 }).notNull(),
-		expires: d.timestamp({ mode: "date" }).notNull(),
+		value: d.text().notNull(),
+		expiresAt: d.timestamp().notNull(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
-	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
+	(t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
 export const schedulingClients = createTable(

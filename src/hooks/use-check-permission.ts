@@ -1,4 +1,4 @@
-import { useSession } from "next-auth/react";
+import { useSession } from "~/lib/auth-client";
 import type { PermissionId } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 

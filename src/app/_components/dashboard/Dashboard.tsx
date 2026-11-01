@@ -19,11 +19,11 @@ import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { AlertTriangle, Loader2, MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
+import { useSession } from "~/lib/auth-client";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,

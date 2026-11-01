@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "~/lib/auth-client";
 import { IS_DEV } from "~/lib/utils";
 import { api } from "~/trpc/react";
 

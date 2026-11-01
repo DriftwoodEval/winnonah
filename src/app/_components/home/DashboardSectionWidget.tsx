@@ -15,7 +15,7 @@ import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "~/lib/auth-client";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,

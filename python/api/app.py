@@ -5,6 +5,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -25,7 +26,6 @@ from utils.appointments import (
 from utils.constants import (
     MAX_POST_VISIT_ATTACHMENT_BYTES,
     POST_VISIT_ATTACHMENT,
-    TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
@@ -184,24 +184,36 @@ def get_google_services():
     return {"drive": drive_service, "sheets": sheets_service}
 
 
+SESSION_COOKIE_NAMES = (
+    "better-auth.session_token",
+    "__Secure-better-auth.session_token",
+)
+
+
+def _session_token_from_cookie(cookie_value: str) -> str:
+    """Extracts the raw session token from a Better Auth session cookie.
+
+    The cookie value is `<token>.<signature>`, URL-encoded. Only the token is
+    stored in the session table. It is a long random string, so looking it up
+    is enough to authenticate; the signature adds nothing the lookup does not.
+    """
+    return unquote(cookie_value).split(".", 1)[0]
+
+
 def get_current_user(request: Request):
-    cookie_names = [
-        "authjs.session-token",
-        "__Secure-authjs.session-token",
-        "next-auth.session-token",
-        "__Secure-next-auth.session-token",
-    ]
-    session_token = next(
+    cookie_value = next(
         (
             request.cookies.get(name)
-            for name in cookie_names
+            for name in SESSION_COOKIE_NAMES
             if request.cookies.get(name)
         ),
         None,
     )
 
-    if not session_token:
+    if not cookie_value:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    session_token = _session_token_from_cookie(cookie_value)
 
     impersonate_user_id = request.cookies.get("impersonate-user-id")
 
@@ -212,12 +224,10 @@ def get_current_user(request: Request):
                 SELECT
                     u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
                     r.permissions AS role_permissions,
-                    s.expires,
-                    a.access_token, a.refresh_token, a.expires_at, a.scope
+                    s.expires
                 FROM {TABLE_SESSION} s
                 JOIN {TABLE_USER} u ON s.userId = u.id
                 LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
                 WHERE s.sessionToken = %s
             """
             cursor.execute(sql, (session_token,))

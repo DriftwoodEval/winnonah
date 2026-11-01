@@ -3,7 +3,7 @@
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Redact } from "@components/redaction/Redact";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 export function RecentClients({ onNavigate }: { onNavigate?: () => void }) {

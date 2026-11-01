@@ -16,8 +16,8 @@ import {
 import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 export function GlobalClientSearch() {

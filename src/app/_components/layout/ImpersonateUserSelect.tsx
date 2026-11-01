@@ -8,15 +8,15 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { VenetianMask } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { useSession } from "~/lib/auth-client";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 /**
  * "View as another user" control, gated behind the `settings:impersonate` permission.
- * Sets a cookie the NextAuth session callback reads (see src/server/auth/impersonation.ts)
+ * Sets a cookie the auth session plugin reads (see src/server/auth/config.ts)
  * so the homepage, permissions, and every other user-scoped call behave as the selected
  * user, not whoever is actually signed in.
  */

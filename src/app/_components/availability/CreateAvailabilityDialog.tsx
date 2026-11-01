@@ -10,10 +10,10 @@ import {
 	DialogTitle,
 } from "@ui/dialog";
 import { Form } from "@ui/form";
-import { signIn } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { signInWithGoogle } from "~/lib/auth-client";
 import {
 	type AvailabilityFormValues,
 	availabilityFormSchema,
@@ -113,11 +113,10 @@ export function CreateAvailabilityDialog({
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signIn(
-								"google",
-								{ callbackUrl: window.location.href },
-								{ prompt: "consent" },
-							),
+							signInWithGoogle({
+								callbackUrl: window.location.href,
+								forceConsent: true,
+							}),
 					},
 				});
 			} else {

@@ -14,7 +14,6 @@ import {
 } from "drizzle-orm";
 import { chunk } from "es-toolkit/array";
 import { OAuth2Client } from "google-auth-library";
-import type { Session } from "next-auth";
 import { env } from "~/env";
 import { fetchWithCache } from "~/lib/cache";
 import {
@@ -26,6 +25,7 @@ import {
 import { logger } from "~/lib/logger";
 import type { Client, FullClientInfo } from "~/lib/models";
 import type { Context } from "~/server/api/trpc";
+import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	appointments,
