@@ -8,11 +8,11 @@ import {
 import {
 	CACHE_KEY_MISSING_PUNCHLIST,
 	CACHE_KEY_PUNCHLIST,
+	type GoogleCaller,
 	getMissingFromPunchlistData,
 	getPunchData,
 } from "~/lib/integrations/google";
 import type { Context } from "~/server/api/trpc";
-import type { Session } from "~/server/auth/types";
 import { clients } from "~/server/db/schema";
 
 /**
@@ -21,7 +21,7 @@ import { clients } from "~/server/db/schema";
  * both use identical filtering logic.
  */
 export async function getFullDashboardData(
-	ctx: Pick<Context, "db" | "redis"> & { session: Session },
+	ctx: Pick<Context, "db" | "redis"> & { session: GoogleCaller },
 ) {
 	const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 

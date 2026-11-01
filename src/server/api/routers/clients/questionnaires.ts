@@ -34,6 +34,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import { hasGoogleCredentials } from "~/server/auth/google-credentials";
 import {
 	appointments,
 	assessmentTypes,
@@ -261,7 +262,7 @@ async function checkAndUpdateQsBatteryStatus(
 ) {
 	const session = ctx.session;
 	if (!session) return;
-	if (!session.user?.accessToken || !session.user?.refreshToken) return;
+	if (!(await hasGoogleCredentials(session.user.id))) return;
 
 	const client =
 		preloaded?.client ??

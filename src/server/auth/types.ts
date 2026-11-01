@@ -1,10 +1,10 @@
 import type { PermissionsObject } from "~/lib/types";
 
 /**
- * The signed-in user as the browser sees it (`useSession()` and
- * `/api/auth/get-session`). Google tokens are never part of this shape.
+ * The signed-in user, as served to the browser by `/api/auth/get-session`
+ * and returned by `auth()` on the server. It never carries Google tokens.
  */
-export interface ClientSessionUser {
+export interface SessionUser {
 	id: string;
 	name: string | null;
 	email: string;
@@ -26,15 +26,7 @@ export interface ClientSessionUser {
 	realPermissions: PermissionsObject;
 }
 
-export interface ClientSession {
-	user: ClientSessionUser;
+export interface Session {
+	user: SessionUser;
 	session: { id: string; expiresAt: Date };
-}
-
-/** The server-side session returned by `auth()`. Adds the user's Google tokens. */
-export interface Session extends ClientSession {
-	user: ClientSessionUser & {
-		accessToken?: string;
-		refreshToken?: string;
-	};
 }

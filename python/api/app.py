@@ -242,18 +242,18 @@ def get_current_user(request: Request):
                 SELECT
                     u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
                     r.permissions AS role_permissions,
-                    s.expires
+                    s.expiresAt
                 FROM {TABLE_SESSION} s
                 JOIN {TABLE_USER} u ON s.userId = u.id
                 LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                WHERE s.sessionToken = %s
+                WHERE s.token = %s
             """
             cursor.execute(sql, (session_token,))
             row = cursor.fetchone()
 
             if not row:
                 raise HTTPException(status_code=401, detail="Invalid session")
-            if row["expires"].replace(tzinfo=UTC) < datetime.now(UTC):
+            if row["expiresAt"].replace(tzinfo=UTC) < datetime.now(UTC):
                 raise HTTPException(status_code=401, detail="Session expired")
             if row.get("archived"):
                 raise HTTPException(status_code=403, detail="Account archived")

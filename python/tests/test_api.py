@@ -122,7 +122,7 @@ class TestGetCurrentUser:
             "archived": 0,
             "roleId": None,
             "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+            "expiresAt": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with patch("api.app.get_db", return_value=conn):
@@ -175,7 +175,7 @@ class TestGetCurrentUser:
             "archived": 0,
             "roleId": None,
             "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+            "expiresAt": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with (
@@ -195,7 +195,7 @@ class TestGetCurrentUser:
             "archived": 1,
             "roleId": None,
             "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+            "expiresAt": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with (
@@ -217,7 +217,7 @@ class TestGetCurrentUser:
             "role_permissions": json.dumps(
                 {"reports:notifications": False, "clients:view": True}
             ),
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+            "expiresAt": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with patch("api.app.get_db", return_value=conn):
@@ -237,7 +237,7 @@ class TestGetCurrentUser:
             "archived": 0,
             "roleId": None,
             "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+            "expiresAt": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with patch("api.app.get_db", return_value=conn):

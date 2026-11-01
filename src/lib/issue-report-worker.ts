@@ -10,7 +10,6 @@ import {
 import { logger } from "~/lib/logger";
 import { db } from "~/server/db";
 import {
-	accounts,
 	issueReportScreenshots,
 	issueReports,
 	users,
@@ -130,15 +129,9 @@ async function sendReportEmail(
 	report: IssueReport,
 	screenshots: Awaited<ReturnType<typeof loadScreenshots>>,
 ) {
-	const account = await db.query.accounts.findFirst({
-		where: eq(accounts.userId, report.reporterUserId),
-	});
 	const subjectSuffix = report.jiraKey ? ` [${report.jiraKey}]` : "";
 	await sendGmailAsUser(
-		{
-			accessToken: account?.access_token,
-			refreshToken: account?.refresh_token,
-		},
+		report.reporterUserId,
 		{
 			to: ISSUE_REPORT_EMAIL,
 			cc: report.ccEmails,

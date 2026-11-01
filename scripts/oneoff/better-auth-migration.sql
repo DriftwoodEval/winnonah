@@ -37,9 +37,16 @@ ALTER TABLE `emr_user`
   ADD COLUMN `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 UPDATE `emr_user` SET `emailVerified` = 1;
 
--- 3. emr_account: add a row id (the old key was provider + providerAccountId),
---    real token expiry timestamps, and audit columns. Drop NextAuth-only columns.
+-- 3. emr_account: use Better Auth's column names, add a row id (the old key was
+--    provider + providerAccountId), real token expiry timestamps, and audit
+--    columns. Drop NextAuth-only columns.
 ALTER TABLE `emr_account` DROP PRIMARY KEY;
+ALTER TABLE `emr_account`
+  RENAME COLUMN `provider` TO `providerId`,
+  RENAME COLUMN `providerAccountId` TO `accountId`,
+  RENAME COLUMN `access_token` TO `accessToken`,
+  RENAME COLUMN `refresh_token` TO `refreshToken`,
+  RENAME COLUMN `id_token` TO `idToken`;
 ALTER TABLE `emr_account`
   ADD COLUMN `id` VARCHAR(255) NOT NULL FIRST,
   ADD COLUMN `accessTokenExpiresAt` TIMESTAMP NULL,
@@ -52,15 +59,19 @@ UPDATE `emr_account`
       `accessTokenExpiresAt` = IF(`expires_at` IS NULL, NULL, FROM_UNIXTIME(`expires_at`));
 ALTER TABLE `emr_account`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE INDEX `account_provider_account_idx` (`provider`, `providerAccountId`),
+  ADD UNIQUE INDEX `account_provider_account_idx` (`providerId`, `accountId`),
   DROP COLUMN `type`,
   DROP COLUMN `expires_at`,
   DROP COLUMN `token_type`,
   DROP COLUMN `session_state`;
 
--- 4. emr_session: add a row id (the old key was the token), client info, and
---    audit columns. The table is empty after step 1, so the new key is safe.
+-- 4. emr_session: use Better Auth's column names, add a row id (the old key was
+--    the token), client info, and audit columns. The table is empty after
+--    step 1, so the new key is safe.
 ALTER TABLE `emr_session` DROP PRIMARY KEY;
+ALTER TABLE `emr_session`
+  RENAME COLUMN `sessionToken` TO `token`,
+  RENAME COLUMN `expires` TO `expiresAt`;
 ALTER TABLE `emr_session`
   ADD COLUMN `id` VARCHAR(255) NOT NULL FIRST,
   ADD COLUMN `ipAddress` VARCHAR(255) NULL,
@@ -69,7 +80,7 @@ ALTER TABLE `emr_session`
   ADD COLUMN `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 ALTER TABLE `emr_session`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE INDEX `session_token_idx` (`sessionToken`);
+  ADD UNIQUE INDEX `session_token_idx` (`token`);
 
 -- 5. Verification: Better Auth keeps short-lived OAuth state in emr_verification.
 --    The old emr_verification_token table was never used for Google sign-in.

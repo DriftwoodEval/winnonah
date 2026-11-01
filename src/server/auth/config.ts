@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
@@ -7,7 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import type { ClientSession } from "~/server/auth/types";
+import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	accounts,
@@ -84,7 +84,7 @@ async function applyInvitationOrDefaults(user: { id: string; email: string }) {
 	});
 }
 
-export const authInstance = betterAuth({
+const authOptions = {
 	baseURL: env.AUTH_URL,
 	secret: env.AUTH_SECRET,
 	database: drizzleAdapter(db, {
@@ -98,20 +98,23 @@ export const authInstance = betterAuth({
 	}),
 	// Existing user ids are UUIDs, so new rows get the same format.
 	advanced: { database: { generateId: "uuid" } },
-	// Keep the existing column names. Better Auth field names are on the left,
-	// the Drizzle schema keys in `~/server/db/schema` on the right.
 	session: {
 		expiresIn: 60 * 60 * 5, // 5 hours
 		updateAge: 60 * 10, // 10 minutes
-		fields: { token: "sessionToken", expiresAt: "expires" },
 	},
-	account: {
-		fields: {
-			providerId: "provider",
-			accountId: "providerAccountId",
-			accessToken: "access_token",
-			refreshToken: "refresh_token",
-			idToken: "id_token",
+	// App-owned user columns, read in `customSession`. Values are set by the
+	// hooks below and by settings pages, never from request input.
+	//
+	// The `json` fields are only ever read here. On MySQL the adapter
+	// stringifies JSON on write, which the Drizzle `json` columns would then
+	// encode a second time, so JSON columns are written through Drizzle only.
+	user: {
+		additionalFields: {
+			roleId: { type: "number", required: false, input: false },
+			archived: { type: "boolean", required: false, input: false },
+			maxClaimedReports: { type: "number", required: false, input: false },
+			permissions: { type: "json", required: false, input: false },
+			claimedReportFolder: { type: "json", required: false, input: false },
 		},
 	},
 	socialProviders: {
@@ -163,12 +166,18 @@ export const authInstance = betterAuth({
 			}
 		}),
 	},
+} satisfies BetterAuthOptions;
+
+export const authInstance = betterAuth({
+	...authOptions,
 	plugins: [
-		customSession(async ({ user, session }, ctx): Promise<ClientSession> => {
-			const realUser = await db.query.users.findFirst({
-				where: eq(users.id, user.id),
-			});
-			if (!realUser) throw new Error("Session user not found");
+		customSession(async ({ user, session }, ctx): Promise<Session> => {
+			const realUser = {
+				id: user.id,
+				email: user.email,
+				permissions: (user.permissions ?? null) as PermissionsObject | null,
+				roleId: user.roleId ?? null,
+			};
 
 			const realPermissions = await resolvePermissions(realUser);
 
@@ -184,9 +193,20 @@ export const authInstance = betterAuth({
 				: undefined;
 
 			const isImpersonating = !!impersonatedUser;
-			const targetUser = impersonatedUser ?? realUser;
-			const permissions = isImpersonating
-				? await resolvePermissions(targetUser)
+			const targetUser = impersonatedUser ?? {
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				image: user.image ?? null,
+				roleId: user.roleId ?? null,
+				archived: user.archived ?? null,
+				claimedReportFolder: (user.claimedReportFolder ?? null) as
+					| { name: string; id: string }[]
+					| null,
+				maxClaimedReports: user.maxClaimedReports ?? null,
+			};
+			const permissions = impersonatedUser
+				? await resolvePermissions(impersonatedUser)
 				: realPermissions;
 
 			const evaluatorProfile = await db.query.evaluators.findFirst({
@@ -214,7 +234,7 @@ export const authInstance = betterAuth({
 					realPermissions,
 				},
 			};
-		}),
+		}, authOptions),
 		// Must be the last plugin: lets server actions set the session cookie.
 		nextCookies(),
 	],
