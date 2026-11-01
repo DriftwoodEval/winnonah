@@ -8,10 +8,17 @@
 -- Back up first:
 --   mysqldump <db> emr_user emr_account emr_session emr_verification_token > auth-backup.sql
 --
--- Check first: Better Auth looks users up by lowercased email, so a stored
--- email with capital letters would not match and the person would get a second,
--- empty account. This must return no rows (fix any it returns before cutover):
---   SELECT id, email FROM emr_user WHERE email <> LOWER(email);
+-- Check first: Better Auth lowercases the email it looks up. MySQL's default
+-- collation ignores case, so a stored "Jane@x.com" still matches, but make the
+-- stored values lowercase anyway so later exact comparisons agree. The
+-- BINARY comparison is needed; a plain `email <> LOWER(email)` ignores case and
+-- never matches. This lists mixed-case emails:
+--   SELECT id, email FROM emr_user WHERE BINARY email <> LOWER(email);
+-- Two users whose emails differ only by case would collide once lowercased.
+-- This must return no rows:
+--   SELECT LOWER(email), COUNT(*) FROM emr_user GROUP BY LOWER(email) HAVING COUNT(*) > 1;
+-- If both checks are clean up front, fix the first list with:
+--   UPDATE emr_user SET email = LOWER(email) WHERE BINARY email <> LOWER(email);
 --
 -- Effects:
 --   * Every session row is deleted, so everyone signs in again once.
