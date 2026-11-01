@@ -1,36 +1,37 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { signOut, useSession } from "~/lib/auth-client";
+import { useEffect } from "react";
+import { authClient } from "~/lib/auth-client";
 
+/**
+ * Sends the user to the sign-in page when their session runs out while the
+ * page is open. A "view as" session lasts one hour and does not renew, so this
+ * is how it ends. The session list is also re-checked on an interval (see
+ * `auth-client.ts`), which covers sessions revoked on the server.
+ */
 export function SessionExpiryMonitor() {
-	const { status } = useSession();
-	const checkIntervalRef = useRef<NodeJS.Timeout>(null);
+	const { data: session } = authClient.useSession();
+	const expiresAt = session?.session.expiresAt;
 
 	useEffect(() => {
-		if (status !== "authenticated") return;
+		if (!expiresAt) return;
 
-		// Check session validity every 30 seconds
-		checkIntervalRef.current = setInterval(async () => {
-			// The endpoint returns null once the session has expired
-			const response = await fetch("/api/auth/get-session");
-			const currentSession = await response.json();
-
-			if (!currentSession?.user) {
-				// Session expired, force logout, and remember where to return to
-				const returnTo = `${window.location.pathname}${window.location.search}`;
-				await signOut({
-					callbackUrl: `/login?timeout=true&callbackUrl=${encodeURIComponent(returnTo)}`,
+		const timer = setTimeout(
+			async () => {
+				const { data } = await authClient.getSession({
+					query: { disableCookieCache: true },
 				});
-			}
-		}, 30000); // Check every 30 seconds
+				if (data) return;
 
-		return () => {
-			if (checkIntervalRef.current) {
-				clearInterval(checkIntervalRef.current);
-			}
-		};
-	}, [status]);
+				const returnTo = `${window.location.pathname}${window.location.search}`;
+				window.location.assign(
+					`/login?timeout=true&callbackUrl=${encodeURIComponent(returnTo)}`,
+				);
+			},
+			Math.max(new Date(expiresAt).getTime() - Date.now(), 0) + 1000,
+		);
+		return () => clearTimeout(timer);
+	}, [expiresAt]);
 
 	return null;
 }

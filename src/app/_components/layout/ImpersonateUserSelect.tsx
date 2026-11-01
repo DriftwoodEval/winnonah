@@ -11,11 +11,7 @@ import { VenetianMask } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import {
-	startImpersonating,
-	stopImpersonating,
-	useSession,
-} from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -26,7 +22,7 @@ import { api } from "~/trpc/react";
  * other user-scoped call behave as that user, not whoever is actually signed in.
  */
 export function ImpersonateUserSelect() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const { data: users } = api.users.getAll.useQuery(undefined, {
 		enabled: !!session,
 	});
@@ -51,9 +47,11 @@ export function ImpersonateUserSelect() {
 		setPending(true);
 		try {
 			if (userId) {
-				await startImpersonating(userId);
+				const { error } = await authClient.impersonation.start({ userId });
+				if (error) throw new Error(error.message);
 			} else {
-				await stopImpersonating();
+				const { error } = await authClient.impersonation.stop();
+				if (error) throw new Error(error.message);
 			}
 			window.location.reload();
 		} catch (error) {

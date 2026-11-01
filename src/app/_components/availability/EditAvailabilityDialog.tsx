@@ -34,7 +34,7 @@ import { AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { signInWithGoogle } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import {
 	type AvailabilityFormValues,
 	availabilityFormSchema,
@@ -185,9 +185,10 @@ export function EditAvailabilityDialog({
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signInWithGoogle({
-								callbackUrl: window.location.href,
-								forceConsent: true,
+							authClient.signIn.social({
+								provider: "google",
+								callbackURL: window.location.href,
+								additionalParams: { prompt: "consent" },
 							}),
 					},
 				});
@@ -210,9 +211,10 @@ export function EditAvailabilityDialog({
 					action: {
 						label: "Re-authorize",
 						onClick: () =>
-							signInWithGoogle({
-								callbackUrl: window.location.href,
-								forceConsent: true,
+							authClient.signIn.social({
+								provider: "google",
+								callbackURL: window.location.href,
+								additionalParams: { prompt: "consent" },
 							}),
 					},
 				});

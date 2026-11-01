@@ -1,7 +1,12 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { env } from "~/env";
 import { authInstance } from "~/server/auth/config";
+import {
+	readCachedGoogleToken,
+	writeCachedGoogleToken,
+} from "~/server/auth/google-token-cache";
 import { db } from "~/server/db";
 import { accounts } from "~/server/db/schema";
 
@@ -19,23 +24,44 @@ export async function hasGoogleCredentials(userId: string): Promise<boolean> {
 
 /**
  * Returns a valid Google access token for the user. Better Auth refreshes an
- * expired token with the stored refresh token and saves the new one.
+ * expired token with the stored refresh token and saves the new one. The
+ * token is cached until shortly before it expires, in Redis so every web
+ * instance sees a sign-in or re-authorization right away.
  */
 async function getFreshAccessToken(userId: string) {
+	const cached = await readCachedGoogleToken(userId);
+	if (cached) return cached;
+
 	const account = await findGoogleAccount(userId);
 	if (!account?.refreshToken) {
-		throw new Error("Google account is not connected for this user.");
+		throw reauthorizationRequired();
 	}
 
-	const { accessToken, accessTokenExpiresAt } =
-		await authInstance.api.getAccessToken({
-			body: { accountId: account.id, userId },
-		});
-	return {
-		access_token: accessToken,
-		// Without a known expiry the token counts as expired, so the next call asks again.
-		expiry_date: accessTokenExpiresAt?.getTime() ?? Date.now(),
-	};
+	try {
+		const { accessToken, accessTokenExpiresAt } =
+			await authInstance.api.getAccessToken({
+				body: { accountId: account.id, userId },
+			});
+		const token = {
+			access_token: accessToken,
+			// Without a known expiry the token counts as expired, so the next call asks again.
+			expiry_date: accessTokenExpiresAt?.getTime() ?? Date.now(),
+		};
+		await writeCachedGoogleToken(userId, token);
+		return token;
+	} catch (error) {
+		// The refresh token was revoked or Google rejected the refresh.
+		console.error("Could not get a Google access token", error);
+		throw reauthorizationRequired();
+	}
+}
+
+function reauthorizationRequired() {
+	return new TRPCError({
+		code: "UNAUTHORIZED",
+		message:
+			"Google access has expired or was revoked. Please sign in with Google again.",
+	});
 }
 
 /**

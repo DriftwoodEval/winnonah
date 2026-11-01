@@ -1,12 +1,18 @@
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import {
+	APIError,
+	createAuthMiddleware,
+	getSessionFromCtx,
+} from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { customSession } from "better-auth/plugins";
 import { and, eq } from "drizzle-orm";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
+import { recordAuthAudit } from "~/server/auth/audit";
+import { clearCachedGoogleToken } from "~/server/auth/google-token-cache";
 import { impersonation } from "~/server/auth/impersonation";
 import { resolvePermissions } from "~/server/auth/permissions";
 import type { Session } from "~/server/auth/types";
@@ -74,6 +80,18 @@ async function applyInvitationOrDefaults(user: { id: string; email: string }) {
 const authOptions = {
 	baseURL: env.AUTH_URL,
 	secret: env.AUTH_SECRET,
+	trustedOrigins: env.AUTH_TRUSTED_ORIGINS?.split(",")
+		.map((origin) => origin.trim())
+		.filter(Boolean),
+	// The office shares one IP, and the Python API checks sessions on every
+	// request, so the defaults (3 sign-ins and 100 session reads per 10
+	// seconds) are too tight. Limits are counted per web instance.
+	rateLimit: {
+		customRules: {
+			"/get-session": { window: 10, max: 300 },
+			"/sign-in/social": { window: 10, max: 30 },
+		},
+	},
 	database: drizzleAdapter(db, {
 		provider: "mysql",
 		schema: {
@@ -126,18 +144,65 @@ const authOptions = {
 				},
 			},
 		},
+		// New or refreshed Google tokens make any cached access token stale.
+		account: {
+			create: { after: (account) => clearCachedGoogleToken(account.userId) },
+			update: {
+				after: async (account) => {
+					if (account?.userId) await clearCachedGoogleToken(account.userId);
+				},
+			},
+		},
 		session: {
 			create: {
 				// Archived users cannot sign in, on first login or any later one.
 				before: async (session) => {
 					const userInDb = await db.query.users.findFirst({
 						where: eq(users.id, session.userId),
-						columns: { archived: true },
+						columns: { email: true, archived: true },
 					});
-					if (!userInDb || userInDb.archived) return false;
+					if (!userInDb) return false;
+					if (userInDb.archived) {
+						await recordAuthAudit({
+							userId: session.userId,
+							userEmail: userInDb.email,
+							action: "auth.sign_in_blocked",
+							success: false,
+							errorMessage: "Account archived",
+						});
+						return false;
+					}
+				},
+				// "View as" sessions are audited when they start, not here.
+				after: async (session) => {
+					if ((session as { impersonatedBy?: string | null }).impersonatedBy) {
+						return;
+					}
+					const userInDb = await db.query.users.findFirst({
+						where: eq(users.id, session.userId),
+						columns: { email: true },
+					});
+					if (!userInDb) return;
+					await recordAuthAudit({
+						userId: session.userId,
+						userEmail: userInDb.email,
+						action: "auth.sign_in",
+					});
 				},
 			},
 		},
+	},
+	hooks: {
+		before: createAuthMiddleware(async (ctx) => {
+			if (ctx.path !== "/sign-out") return;
+			const current = await getSessionFromCtx(ctx);
+			if (!current) return;
+			await recordAuthAudit({
+				userId: current.user.id,
+				userEmail: current.user.email,
+				action: "auth.sign_out",
+			});
+		}),
 	},
 	plugins: [impersonation()],
 } satisfies BetterAuthOptions;

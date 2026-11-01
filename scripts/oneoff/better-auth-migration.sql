@@ -81,7 +81,14 @@ ALTER TABLE `emr_session`
   ADD COLUMN `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 ALTER TABLE `emr_session`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE INDEX `session_token_idx` (`token`);
+  ADD UNIQUE INDEX `session_token_idx` (`token`),
+  DROP COLUMN `clientFilters`,
+  DROP COLUMN `schedulingFilters`,
+  DROP COLUMN `directoryFilters`,
+  DROP COLUMN `reportsFilters`;
+
+-- Table filters now live on the user instead of the session.
+ALTER TABLE `emr_user` ADD COLUMN `savedFilters` JSON NULL;
 
 -- 5. Verification: Better Auth keeps short-lived OAuth state in emr_verification.
 --    The old emr_verification_token table was never used for Google sign-in.

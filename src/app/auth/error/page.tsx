@@ -3,7 +3,7 @@
 import { Button } from "@ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { signInWithGoogle, useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 
 /** Error codes Better Auth appends to the error page URL. */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -25,7 +25,7 @@ const NON_RETRYABLE_ERRORS = new Set([
 function AuthError() {
 	const params = useSearchParams();
 	const router = useRouter();
-	const { status } = useSession();
+	const { data: session } = authClient.useSession();
 	const error = params.get("error") ?? "";
 	const message =
 		ERROR_MESSAGES[error] ?? "Something went wrong during sign in.";
@@ -33,10 +33,10 @@ function AuthError() {
 
 	// If we already have a session, leave this page instead of sitting on it.
 	useEffect(() => {
-		if (status === "authenticated") {
+		if (session) {
 			router.replace("/");
 		}
-	}, [status, router]);
+	}, [session, router]);
 
 	return (
 		<main className="flex min-h-screen min-w-screen flex-col items-center justify-center gap-6">
@@ -44,7 +44,9 @@ function AuthError() {
 			<p className="text-muted-foreground">{message}</p>
 			{canRetry && (
 				<Button
-					onClick={() => signInWithGoogle()}
+					onClick={() =>
+						authClient.signIn.social({ provider: "google", callbackURL: "/" })
+					}
 					size="lg"
 					variant="secondary"
 				>

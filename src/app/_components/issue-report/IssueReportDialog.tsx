@@ -25,7 +25,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRecentErrors } from "~/lib/client-error-log";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { cn } from "~/lib/utils";
 import {
 	ISSUE_REPORT_PRIORITIES,
@@ -82,7 +82,7 @@ export function IssueReportDialog({
 	onDiscard,
 	onSent,
 }: IssueReportDialogProps) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const [preparing, setPreparing] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { data: recipientConfig } = api.issueReport.getRecipients.useQuery(

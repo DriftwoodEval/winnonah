@@ -10,7 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSession } from "~/lib/auth-client";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { AvailabilityList } from "./AvailabilityList";
 import { TeamMonthView } from "./TeamMonthView";
@@ -19,7 +19,7 @@ function PersonView() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	const urlEmail = searchParams.get("email") ?? undefined;
 	const [selectedEmail, setSelectedEmail] = useState(urlEmail);

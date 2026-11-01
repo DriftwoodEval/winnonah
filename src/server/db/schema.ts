@@ -15,6 +15,7 @@ import {
 import type { PinnedList } from "~/lib/pinned-list";
 import type { UserPreferences } from "~/lib/preferences";
 import type { RunSummary } from "~/lib/run-summary";
+import type { SavedFilters } from "~/lib/saved-filters";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -1264,6 +1265,8 @@ export const users = createTable("user", (d) => ({
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),
 	pinnedList: d.json().$type<PinnedList>(),
+	// Last-used table filters (see ~/lib/saved-filters).
+	savedFilters: d.json().$type<SavedFilters>(),
 	createdAt: d.timestamp().defaultNow().notNull(),
 	updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 }));
@@ -1338,7 +1341,7 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 	}),
 }));
 
-/** Better Auth session rows. The `*Filters` columns hold per-session UI state. */
+/** Better Auth session rows. */
 export const sessions = createTable(
 	"session",
 	(d) => ({
@@ -1359,10 +1362,6 @@ export const sessions = createTable(
 		impersonatedBy: d.varchar({ length: 255 }),
 		createdAt: d.timestamp().defaultNow().notNull(),
 		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
-		clientFilters: d.text(),
-		schedulingFilters: d.text(),
-		directoryFilters: d.text(),
-		reportsFilters: d.text(),
 	}),
 	(t) => [
 		uniqueIndex("session_token_idx").on(t.token),
