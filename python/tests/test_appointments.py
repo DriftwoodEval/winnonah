@@ -1,13 +1,17 @@
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from utils.appointments import (
     SyncReporter,
     _is_placeholder_title,
     batch_search_calendar_events,
     build_placeholder_title,
+    find_matching_placeholder,
     parse_location_and_type,
+    replace_placeholder_with_real_appointment,
     should_skip_appointment,
 )
 
@@ -245,3 +249,112 @@ class TestIsPlaceholderTitle:
     def test_ignores_real_titles(self):
         for title in ["", "Jane Doe", "[COL-E] Jane Doe", "Dr. Smith Available"]:
             assert not _is_placeholder_title(title), title
+
+
+REAL_START = datetime(2026, 11, 10, 14, 0)
+
+
+def _placeholder(
+    placeholder_id: str,
+    da_eval: str,
+    start_time: datetime,
+    event_id: str | None = "hold-event",
+    email: str | None = "eval@example.com",
+) -> dict:
+    return {
+        "id": placeholder_id,
+        "daEval": da_eval,
+        "startTime": start_time,
+        "calendarEventId": event_id,
+        "evaluatorEmail": email,
+    }
+
+
+class TestFindMatchingPlaceholder:
+    @pytest.mark.parametrize(
+        ("placeholders", "da_eval", "expected_id"),
+        [
+            ([], "EVAL", None),
+            ([_placeholder("p1", "DA", REAL_START)], "EVAL", None),
+            ([_placeholder("p1", "EVAL", REAL_START)], None, None),
+            ([_placeholder("p1", "EVAL", REAL_START)], "EVAL", "p1"),
+            (
+                [
+                    _placeholder("far", "EVAL", REAL_START + timedelta(days=7)),
+                    _placeholder("near", "EVAL", REAL_START + timedelta(days=1)),
+                    _placeholder("other-type", "DA", REAL_START),
+                ],
+                "EVAL",
+                "near",
+            ),
+        ],
+    )
+    def test_picks_same_type_closest_in_time(self, placeholders, da_eval, expected_id):
+        match = find_matching_placeholder(placeholders, da_eval, REAL_START)
+
+        assert (match["id"] if match else None) == expected_id
+
+
+class TestReplacePlaceholderWithRealAppointment:
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_deletes_hold_event_and_row(
+        self, get_placeholders, delete_event, delete_row
+    ):
+        get_placeholders.return_value = [_placeholder("p1", "EVAL", REAL_START)]
+
+        replaced = replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", REAL_START, "real-event"
+        )
+
+        assert replaced
+        delete_event.assert_called_once_with("eval@example.com", "hold-event")
+        delete_row.assert_called_once_with("p1", 7, "ta-123")
+
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_no_match_deletes_nothing(self, get_placeholders, delete_event, delete_row):
+        get_placeholders.return_value = [_placeholder("p1", "DA", REAL_START)]
+
+        replaced = replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", REAL_START, "real-event"
+        )
+
+        assert not replaced
+        delete_event.assert_not_called()
+        delete_row.assert_not_called()
+
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_calendar_failure_still_removes_row(
+        self, get_placeholders, delete_event, delete_row
+    ):
+        get_placeholders.return_value = [_placeholder("p1", "EVAL", REAL_START)]
+        delete_event.side_effect = RuntimeError("calendar down")
+
+        replaced = replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", REAL_START, "real-event"
+        )
+
+        assert replaced
+        delete_row.assert_called_once_with("p1", 7, "ta-123")
+
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_never_deletes_the_real_appointments_event(
+        self, get_placeholders, delete_event, delete_row
+    ):
+        get_placeholders.return_value = [
+            _placeholder("p1", "EVAL", REAL_START, event_id="shared-event")
+        ]
+
+        replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", REAL_START, "shared-event"
+        )
+
+        delete_event.assert_not_called()
+        delete_row.assert_called_once_with("p1", 7, "ta-123")

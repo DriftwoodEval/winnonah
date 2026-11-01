@@ -16,6 +16,7 @@ from loguru import logger
 from utils.constants import TEST_NAMES_LOWER
 from utils.database import (
     compute_and_store_assessment_snapshot,
+    delete_superseded_placeholder,
     get_all_evaluators_npi_map,
     get_appointments_needing_folder_move,
     get_archived_evaluator_npis,
@@ -24,6 +25,7 @@ from utils.database import (
     get_client_id_to_drive_id_map,
     get_client_id_to_hash_map,
     get_client_id_to_name_variants_map,
+    get_client_placeholder_appointments,
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
@@ -39,6 +41,7 @@ from utils.database import (
 from utils.google import (
     build_google_service,
     clear_planned_office_events,
+    delete_calendar_event,
     drive_folder_link,
     google_authenticate,
     list_subfolders,
@@ -435,6 +438,69 @@ _PLACEHOLDER_VARIANTS = (
 def _is_placeholder_title(title: str) -> bool:
     letters = re.sub(r"[^a-z]", "", title.lower())
     return any(variant in letters for variant in _PLACEHOLDER_VARIANTS)
+
+
+def find_matching_placeholder(
+    placeholders: list[dict],
+    da_eval: DAEvalType | None,
+    start_time: datetime,
+) -> dict | None:
+    """Pick the placeholder a newly imported real appointment replaces.
+
+    A placeholder matches when it has the same appointment type. Appointments
+    without a parsed type never match, since the right hold can't be told apart.
+    Evaluator and date may differ from the hold (the real booking can land on
+    another day or evaluator), so the placeholder closest in time wins.
+    start_time and each placeholder's startTime must both be naive UTC.
+    """
+    if da_eval is None:
+        return None
+    same_type = [p for p in placeholders if p["daEval"] == da_eval]
+    return min(
+        same_type,
+        key=lambda p: abs(p["startTime"] - start_time),
+        default=None,
+    )
+
+
+def replace_placeholder_with_real_appointment(
+    client_id: int,
+    appointment_id: str,
+    da_eval: DAEvalType | None,
+    start_time: datetime,
+    real_gcal_event_id: str | None,
+) -> bool:
+    """Remove the client's placeholder that a newly imported real appointment
+    supersedes: its hold event on the evaluator's calendar and its DB row.
+
+    start_time must be naive UTC. Returns whether a placeholder was removed.
+    """
+    placeholders = get_client_placeholder_appointments(client_id)
+    placeholder = find_matching_placeholder(placeholders, da_eval, start_time)
+    if placeholder is None:
+        return False
+
+    hold_event_id = placeholder["calendarEventId"]
+    # Never delete the real appointment's own event.
+    if (
+        hold_event_id
+        and hold_event_id != real_gcal_event_id
+        and placeholder["evaluatorEmail"]
+    ):
+        try:
+            delete_calendar_event(placeholder["evaluatorEmail"], hold_event_id)
+        except Exception:
+            logger.exception(
+                f"Could not delete placeholder calendar event {hold_event_id} for "
+                f"client {client_id}; removing the placeholder row anyway"
+            )
+
+    delete_superseded_placeholder(placeholder["id"], client_id, appointment_id)
+    logger.info(
+        f"Replaced placeholder {placeholder['id']} with appointment {appointment_id} "
+        f"for client {client_id}"
+    )
+    return True
 
 
 def _fetch_events_page(
@@ -1255,6 +1321,21 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             # here is always a genuine appointment.
             if was_new_appointment and not cancelled:
                 newly_scheduled_client_ids.add(client_id)
+
+                if gcal_daeval:
+                    try:
+                        replace_placeholder_with_real_appointment(
+                            client_id=client_id,
+                            appointment_id=appointment_id,
+                            da_eval=gcal_daeval,
+                            start_time=start_time.replace(tzinfo=None),
+                            real_gcal_event_id=gcal_event_id,
+                        )
+                    except Exception:
+                        logger.exception(
+                            f"Failed to replace placeholder for client {client_id} "
+                            f"with appointment {appointment_id}"
+                        )
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
