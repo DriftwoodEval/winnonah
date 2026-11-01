@@ -1,3 +1,4 @@
+import { logger } from "~/lib/logger";
 import { db } from "~/server/db";
 import { auditLogs } from "~/server/db/schema";
 
@@ -31,6 +32,6 @@ export async function recordAuthAudit(entry: {
 			errorMessage: entry.errorMessage ?? null,
 		});
 	} catch (error) {
-		console.error("Could not write an auth audit entry", error);
+		logger.error({ err: error }, "Could not write an auth audit entry");
 	}
 }

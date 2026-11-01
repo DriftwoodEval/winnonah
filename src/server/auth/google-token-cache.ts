@@ -1,4 +1,5 @@
 import { redis } from "~/lib/integrations/redis";
+import { logger } from "~/lib/logger";
 
 export interface CachedGoogleToken {
 	access_token: string;
@@ -12,30 +13,48 @@ const EXPIRY_MARGIN_MS = 60 * 1000;
 /**
  * Google access tokens are cached until shortly before they expire, in Redis
  * so every web instance sees a sign-in or re-authorization right away.
+ *
+ * The cache only saves work, so every function here keeps going when Redis is
+ * unavailable: a read finds nothing, and a write or clear is skipped.
  */
-export async function readCachedGoogleToken(userId: string) {
-	const cached = await redis.get(`${KEY_PREFIX}${userId}`);
-	return cached ? (JSON.parse(cached) as CachedGoogleToken) : null;
+async function ignoringRedisErrors<T>(fallback: T, action: () => Promise<T>) {
+	try {
+		return await action();
+	} catch (error) {
+		logger.warn({ err: error }, "Google token cache is unavailable");
+		return fallback;
+	}
 }
 
-export async function writeCachedGoogleToken(
+export function readCachedGoogleToken(userId: string) {
+	return ignoringRedisErrors<CachedGoogleToken | null>(null, async () => {
+		const cached = await redis.get(`${KEY_PREFIX}${userId}`);
+		return cached ? (JSON.parse(cached) as CachedGoogleToken) : null;
+	});
+}
+
+export function writeCachedGoogleToken(
 	userId: string,
 	token: CachedGoogleToken,
 ) {
 	const ttlSeconds = Math.floor(
 		(token.expiry_date - Date.now() - EXPIRY_MARGIN_MS) / 1000,
 	);
-	if (ttlSeconds > 0) {
+	if (ttlSeconds <= 0) return Promise.resolve();
+
+	return ignoringRedisErrors(undefined, async () => {
 		await redis.set(
 			`${KEY_PREFIX}${userId}`,
 			JSON.stringify(token),
 			"EX",
 			ttlSeconds,
 		);
-	}
+	});
 }
 
 /** Forgets the cached access token, for example after the user signs in again. */
-export async function clearCachedGoogleToken(userId: string) {
-	await redis.del(`${KEY_PREFIX}${userId}`);
+export function clearCachedGoogleToken(userId: string) {
+	return ignoringRedisErrors(undefined, async () => {
+		await redis.del(`${KEY_PREFIX}${userId}`);
+	});
 }

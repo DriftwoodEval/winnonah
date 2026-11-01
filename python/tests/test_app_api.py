@@ -63,11 +63,15 @@ class TestNotifyUsers:
     def test_queue_users_exclude_those_with_a_claimed_report(self):
         users = [
             {"email": "free@example.com", "claimedReportFolder": None},
+            {"email": "released@example.com", "claimedReportFolder": []},
             {"email": "busy@example.com", "claimedReportFolder": [{"id": "f"}]},
         ]
         with patch("utils.app_api.requests.get", return_value=_response(users)):
             result = get_queue_notify_users()
-        assert [u["email"] for u in result] == ["free@example.com"]
+        assert [u["email"] for u in result] == [
+            "free@example.com",
+            "released@example.com",
+        ]
 
     def test_exclusion_check_users_are_everyone_the_app_returns(self):
         users = [{"email": "a@example.com"}, {"email": "b@example.com"}]
