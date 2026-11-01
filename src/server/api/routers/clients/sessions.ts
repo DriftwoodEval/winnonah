@@ -9,7 +9,7 @@ export const sessionRouter = createTRPCRouter({
 	getClientFilters: protectedProcedure.query(async ({ ctx }) => {
 		const session = await ctx.db.query.sessions.findFirst({
 			where: eq(sessions.userId, ctx.session.user.id),
-			orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+			orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 		});
 
 		return {
@@ -23,7 +23,7 @@ export const sessionRouter = createTRPCRouter({
 			// Find the current session
 			const currentSession = await ctx.db.query.sessions.findFirst({
 				where: eq(sessions.userId, ctx.session.user.id),
-				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+				orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 			});
 
 			if (!currentSession) {
@@ -34,7 +34,7 @@ export const sessionRouter = createTRPCRouter({
 			await ctx.db
 				.update(sessions)
 				.set({ clientFilters: input.clientFilters })
-				.where(eq(sessions.sessionToken, currentSession.sessionToken));
+				.where(eq(sessions.token, currentSession.token));
 
 			return { success: true };
 		}),
@@ -42,7 +42,7 @@ export const sessionRouter = createTRPCRouter({
 	getDirectoryFilters: protectedProcedure.query(async ({ ctx }) => {
 		const session = await ctx.db.query.sessions.findFirst({
 			where: eq(sessions.userId, ctx.session.user.id),
-			orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+			orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 		});
 
 		return {
@@ -55,7 +55,7 @@ export const sessionRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const currentSession = await ctx.db.query.sessions.findFirst({
 				where: eq(sessions.userId, ctx.session.user.id),
-				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+				orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 			});
 
 			if (!currentSession) {
@@ -65,7 +65,7 @@ export const sessionRouter = createTRPCRouter({
 			await ctx.db
 				.update(sessions)
 				.set({ directoryFilters: input.directoryFilters })
-				.where(eq(sessions.sessionToken, currentSession.sessionToken));
+				.where(eq(sessions.token, currentSession.token));
 
 			return { success: true };
 		}),
@@ -73,7 +73,7 @@ export const sessionRouter = createTRPCRouter({
 	getReportsFilters: protectedProcedure.query(async ({ ctx }) => {
 		const session = await ctx.db.query.sessions.findFirst({
 			where: eq(sessions.userId, ctx.session.user.id),
-			orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+			orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 		});
 
 		return {
@@ -86,7 +86,7 @@ export const sessionRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const currentSession = await ctx.db.query.sessions.findFirst({
 				where: eq(sessions.userId, ctx.session.user.id),
-				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+				orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 			});
 
 			if (!currentSession) {
@@ -96,7 +96,7 @@ export const sessionRouter = createTRPCRouter({
 			await ctx.db
 				.update(sessions)
 				.set({ reportsFilters: input.reportsFilters })
-				.where(eq(sessions.sessionToken, currentSession.sessionToken));
+				.where(eq(sessions.token, currentSession.token));
 
 			return { success: true };
 		}),
@@ -106,7 +106,7 @@ export const sessionRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.sessions.findFirst({
 				where: eq(sessions.userId, ctx.session.user.id),
-				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+				orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 			});
 
 			if (!session?.schedulingFilters) {
@@ -134,7 +134,7 @@ export const sessionRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const currentSession = await ctx.db.query.sessions.findFirst({
 				where: eq(sessions.userId, ctx.session.user.id),
-				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+				orderBy: (sessions, { desc }) => [desc(sessions.expiresAt)],
 			});
 
 			if (!currentSession) {
@@ -163,7 +163,7 @@ export const sessionRouter = createTRPCRouter({
 			await ctx.db
 				.update(sessions)
 				.set({ schedulingFilters: JSON.stringify(allFilters) })
-				.where(eq(sessions.sessionToken, currentSession.sessionToken));
+				.where(eq(sessions.token, currentSession.token));
 
 			return { success: true };
 		}),

@@ -46,6 +46,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import { hasGoogleCredentials } from "~/server/auth/google-credentials";
 import {
 	appointments,
 	clients,
@@ -186,7 +187,7 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 			assertPermission(ctx.session.user, "clients:drive");
@@ -206,7 +207,7 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 			assertPermission(ctx.session.user, "clients:drive");
@@ -254,7 +255,7 @@ export const googleRouter = createTRPCRouter({
 
 	// Google Sheets
 	getPunch: protectedProcedure.query(async ({ ctx }) => {
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+		if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 			throw new Error("No access token or refresh token");
 		}
 		return fetchWithCache(
@@ -268,7 +269,7 @@ export const googleRouter = createTRPCRouter({
 	getClientFromPunch: protectedProcedure
 		.input(z.string())
 		.query(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -285,7 +286,7 @@ export const googleRouter = createTRPCRouter({
 	getQsSent: protectedProcedure
 		.input(z.string())
 		.query(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -322,7 +323,7 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -368,7 +369,7 @@ export const googleRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:protocolsscanned");
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -412,7 +413,7 @@ export const googleRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:pa-assigned-to");
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -461,7 +462,7 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 
@@ -496,7 +497,7 @@ export const googleRouter = createTRPCRouter({
 	createAvailability: protectedProcedure
 		.input(availabilitySchema)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message:
@@ -710,7 +711,7 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message:
@@ -848,7 +849,7 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message:
@@ -929,7 +930,7 @@ export const googleRouter = createTRPCRouter({
 			throw new TRPCError({ code: "UNAUTHORIZED" });
 		}
 
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+		if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 			throw new Error("No access token or refresh token");
 		}
 
@@ -999,7 +1000,7 @@ export const googleRouter = createTRPCRouter({
 	}),
 
 	getMissingFromPunchlist: protectedProcedure.query(async ({ ctx }) => {
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+		if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 			throw new Error("No access token or refresh token");
 		}
 
@@ -1012,7 +1013,7 @@ export const googleRouter = createTRPCRouter({
 	}),
 
 	getDashboardData: protectedProcedure.query(async ({ ctx }) => {
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+		if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 			throw new Error("No access token or refresh token");
 		}
 
@@ -1041,7 +1042,7 @@ export const googleRouter = createTRPCRouter({
 	pushToPunch: protectedProcedure
 		.input(z.number())
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			if (!(await hasGoogleCredentials(ctx.session.user.id))) {
 				throw new Error("No access token or refresh token");
 			}
 

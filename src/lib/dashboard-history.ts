@@ -17,6 +17,7 @@ import {
 	SECTION_ISSUE_UNREVIEWED_RECORDS,
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
+import type { ServiceSession } from "~/lib/integrations/google";
 import { redis } from "~/lib/integrations/redis";
 import {
 	getDuplicateNamesList,
@@ -30,7 +31,6 @@ import {
 	getUnreviewedRecordsList,
 } from "~/lib/issues/issue-lists";
 import { logger } from "~/lib/logger";
-import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	clientDashboardSectionHistory,
@@ -53,7 +53,7 @@ const log = logger.child({ module: "dashboard-history" });
  * proactively refresh here, with the matching client, before building the
  * session.
  */
-export async function getServiceSession(): Promise<Session> {
+export async function getServiceSession(): Promise<ServiceSession> {
 	const tokenPath = path.resolve("python/auth_cache/token.json");
 	const credentialsPath = path.resolve("python/auth_cache/credentials.json");
 
@@ -75,12 +75,7 @@ export async function getServiceSession(): Promise<Session> {
 		throw new Error("Failed to refresh Google access token for dashboard sync");
 	}
 
-	return {
-		user: {
-			accessToken: refreshed.access_token,
-			refreshToken: token.refresh_token,
-		},
-	} as Session;
+	return { serviceOAuthClient: oauth2Client };
 }
 
 function sectionsKey(sections: string[]): string {

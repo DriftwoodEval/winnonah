@@ -91,6 +91,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import { hasGoogleCredentials } from "~/server/auth/google-credentials";
 import {
 	appointments,
 	assessmentTypes,
@@ -2765,8 +2766,7 @@ export const clientRouter = createTRPCRouter({
 				updateData.asdAdhd = input.asdAdhd;
 
 				if (
-					ctx.session.user.accessToken &&
-					ctx.session.user.refreshToken &&
+					(await hasGoogleCredentials(ctx.session.user.id)) &&
 					!isNotesOnlyClientId(input.clientId)
 				) {
 					try {
@@ -2785,8 +2785,7 @@ export const clientRouter = createTRPCRouter({
 				updateData.language = input.language;
 
 				if (
-					ctx.session.user.accessToken &&
-					ctx.session.user.refreshToken &&
+					(await hasGoogleCredentials(ctx.session.user.id)) &&
 					!isNotesOnlyClientId(input.clientId)
 				) {
 					try {
@@ -3539,7 +3538,7 @@ export const clientRouter = createTRPCRouter({
 					.set({ driveId: fakeClient.driveId })
 					.where(eq(clients.id, clientId));
 
-				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+				if (await hasGoogleCredentials(ctx.session.user.id)) {
 					try {
 						await renameDriveFolder(
 							ctx.session,
@@ -3794,7 +3793,7 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {
-		if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+		if (await hasGoogleCredentials(ctx.session.user.id)) {
 			await syncPunchData(ctx);
 		}
 	}),

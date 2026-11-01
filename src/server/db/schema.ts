@@ -1281,12 +1281,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	}),
 }));
 
-/**
- * Better Auth account rows. The Google tokens live here: the session
- * callback in ~/server/auth/config.ts copies them onto the session user.
- * The OAuth column names (`provider`, `access_token`, ...) are kept and mapped
- * in the `account.fields` option of the auth config.
- */
+/** Better Auth account rows: one per linked sign-in provider, holding its OAuth tokens. */
 export const accounts = createTable(
 	"account",
 	(d) => ({
@@ -1299,23 +1294,20 @@ export const accounts = createTable(
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		provider: d.varchar({ length: 255 }).notNull(),
-		providerAccountId: d.varchar({ length: 255 }).notNull(),
-		refresh_token: d.text(),
-		access_token: d.text(),
+		providerId: d.varchar({ length: 255 }).notNull(),
+		accountId: d.varchar({ length: 255 }).notNull(),
+		refreshToken: d.text(),
+		accessToken: d.text(),
 		accessTokenExpiresAt: d.timestamp(),
 		refreshTokenExpiresAt: d.timestamp(),
 		scope: d.text(),
-		id_token: d.text(),
+		idToken: d.text(),
 		password: d.text(),
 		createdAt: d.timestamp().defaultNow().notNull(),
 		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
 	(t) => [
-		uniqueIndex("account_provider_account_idx").on(
-			t.provider,
-			t.providerAccountId,
-		),
+		uniqueIndex("account_provider_account_idx").on(t.providerId, t.accountId),
 		index("account_user_id_idx").on(t.userId),
 	],
 );
@@ -1345,11 +1337,7 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 	}),
 }));
 
-/**
- * Better Auth session rows. `sessionToken` and `expires` are mapped in the
- * `session.fields` option of the auth config. The `*Filters` columns hold
- * per-session UI state and are declared as `session.additionalFields` there.
- */
+/** Better Auth session rows. The `*Filters` columns hold per-session UI state. */
 export const sessions = createTable(
 	"session",
 	(d) => ({
@@ -1358,12 +1346,12 @@ export const sessions = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		sessionToken: d.varchar({ length: 255 }).notNull(),
+		token: d.varchar({ length: 255 }).notNull(),
 		userId: d
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		expires: d.timestamp({ mode: "date" }).notNull(),
+		expiresAt: d.timestamp({ mode: "date" }).notNull(),
 		ipAddress: d.varchar({ length: 255 }),
 		userAgent: d.text(),
 		createdAt: d.timestamp().defaultNow().notNull(),
@@ -1374,7 +1362,7 @@ export const sessions = createTable(
 		reportsFilters: d.text(),
 	}),
 	(t) => [
-		uniqueIndex("session_token_idx").on(t.sessionToken),
+		uniqueIndex("session_token_idx").on(t.token),
 		index("session_user_id_idx").on(t.userId),
 	],
 );
