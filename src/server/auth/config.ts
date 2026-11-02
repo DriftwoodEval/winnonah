@@ -92,28 +92,31 @@ async function applyInvitationOrDefaults(user: { id: string; email: string }) {
 	});
 	const roleId = invitation?.roleId ?? defaultRole?.id ?? null;
 
-	await db
-		.update(users)
-		.set({
-			permissions: (invitation?.permissions as PermissionsObject) ?? {},
-			savedPlaces: invitation?.savedPlaces ?? null,
-			roleId,
-		})
-		.where(eq(users.id, user.id));
+	// All or nothing, so a failure never leaves a user with half their setup.
+	await db.transaction(async (tx) => {
+		await tx
+			.update(users)
+			.set({
+				permissions: (invitation?.permissions as PermissionsObject) ?? {},
+				savedPlaces: invitation?.savedPlaces ?? null,
+				roleId,
+			})
+			.where(eq(users.id, user.id));
 
-	if (!invitation) return;
+		if (!invitation) return;
 
-	await db
-		.update(invitations)
-		.set({ status: "accepted", usedAt: new Date() })
-		.where(eq(invitations.id, invitation.id));
+		await tx
+			.update(invitations)
+			.set({ status: "accepted", usedAt: new Date() })
+			.where(eq(invitations.id, invitation.id));
 
-	await db.insert(auditLogs).values({
-		userId: user.id,
-		userEmail: user.email,
-		action: "invitation.accepted",
-		detail: { invitationId: invitation.id, roleId },
-		success: true,
+		await tx.insert(auditLogs).values({
+			userId: user.id,
+			userEmail: user.email,
+			action: "invitation.accepted",
+			detail: { invitationId: invitation.id, roleId },
+			success: true,
+		});
 	});
 }
 
@@ -200,7 +203,19 @@ const authOptions = {
 					if (!user.email || user.emailVerified !== true) return false;
 				},
 				after: async (user) => {
-					await applyInvitationOrDefaults(user);
+					try {
+						await applyInvitationOrDefaults(user);
+					} catch (error) {
+						// The user row exists but has no role or permissions yet. This hook
+						// only runs when a user is created, so a retry would never fill them
+						// in. Remove the row so the next sign-in starts over.
+						authLogger.error(
+							{ err: error, userId: user.id },
+							"Could not set up a new user, removing them so sign-in can retry",
+						);
+						await db.delete(users).where(eq(users.id, user.id));
+						throw error;
+					}
 				},
 			},
 		},
@@ -258,9 +273,23 @@ const authOptions = {
 			if (ctx.path !== "/sign-out") return;
 			const current = await getSessionFromCtx(ctx);
 			if (!current) return;
+
+			// While viewing as someone, the session's user is the person being
+			// viewed. Record who actually signed out, as the audit log does for
+			// other actions taken while viewing as someone.
+			const impersonatorId = (
+				current.session as { impersonatedBy?: string | null }
+			).impersonatedBy;
+			const impersonator = impersonatorId
+				? await db.query.users.findFirst({
+						where: eq(users.id, impersonatorId),
+						columns: { email: true },
+					})
+				: undefined;
 			await recordAuthAudit({
 				userId: current.user.id,
 				userEmail: current.user.email,
+				impersonatedBy: impersonator?.email ?? impersonatorId ?? null,
 				action: "auth.sign_out",
 			});
 		}),

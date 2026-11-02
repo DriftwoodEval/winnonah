@@ -25,16 +25,18 @@ async function readSavedFilters(
  * saved at the same moment from different tables cannot overwrite each other.
  */
 async function patchSavedFilters(
-	database: Db,
-	userId: string,
+	ctx: { db: Db; session: { user: { id: string; isImpersonating: boolean } } },
 	patch: SavedFilters,
 ) {
-	await database
+	// Viewing as someone must not change that person's saved filters.
+	if (ctx.session.user.isImpersonating) return { success: true };
+
+	await ctx.db
 		.update(users)
 		.set({
 			savedFilters: sql`JSON_MERGE_PATCH(COALESCE(${users.savedFilters}, JSON_OBJECT()), CAST(${JSON.stringify(patch)} AS JSON))`,
 		})
-		.where(eq(users.id, userId));
+		.where(eq(users.id, ctx.session.user.id));
 	return { success: true };
 }
 
@@ -46,9 +48,7 @@ export const savedFiltersRouter = createTRPCRouter({
 
 	saveClientFilters: protectedProcedure
 		.input(z.object({ clientFilters: z.string() }))
-		.mutation(({ ctx, input }) =>
-			patchSavedFilters(ctx.db, ctx.session.user.id, input),
-		),
+		.mutation(({ ctx, input }) => patchSavedFilters(ctx, input)),
 
 	getDirectoryFilters: protectedProcedure.query(async ({ ctx }) => {
 		const filters = await readSavedFilters(ctx.db, ctx.session.user.id);
@@ -57,9 +57,7 @@ export const savedFiltersRouter = createTRPCRouter({
 
 	saveDirectoryFilters: protectedProcedure
 		.input(z.object({ directoryFilters: z.string() }))
-		.mutation(({ ctx, input }) =>
-			patchSavedFilters(ctx.db, ctx.session.user.id, input),
-		),
+		.mutation(({ ctx, input }) => patchSavedFilters(ctx, input)),
 
 	getReportsFilters: protectedProcedure.query(async ({ ctx }) => {
 		const filters = await readSavedFilters(ctx.db, ctx.session.user.id);
@@ -68,9 +66,7 @@ export const savedFiltersRouter = createTRPCRouter({
 
 	saveReportsFilters: protectedProcedure
 		.input(z.object({ reportsFilters: z.string() }))
-		.mutation(({ ctx, input }) =>
-			patchSavedFilters(ctx.db, ctx.session.user.id, input),
-		),
+		.mutation(({ ctx, input }) => patchSavedFilters(ctx, input)),
 
 	getSchedulingFilters: protectedProcedure
 		.input(z.object({ type: schedulingType }))
@@ -82,7 +78,7 @@ export const savedFiltersRouter = createTRPCRouter({
 	saveSchedulingFilters: protectedProcedure
 		.input(z.object({ type: schedulingType, schedulingFilters: z.string() }))
 		.mutation(({ ctx, input }) =>
-			patchSavedFilters(ctx.db, ctx.session.user.id, {
+			patchSavedFilters(ctx, {
 				scheduling: { [input.type]: input.schedulingFilters },
 			}),
 		),

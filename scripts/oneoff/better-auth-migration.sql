@@ -31,6 +31,9 @@
 --   * Saved table filters move from the session to emr_user.savedFilters. The
 --     old per-session filters are dropped; they reset at every sign-in anyway.
 
+-- Read and write times as UTC. Token expiry is converted from a Unix time below.
+SET time_zone = '+00:00';
+
 -- 1. Sessions: sign everyone out. Old cookies would not be recognised anyway.
 DELETE FROM `emr_session`;
 

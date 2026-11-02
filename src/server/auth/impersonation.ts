@@ -161,7 +161,21 @@ export const impersonation = () =>
 						current.session.token,
 					);
 					await setSessionCookie(ctx, realSession, !!dontRemember);
+					// Starting marked the session as non-renewing. Unless the real
+					// session was already like that, lift the mark so it renews again.
+					if (!dontRemember) {
+						expireCookie(ctx, ctx.context.authCookies.dontRememberToken);
+					}
 					expireCookie(ctx, realSessionCookie);
+					await recordAuthAudit({
+						userId: realSession.user.id,
+						userEmail: realSession.user.email,
+						action: "impersonation.stopped",
+						detail: {
+							targetUserId: current.user.id,
+							targetEmail: current.user.email,
+						},
+					});
 					return ctx.json({ ok: true });
 				},
 			),
