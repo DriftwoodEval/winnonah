@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -8,8 +8,10 @@ from utils.appointments import (
     SyncReporter,
     _is_placeholder_title,
     batch_search_calendar_events,
+    build_placeholder_description,
     build_placeholder_title,
     find_matching_placeholder,
+    format_age_at,
     parse_location_and_type,
     real_title_for_placeholder_event,
     replace_placeholder_with_real_appointment,
@@ -465,3 +467,24 @@ class TestReplacePlaceholderWithRealAppointment:
 
         delete_event.assert_not_called()
         delete_row.assert_called_once_with("p1", 7, "ta-123")
+
+
+class TestFormatAgeAt:
+    def test_under_three_shows_months(self):
+        assert (
+            format_age_at(date(2024, 1, 15), date(2026, 5, 20)) == "2 years, 4 months"
+        )
+
+    def test_day_of_month_not_reached(self):
+        assert (
+            format_age_at(date(2024, 1, 21), date(2026, 5, 20)) == "2 years, 3 months"
+        )
+
+    def test_three_and_over_shows_years_only(self):
+        assert format_age_at(date(2020, 1, 15), date(2026, 5, 20)) == "6 years"
+
+    def test_description_uses_appointment_date(self):
+        description = build_placeholder_description(
+            7, date(2024, 1, 15), None, date(2026, 5, 20)
+        )
+        assert description == "Age: 2 years, 4 months\nClient ID: 7"

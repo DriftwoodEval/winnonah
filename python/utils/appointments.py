@@ -1797,13 +1797,25 @@ def real_title_for_placeholder_event(title: str, client_name: str) -> str | None
     return None
 
 
+def format_age_at(dob: date, on: date) -> str:
+    """Format an age on a given date the way the app does.
+
+    Under 3 years shows months ("2 years, 4 months"), otherwise years only ("5 years").
+    """
+    delta = relativedelta(on, dob)
+    if delta.years >= 3:
+        return f"{delta.years} years"
+    return f"{delta.years} years, {delta.months} months"
+
+
 def build_placeholder_description(
-    client_id: int, dob: date, drive_id: str | None
+    client_id: int, dob: date, drive_id: str | None, appointment_date: date
 ) -> str:
-    """Build the calendar event description for a placeholder appointment."""
-    today = now_business().date()
-    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-    lines = [f"Age: {age}", f"Client ID: {client_id}"]
+    """Build the calendar event description for a placeholder appointment.
+
+    The age shown is the client's age on the appointment date.
+    """
+    lines = [f"Age: {format_age_at(dob, appointment_date)}", f"Client ID: {client_id}"]
     if drive_id and drive_id != "N/A":
         lines.append(f"Drive: {drive_folder_link(drive_id)}")
     return "\n".join(lines)

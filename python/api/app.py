@@ -1011,7 +1011,7 @@ async def create_placeholder_appointment(
 
     title = build_placeholder_title(client_name, request.da_eval, request.location_key)
     description = build_placeholder_description(
-        request.client_id, client_dob, client_drive_id
+        request.client_id, client_dob, client_drive_id, start_time_business.date()
     )
     calendar_event_id = create_placeholder_event(
         evaluator_email, title, start_time_business, end_time_business, description
@@ -1100,7 +1100,10 @@ async def move_placeholder_appointment(
         client_name, appointment["daEval"], request.location_key
     )
     description = build_placeholder_description(
-        appointment["clientId"], client_dob, client_drive_id
+        appointment["clientId"],
+        client_dob,
+        client_drive_id,
+        start_time_business.date(),
     )
 
     if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
