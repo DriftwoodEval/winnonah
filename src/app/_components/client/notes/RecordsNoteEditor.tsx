@@ -97,9 +97,12 @@ export function RecordsNoteEditor({
 			f.reason === "docs not signed" ||
 			f.reason === "portal not opened",
 	);
+	const warnIfPaused = usePausedClientWarning(clientId);
+
 	const resolveFailure = api.clients.resolveFailure.useMutation({
 		onSuccess: () => {
 			void utils.clients.getFailures.invalidate(clientId);
+			warnIfPaused("Resolving the failure");
 		},
 		onError: (error) =>
 			toast.error("Failed to mark failure resolved", {
@@ -161,8 +164,6 @@ export function RecordsNoteEditor({
 			setLocalContent(record.contentJson);
 		}
 	}, [record?.contentJson]);
-
-	const warnIfPaused = usePausedClientWarning(clientId);
 
 	const handleError = (error: unknown, action: string) => {
 		const message = error instanceof Error ? error.message : "Unknown error";

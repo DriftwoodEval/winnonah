@@ -145,6 +145,7 @@ export function QuestionnairesTable({
 	const resolveFailure = api.clients.resolveFailure.useMutation({
 		onSuccess: () => {
 			void utils.clients.getFailures.invalidate(clientId);
+			warnIfPaused("Resolving the failure");
 		},
 		onError: (err) =>
 			toast.error("Failed to mark failure resolved", {
