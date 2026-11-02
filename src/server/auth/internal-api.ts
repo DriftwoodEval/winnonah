@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { redis } from "~/lib/integrations/redis";
 import { recordInternalApiAudit } from "~/server/api/audit";
+import { getClientIp } from "~/server/auth/client-ip";
 
 const API_KEY = process.env.API_KEY;
 
@@ -44,8 +45,7 @@ export async function checkInternalApiAuth(
 	clientId: number | null = null,
 	auditSuccess = true,
 ): Promise<{ ok: true } | { ok: false; status: number }> {
-	const ip =
-		req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+	const ip = getClientIp(req.headers);
 	const failureKey = `internal-api-auth-fail:${ip}`;
 
 	const recentFailures = await redis.get(failureKey);
