@@ -114,25 +114,25 @@ export function QuestionnaireLoginsViewer() {
 			<p className="text-sm text-muted-foreground">No services config found.</p>
 		);
 
-	const allServices = ["mhs", "qglobal", "wps", "novopsych"] as const;
-	const serviceLabels: Record<string, string> = {
-		mhs: "MHS",
-		qglobal: "QGlobal",
-		wps: "WPS",
-		novopsych: "NovoPsych",
-	};
+	if (services.length === 0)
+		return (
+			<p className="text-sm text-muted-foreground">
+				You don't have access to any questionnaire logins. Ask an admin if you
+				need one.
+			</p>
+		);
 
 	return (
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-			{allServices.map((svc) => (
-				<Card key={svc}>
+			{services.map((svc) => (
+				<Card key={svc.id}>
 					<CardHeader>
-						<CardTitle>{serviceLabels[svc]}</CardTitle>
+						<CardTitle>{svc.label}</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-2">
-						<CredentialField label="User" value={services[svc].username} />
-						<CredentialField label="Password" value={services[svc].password} />
-						{svc === "qglobal" && <PearsonVerificationCode />}
+						<CredentialField label="User" value={svc.username} />
+						<CredentialField label="Password" value={svc.password} />
+						{svc.id === "qglobal" && <PearsonVerificationCode />}
 					</CardContent>
 				</Card>
 			))}

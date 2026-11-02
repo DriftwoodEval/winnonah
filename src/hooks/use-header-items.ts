@@ -34,8 +34,6 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 			can("reports:approve") ||
 			can("reports:billing")) &&
 		can("reports:beta");
-	const canSeeQuestionnaireLogins =
-		can("settings:qsuite:services:view") || can("settings:qsuite:services");
 
 	const availability = {} as Record<HeaderItemId, boolean>;
 	for (const def of HEADER_ITEM_DEFS) {
@@ -45,8 +43,6 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 			availability[def.id] = canSeeClaimReports;
 		} else if (def.id === "reports") {
 			availability[def.id] = canSeeReports;
-		} else if (def.id === "questionnaire-logins") {
-			availability[def.id] = canSeeQuestionnaireLogins;
 		} else {
 			const permission = ITEM_PERMISSIONS[def.id];
 			availability[def.id] = permission ? can(permission) : true;
