@@ -20,7 +20,6 @@ PERMISSION_GROUPS = {
     "settings:post-visit-attachment:edit": "system:settings:all",
     "settings:qsuite:services": "system:qsuite:all",
     "settings:qsuite:services:view": "system:qsuite:all",
-    "settings:qsuite:services:view:qglobal": "system:qsuite:all",
 }
 
 
@@ -47,3 +46,20 @@ def effective_permissions(
     role = json.loads(role_permissions) if role_permissions else {}
     user = json.loads(user_permissions) if user_permissions else {}
     return {**role, **user}
+
+
+def login_access_allows_view(
+    access: dict | None, user_id: str, role_id: int | None
+) -> bool:
+    """Whether a login's access list lets a user view it.
+
+    Mirrors canAccessLogin in src/lib/logins.ts for the global-permission-free
+    case: edit and delete access both include viewing.
+    """
+    for verb in ("view", "edit", "delete"):
+        principals = (access or {}).get(verb, {})
+        if user_id in principals.get("userIds", []):
+            return True
+        if role_id is not None and role_id in principals.get("roleIds", []):
+            return True
+    return False

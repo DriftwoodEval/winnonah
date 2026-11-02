@@ -278,23 +278,19 @@ export const PERMISSIONS = {
 					},
 					{
 						id: "settings:qsuite:services:view",
-						title: "View All Questionnaire Logins",
+						title: "View All Logins",
 					},
 					{
-						id: "settings:qsuite:services:view:mhs",
-						title: "View MHS Login",
+						id: "settings:qsuite:logins:create",
+						title: "Create Logins",
 					},
 					{
-						id: "settings:qsuite:services:view:qglobal",
-						title: "View QGlobal (Pearson) Login",
+						id: "settings:qsuite:logins:delete",
+						title: "Delete Any Login",
 					},
 					{
-						id: "settings:qsuite:services:view:wps",
-						title: "View WPS Login",
-					},
-					{
-						id: "settings:qsuite:services:view:novopsych",
-						title: "View NovoPsych Login",
+						id: "settings:qsuite:logins:manage-access",
+						title: "Manage Who Can Access Each Login",
 					},
 					{
 						id: "settings:qsuite:records",
@@ -483,34 +479,6 @@ export const PERMISSION_MAP = Object.values(PERMISSIONS).reduce(
 	},
 	{} as Record<string, string>,
 );
-
-// Third-party questionnaire platforms with a shared login, and the permission
-// that lets a user see each one on the Questionnaire Logins page.
-export const QUESTIONNAIRE_LOGIN_SERVICES = [
-	{
-		id: "mhs",
-		label: "MHS",
-		permission: "settings:qsuite:services:view:mhs",
-	},
-	{
-		id: "qglobal",
-		label: "QGlobal",
-		permission: "settings:qsuite:services:view:qglobal",
-	},
-	{
-		id: "wps",
-		label: "WPS",
-		permission: "settings:qsuite:services:view:wps",
-	},
-	{
-		id: "novopsych",
-		label: "NovoPsych",
-		permission: "settings:qsuite:services:view:novopsych",
-	},
-] as const;
-
-export type QuestionnaireLoginServiceId =
-	(typeof QUESTIONNAIRE_LOGIN_SERVICES)[number]["id"];
 
 // Largest PDF accepted for the post-visit message attachment (also enforced
 // by the Python sidecar).

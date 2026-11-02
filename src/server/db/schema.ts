@@ -13,6 +13,7 @@ import {
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
+import type { LoginAccess } from "~/lib/logins";
 import type { PinnedList } from "~/lib/pinned-list";
 import type { UserPreferences } from "~/lib/preferences";
 import type { RunSummary } from "~/lib/run-summary";
@@ -1408,6 +1409,22 @@ type ConfigData =
 export const pythonConfig = createTable("python_config", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	data: d.json("data").$type<ConfigData>().notNull(),
+	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
+}));
+
+// Shared logins to third-party services. Built-in rows (builtInKey set) are
+// metadata only: their credentials stay in the Python config's services block,
+// which the Python scripts read. Custom rows hold their own credentials.
+export const logins = createTable("login", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	builtInKey: d.varchar({ length: 64 }).unique(),
+	name: d.varchar({ length: 255 }).notNull(),
+	url: d.varchar({ length: 500 }),
+	username: d.text(),
+	password: d.text(),
+	notes: d.text(),
+	access: d.json().$type<LoginAccess>().notNull(),
+	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
 }));
 

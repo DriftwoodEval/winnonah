@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import re
 import time
@@ -29,6 +30,7 @@ from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
+    TABLE_LOGIN,
     TABLE_OFFICE,
     TABLE_ROLE,
     TABLE_SESSION,
@@ -67,7 +69,11 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.location import search_addresses
-from utils.permissions import effective_permissions, has_permission
+from utils.permissions import (
+    effective_permissions,
+    has_permission,
+    login_access_allows_view,
+)
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,
@@ -251,6 +257,7 @@ def get_current_user(request: Request):
                 "email": row["email"],
                 "name": row["name"],
                 "permissions": permissions,
+                "role_id": row.get("roleId"),
             }
     finally:
         conn.close()
@@ -260,7 +267,7 @@ def _lookup_user(cursor, user_id: str) -> dict | None:
     """Resolves a user's identity and effective permissions by id."""
     sql = f"""
         SELECT
-            u.id, u.email, u.name, u.permissions, u.archived,
+            u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
             r.permissions AS role_permissions
         FROM {TABLE_USER} u
         LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
@@ -278,6 +285,7 @@ def _lookup_user(cursor, user_id: str) -> dict | None:
         "email": row["email"],
         "name": row["name"],
         "permissions": permissions,
+        "role_id": row.get("roleId"),
     }
 
 
@@ -905,17 +913,39 @@ def preview_dds_request(
     return Response(content=pdf_bytes, media_type="application/pdf")
 
 
+def _can_view_qglobal_login(current_user: dict) -> bool:
+    """Whether the user may see the QGlobal login: a global login permission, or
+    a place on the login's own access list."""
+    permissions = current_user["permissions"]
+    if has_permission(permissions, "settings:qsuite:services") or has_permission(
+        permissions, "settings:qsuite:services:view"
+    ):
+        return True
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT access FROM {TABLE_LOGIN} WHERE builtInKey = %s",
+                ("qglobal",),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return False
+
+    access = row["access"]
+    if isinstance(access, str):
+        access = json.loads(access)
+    return login_access_allows_view(
+        access, current_user["user_id"], current_user.get("role_id")
+    )
+
+
 @app.get("/gmail/pearson-verification-code")
 def get_pearson_verification_code(current_user: dict = Depends(get_current_user)):
-    permissions = current_user["permissions"]
-    if not any(
-        has_permission(permissions, permission)
-        for permission in (
-            "settings:qsuite:services",
-            "settings:qsuite:services:view",
-            "settings:qsuite:services:view:qglobal",
-        )
-    ):
+    if not _can_view_qglobal_login(current_user):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     messages = list_gmail_messages(

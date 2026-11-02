@@ -5,7 +5,10 @@ title: Changelog
 ## 2026-11-02
 
 **New**
-- Each person only sees the Questionnaire Logins link, and the logins on that page, if they have access to at least one. Admins can give access to MHS, QGlobal (Pearson), WPS, and NovoPsych one at a time under Settings > People > Permissions. The existing "View All Questionnaire Logins" permission still shows every login.
+- The Questionnaire Logins page is now called Logins. It also lists the TherapyAppointment, SC Medicaid, Quo, and Kimai logins, and every login has a note explaining what it is for.
+- Anyone with the new "Create Logins" permission can add a login with an Add Login button, and anyone with edit access to a login can change its details, credentials, and notes. Anyone with delete access can remove logins that were added this way.
+- Admins with the new "Manage Who Can Access Each Login" permission can choose, login by login, which roles and people can view, edit, or delete it, using the shield button on each login. This replaces the separate MHS, QGlobal, WPS, and NovoPsych view permissions: anyone who had one keeps view access to that login. The "View All Logins" and "Edit QSuite Services Config" permissions still cover every login.
+- Each person only sees the Logins link, and the logins on that page, if they have access to at least one.
 
 **Improved**
 - When you change a questionnaire, a reminder message, a records request, or resolve a failure for a paused client, a warning now appears to let you know nothing will be sent or requested automatically until the client is unpaused.

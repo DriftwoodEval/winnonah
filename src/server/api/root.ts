@@ -3,6 +3,7 @@ import { googleRouter } from "./routers/admin/google";
 import { insuranceRouter } from "./routers/admin/insurance";
 import { issueReportRouter } from "./routers/admin/issueReport";
 import { listDismissalsRouter } from "./routers/admin/listDismissals";
+import { loginsRouter } from "./routers/admin/logins";
 import { postVisitAttachmentRouter } from "./routers/admin/postVisitAttachment";
 import { pyConfigRouter } from "./routers/admin/py-config";
 import { rolesRouter } from "./routers/admin/roles";
@@ -56,6 +57,7 @@ export const appRouter = createTRPCRouter({
 	insurances: insuranceRouter,
 	issueReport: issueReportRouter,
 	listDismissals: listDismissalsRouter,
+	logins: loginsRouter,
 	adminReview: adminReviewRouter,
 	notes: noteRouter,
 	offices: officeRouter,

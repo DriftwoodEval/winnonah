@@ -41,7 +41,7 @@ export type HeaderItemId =
 	| "fax-categorization"
 	| "work-summary"
 	| "calculator"
-	| "questionnaire-logins"
+	| "logins"
 	| "docs"
 	| "search"
 	| "recent-clients"
@@ -215,11 +215,11 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		surfaces: BOTH_SURFACES,
 	},
 	{
-		id: "questionnaire-logins",
-		label: "Questionnaire Logins",
+		id: "logins",
+		label: "Logins",
 		icon: KeyRound,
 		area: "nav",
-		href: "/questionnaire-logins",
+		href: "/logins",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},
