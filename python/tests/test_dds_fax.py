@@ -1,10 +1,16 @@
 import io
+import shutil
 
 import pymupdf
 import pytest
 from PIL import Image
 
 from utils.dds_fax import PAYEE_LINES, build_dds_fax_pdf, find_label
+
+requires_tesseract = pytest.mark.skipif(
+    shutil.which("tesseract") is None,
+    reason="tesseract is not installed (the Docker test image includes it)",
+)
 
 
 def _pdf(*lines: str) -> bytes:
@@ -46,6 +52,7 @@ def test_form_is_filled_signed_and_followed_by_evaluation():
     assert "evaluation body" in result[1].get_text()
 
 
+@requires_tesseract
 def test_missing_label_raises():
     with pytest.raises(ValueError, match="Authorized Signature"):
         build_dds_fax_pdf(_fax("Payee Name and Address:"), _png(), _pdf("x"))
@@ -56,6 +63,7 @@ def test_single_page_fax_raises():
         build_dds_fax_pdf(_pdf(*FORM_LINES), _png(), _pdf("x"))
 
 
+@requires_tesseract
 def test_labels_are_found_by_ocr_on_a_scanned_page():
     source = pymupdf.open(stream=_pdf("Payee Name and Address:"), filetype="pdf")[0]
     scanned = pymupdf.open()
