@@ -34,6 +34,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { usePausedClientWarning } from "~/hooks/use-paused-client-warning";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { statusLabel } from "~/lib/questionnaires/questionnaire-history";
 import {
@@ -139,6 +140,7 @@ export function QuestionnairesTable({
 	);
 
 	const utils = api.useUtils();
+	const warnIfPaused = usePausedClientWarning(clientId);
 
 	const resolveFailure = api.clients.resolveFailure.useMutation({
 		onSuccess: () => {
@@ -156,6 +158,7 @@ export function QuestionnairesTable({
 			setSelectedIds(new Set());
 			setBulkStatus("");
 			toast.success("Questionnaires updated.");
+			warnIfPaused("The status change");
 		},
 		onError: (err) =>
 			toast.error("Failed to update", { description: err.message }),
