@@ -16,6 +16,7 @@ from loguru import logger
 from utils.constants import TEST_NAMES_LOWER
 from utils.database import (
     compute_and_store_assessment_snapshot,
+    delete_superseded_placeholder,
     get_all_evaluators_npi_map,
     get_appointments_needing_folder_move,
     get_archived_evaluator_npis,
@@ -24,6 +25,7 @@ from utils.database import (
     get_client_id_to_drive_id_map,
     get_client_id_to_hash_map,
     get_client_id_to_name_variants_map,
+    get_client_placeholder_appointments,
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
@@ -39,6 +41,7 @@ from utils.database import (
 from utils.google import (
     build_google_service,
     clear_planned_office_events,
+    delete_calendar_event,
     drive_folder_link,
     google_authenticate,
     list_subfolders,
@@ -46,6 +49,7 @@ from utils.google import (
     rename_drive_folder,
     send_gmail,
     set_gcal_event_drive_link,
+    update_gcal_event_title,
 )
 from utils.special_accommodations import (
     queue_special_accommodations,
@@ -437,6 +441,79 @@ def _is_placeholder_title(title: str) -> bool:
     return any(variant in letters for variant in _PLACEHOLDER_VARIANTS)
 
 
+def find_matching_placeholder(
+    placeholders: list[dict],
+    da_eval: DAEvalType | None,
+    start_time: datetime,
+    event_id: str | None = None,
+) -> dict | None:
+    """Pick the placeholder a newly imported real appointment replaces.
+
+    A placeholder whose hold event is the appointment's own event (the event was
+    promoted) always matches. Otherwise a placeholder matches when it has the
+    same appointment type; appointments without a parsed type never match, since
+    the right hold can't be told apart. Evaluator and date may differ from the
+    hold (the real booking can land on another day or evaluator), so the
+    placeholder closest in time wins.
+    start_time and each placeholder's startTime must both be naive UTC.
+    """
+    if event_id:
+        for placeholder in placeholders:
+            if placeholder["calendarEventId"] == event_id:
+                return placeholder
+    if da_eval is None:
+        return None
+    same_type = [p for p in placeholders if p["daEval"] == da_eval]
+    return min(
+        same_type,
+        key=lambda p: abs(p["startTime"] - start_time),
+        default=None,
+    )
+
+
+def replace_placeholder_with_real_appointment(
+    client_id: int,
+    appointment_id: str,
+    da_eval: DAEvalType | None,
+    start_time: datetime,
+    real_gcal_event_id: str | None,
+) -> bool:
+    """Remove the client's placeholder that a real appointment supersedes: its DB
+    row, and its hold event on the evaluator's calendar unless that event is the
+    real appointment's own (a promoted hold).
+
+    start_time must be naive UTC. Returns whether a placeholder was removed.
+    """
+    placeholders = get_client_placeholder_appointments(client_id)
+    placeholder = find_matching_placeholder(
+        placeholders, da_eval, start_time, real_gcal_event_id
+    )
+    if placeholder is None:
+        return False
+
+    hold_event_id = placeholder["calendarEventId"]
+    # Never delete the real appointment's own event.
+    if (
+        hold_event_id
+        and hold_event_id != real_gcal_event_id
+        and placeholder["evaluatorEmail"]
+    ):
+        try:
+            delete_calendar_event(placeholder["evaluatorEmail"], hold_event_id)
+        except Exception:
+            logger.exception(
+                f"Could not delete placeholder calendar event {hold_event_id} for "
+                f"client {client_id}; removing the placeholder row anyway"
+            )
+
+    delete_superseded_placeholder(placeholder["id"], client_id, appointment_id)
+    logger.info(
+        f"Replaced placeholder {placeholder['id']} with appointment {appointment_id} "
+        f"for client {client_id}"
+    )
+    return True
+
+
 def _fetch_events_page(
     service,
     calendar_id: str,
@@ -536,6 +613,9 @@ def batch_search_calendar_events(
     is on that calendar, the first one found is used instead. Either way, the
     ambiguity is logged via the reporter so it surfaces in the sync error email.
 
+    Placeholder hold events match like any other event, but only when no real
+    event matches the appointment.
+
     Returns dict mapping appointment index to event details (id, title, calendar_id).
     """
     candidates_by_idx: dict[int, list[dict]] = defaultdict(list)
@@ -602,9 +682,6 @@ def batch_search_calendar_events(
             if not event_start:
                 continue
 
-            if _is_placeholder_title(event.get("summary") or ""):
-                continue
-
             # Parse and strip tzinfo for date grouping
             dt = parser.parse(event_start)
             if dt.tzinfo is not None:
@@ -652,6 +729,7 @@ def batch_search_calendar_events(
                         if (
                             calendar_id == expected_email
                             and not title.strip().lower().endswith("available")
+                            and not _is_placeholder_title(title)
                         ):
                             time_diff = abs((event_dt - start_time).total_seconds())
                             if time_diff <= 3600:
@@ -679,9 +757,12 @@ def batch_search_calendar_events(
                                 "calendar_id": calendar_id,
                                 "event_dt": event_dt,
                                 "description": description,
+                                "is_placeholder": _is_placeholder_title(
+                                    event.get("summary") or ""
+                                ),
                             }
                         )
-                    else:
+                    elif not _is_placeholder_title(event.get("summary") or ""):
                         # Log specific mismatch, but only act on it during
                         # resolution if no calendar had an in-tolerance match.
                         logger.warning(
@@ -694,7 +775,11 @@ def batch_search_calendar_events(
                                 "time_diff": time_diff,
                             }
                         )
-                    break
+
+                    # Keep scanning past a placeholder: a real event for the same
+                    # client later in the day takes precedence over it.
+                    if not _is_placeholder_title(event.get("summary") or ""):
+                        break
 
     results: dict[int, dict] = {}
 
@@ -703,6 +788,11 @@ def batch_search_calendar_events(
         expected_email = npi_to_email.get(expected_npi) if expected_npi else None
 
         candidates = candidates_by_idx.get(idx)
+        if candidates:
+            # A placeholder hold only stands in for the appointment when no real
+            # event matches; it is then promoted to the real event on import.
+            real_candidates = [c for c in candidates if not c["is_placeholder"]]
+            candidates = real_candidates or candidates
 
         if not candidates:
             near_misses = near_miss_by_idx.get(idx)
@@ -1138,6 +1228,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             evaluator_npi = None
             gcal_location = None
             gcal_daeval = None
+            promoted_placeholder = False
 
             if gcal_calendar_id:
                 evaluator_npi = npi_cache.get(gcal_calendar_id)
@@ -1151,6 +1242,18 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 # Ensure gcal_event_title is a string, default to empty if not
                 if not isinstance(gcal_event_title, str):
                     gcal_event_title = ""
+
+                # The matched event is a placeholder hold: it becomes this
+                # appointment's real event by taking the real title.
+                if _is_placeholder_title(gcal_event_title):
+                    real_title = real_title_for_placeholder_event(
+                        gcal_event_title, _clean_appointment_name(appointment)
+                    )
+                    if real_title and update_gcal_event_title(
+                        gcal_event_id, real_title, calendar_id=gcal_calendar_id
+                    ):
+                        gcal_event_title = real_title
+                        promoted_placeholder = True
 
                 gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
                     gcal_event_title
@@ -1255,6 +1358,28 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             # here is always a genuine appointment.
             if was_new_appointment and not cancelled:
                 newly_scheduled_client_ids.add(client_id)
+
+            # Drop the placeholder this appointment replaces: the promoted hold's
+            # own row, or the closest same-type hold when a real event matched.
+            if (
+                not cancelled
+                and gcal_daeval
+                and (was_new_appointment or promoted_placeholder)
+                and not _is_placeholder_title(gcal_event_title)
+            ):
+                try:
+                    replace_placeholder_with_real_appointment(
+                        client_id=client_id,
+                        appointment_id=appointment_id,
+                        da_eval=gcal_daeval,
+                        start_time=start_time.replace(tzinfo=None),
+                        real_gcal_event_id=gcal_event_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        f"Failed to replace placeholder for client {client_id} "
+                        f"with appointment {appointment_id}"
+                    )
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
@@ -1611,6 +1736,16 @@ def build_placeholder_title(
         ("Jane Doe", "DAEVAL", "COL") -> "plchldr Jane Doe DAEVAL [COL-DE]"
         ("Jane Doe", "DA", "Virtual") -> "plchldr Jane Doe DA [V]"
     """
+    return f"plchldr {build_real_title(client_name, da_eval, location_key)}"
+
+
+def build_real_title(client_name: str, da_eval: DAEvalType, location_key: str) -> str:
+    """Build a real appointment's calendar event title in the standard format.
+
+    Examples:
+        ("Jane Doe", "DAEVAL", "COL") -> "Jane Doe DAEVAL [COL-DE]"
+        ("Jane Doe", "DA", "Virtual") -> "Jane Doe DA [V]"
+    """
     type_letter_map: dict[DAEvalType, str] = {
         "EVAL": "E",
         "DA": "D",
@@ -1622,7 +1757,44 @@ def build_placeholder_title(
     else:
         tag = f"[{location_key}-{type_letter_map[da_eval]}]"
 
-    return f"plchldr {client_name} {da_eval} {tag}"
+    return f"{client_name} {da_eval} {tag}"
+
+
+def strip_placeholder_marker(title: str) -> str:
+    """Remove the placeholder word (and a dangling dash or colon after it) from
+    a hold event's title, leaving the rest as is. Returns the title unchanged if
+    no single word is a placeholder marker.
+
+    Examples:
+        "plchldr Jane Doe DAEVAL [COL-DE]" -> "Jane Doe DAEVAL [COL-DE]"
+        "Placeholder - Jane Doe [COL-E]" -> "Jane Doe [COL-E]"
+    """
+    words = title.split()
+    for i, word in enumerate(words):
+        if _is_placeholder_title(word):
+            del words[i]
+            if i < len(words) and words[i] in {"-", "\u2013", ":"}:
+                del words[i]
+            return " ".join(words)
+    return title
+
+
+def real_title_for_placeholder_event(title: str, client_name: str) -> str | None:
+    """The title a placeholder hold event takes on once it becomes the real
+    appointment's event, or None if one can't be produced.
+
+    Strips the placeholder word; if the title still reads as a placeholder (for
+    example a marker split across words), rebuilds it from the client name and
+    the type and location parsed from the old title.
+    """
+    stripped = strip_placeholder_marker(title)
+    if not _is_placeholder_title(stripped):
+        return stripped
+
+    location, da_eval, _ = parse_location_and_type(title)
+    if location and da_eval:
+        return build_real_title(client_name, da_eval, location)
+    return None
 
 
 def build_placeholder_description(

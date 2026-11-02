@@ -2356,6 +2356,56 @@ def get_placeholder_appointment(
 
 
 @provide_connection
+def get_client_placeholder_appointments(
+    client_id: int, connection: Connection[DictCursor]
+) -> list[dict]:
+    """Returns a client's placeholder appointments (id, daEval, startTime,
+    calendarEventId, and the evaluator's email, which is their calendar id).
+    startTime is a naive datetime representing UTC.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT a.id, a.daEval, a.startTime, a.calendarEventId,
+                   e.email AS evaluatorEmail
+            FROM `{TABLE_APPOINTMENT}` a
+            LEFT JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
+            WHERE a.clientId = %s AND a.placeholder = 1
+            """,
+            (client_id,),
+        )
+        return list(cursor.fetchall())
+
+
+@provide_connection
+def delete_superseded_placeholder(
+    placeholder_id: str,
+    client_id: int,
+    replaced_by_appointment_id: str,
+    connection: Connection[DictCursor],
+) -> None:
+    """Deletes a placeholder appointment that a real TA appointment replaced,
+    recording the swap in the audit log in the same transaction."""
+    record_audit_log(
+        connection,
+        "python.appointments.placeholder_replaced",
+        client_id,
+        "system:csv-sync",
+        "TA import",
+        detail={
+            "placeholderId": placeholder_id,
+            "replacedByAppointmentId": replaced_by_appointment_id,
+        },
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"DELETE FROM `{TABLE_APPOINTMENT}` WHERE id = %s AND placeholder = 1",
+            (placeholder_id,),
+        )
+        connection.commit()
+
+
+@provide_connection
 def delete_appointment(appointment_id: str, connection: Connection[DictCursor]) -> None:
     """Deletes an appointment row. Only ever called for placeholder appointments,
     gated by get_placeholder_appointment's placeholder=1 check beforehand."""
