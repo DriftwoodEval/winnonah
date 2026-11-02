@@ -33,6 +33,11 @@ async function capturePage(): Promise<string | null> {
 		canvasHeight: Math.round(height * (canvasWidth / width)),
 		pixelRatio: 1,
 		backgroundColor: getComputedStyle(document.body).backgroundColor,
+		// The whole body is rendered from its top, so shift it up by the scroll
+		// position to capture what the user currently sees.
+		style: {
+			transform: `translate(${-window.scrollX}px, ${-window.scrollY}px)`,
+		},
 		// The draft bar is not part of the page being reported.
 		filter: (node: HTMLElement) =>
 			!("issueReportIgnore" in (node.dataset ?? {})),
