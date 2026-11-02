@@ -1,6 +1,4 @@
-import pytest
-
-from utils.webdriving import click_element, find_element, initialize_selenium
+from utils.webdriving import click_element, find_element
 
 SMOKE_PAGE = (
     "data:text/html,"
@@ -10,28 +8,13 @@ SMOKE_PAGE = (
 )
 
 
-@pytest.fixture(autouse=True)
-def _headless(monkeypatch):
-    # Force headless regardless of the ambient environment, so this test never
-    # pops up a real browser window on a developer's machine.
-    monkeypatch.setenv("HEADLESS", "true")
-
-
 class TestSeleniumSmoke:
-    def test_opens_a_page_and_reads_its_title(self):
-        driver, _ = initialize_selenium()
-        try:
-            driver.get(SMOKE_PAGE)
-            assert driver.title == "Smoke Test"
-        finally:
-            driver.quit()
+    def test_opens_a_page_and_reads_its_title(self, driver):
+        driver.get(SMOKE_PAGE)
+        assert driver.title == "Smoke Test"
 
-    def test_finds_and_clicks_an_element(self):
-        driver, _ = initialize_selenium()
-        try:
-            driver.get(SMOKE_PAGE)
-            click_element(driver, "id", "go")
-            result = find_element(driver, "id", "result")
-            assert result.text == "clicked"
-        finally:
-            driver.quit()
+    def test_finds_and_clicks_an_element(self, driver):
+        driver.get(SMOKE_PAGE)
+        click_element(driver, "id", "go")
+        result = find_element(driver, "id", "result")
+        assert result.text == "clicked"
