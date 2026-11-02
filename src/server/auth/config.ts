@@ -326,16 +326,22 @@ export const authInstance = betterAuth({
 			// The session's user is whoever it acts as. While impersonating, the
 			// real signed-in user is the one recorded on the session.
 			const impersonatorId = session.impersonatedBy ?? null;
-			const impersonator = impersonatorId
-				? await db.query.users.findFirst({
-						where: eq(users.id, impersonatorId),
-					})
-				: undefined;
 
-			const permissions = await resolvePermissions({
-				permissions: (user.permissions ?? null) as PermissionsObject | null,
-				roleId: user.roleId ?? null,
-			});
+			// None of these depend on each other, so they run together.
+			const [impersonator, permissions, evaluatorProfile] = await Promise.all([
+				impersonatorId
+					? db.query.users.findFirst({ where: eq(users.id, impersonatorId) })
+					: undefined,
+				resolvePermissions({
+					permissions: (user.permissions ?? null) as PermissionsObject | null,
+					roleId: user.roleId ?? null,
+				}),
+				db.query.evaluators.findFirst({
+					where: eq(evaluators.email, user.email),
+					columns: { npi: true, evaluatorDashboard: true },
+				}),
+			]);
+
 			let realPermissions = permissions;
 			if (impersonatorId) {
 				realPermissions = impersonator
@@ -352,11 +358,6 @@ export const authInstance = betterAuth({
 					});
 				}
 			}
-
-			const evaluatorProfile = await db.query.evaluators.findFirst({
-				where: eq(evaluators.email, user.email),
-				columns: { npi: true, evaluatorDashboard: true },
-			});
 
 			return {
 				session: { id: session.id, expiresAt: session.expiresAt },
