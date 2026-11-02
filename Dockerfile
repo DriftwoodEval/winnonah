@@ -1,6 +1,6 @@
-FROM node:24-bookworm-slim AS base
+FROM node:26-trixie-slim AS base
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable
+RUN npm install -g corepack && corepack enable
 
 FROM base AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
@@ -29,7 +29,7 @@ RUN SKIP_ENV_VALIDATION=1 pnpm test
 RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
     SKIP_ENV_VALIDATION=1 pnpm run build
 
-FROM gcr.io/distroless/nodejs24-debian12 AS runner
+FROM gcr.io/distroless/nodejs26-debian13 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
