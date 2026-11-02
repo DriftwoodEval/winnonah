@@ -73,6 +73,12 @@ describe("auth hardening", () => {
 		expect(authInstance.options.account?.encryptOAuthTokens).toBe(true);
 	});
 
+	it("does not link a new Google account to an existing user by email", () => {
+		expect(
+			authInstance.options.account?.accountLinking?.disableImplicitLinking,
+		).toBe(true);
+	});
+
 	it("turns telemetry off", () => {
 		expect(authInstance.options.telemetry?.enabled).toBe(false);
 	});
