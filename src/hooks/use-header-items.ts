@@ -1,7 +1,9 @@
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { QUESTIONNAIRE_LOGIN_SERVICES } from "~/lib/constants";
 import { HEADER_ITEM_DEFS, type HeaderItemId } from "~/lib/layout/header-items";
 import type { PermissionId } from "~/lib/types";
+import { canViewQuestionnaireLogin } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
@@ -34,6 +36,10 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 			can("reports:approve") ||
 			can("reports:billing")) &&
 		can("reports:beta");
+	const permissions = session?.user.permissions ?? {};
+	const canSeeQuestionnaireLogins = QUESTIONNAIRE_LOGIN_SERVICES.some((svc) =>
+		canViewQuestionnaireLogin(permissions, svc.id),
+	);
 
 	const availability = {} as Record<HeaderItemId, boolean>;
 	for (const def of HEADER_ITEM_DEFS) {
@@ -43,6 +49,8 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 			availability[def.id] = canSeeClaimReports;
 		} else if (def.id === "reports") {
 			availability[def.id] = canSeeReports;
+		} else if (def.id === "questionnaire-logins") {
+			availability[def.id] = canSeeQuestionnaireLogins;
 		} else {
 			const permission = ITEM_PERMISSIONS[def.id];
 			availability[def.id] = permission ? can(permission) : true;
