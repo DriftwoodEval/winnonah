@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { HighlightedPreview } from "~/app/_components/shared/PlaceholderHighlight";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { usePausedClientWarning } from "~/hooks/use-paused-client-warning";
 import { QUESTIONNAIRE_REMINDER_STAGES } from "~/lib/constants";
 import { formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -49,10 +50,13 @@ function StageEditor({
 		setDraft(baseline);
 	}, [baseline]);
 
+	const warnIfPaused = usePausedClientWarning(clientId);
+
 	const setOverride = api.questionnaires.setReminderOverride.useMutation({
 		onSuccess: () => {
 			void utils.questionnaires.getReminderOverrides.invalidate(clientId);
 			toast.success("Reminder override saved");
+			warnIfPaused("The reminder message");
 		},
 		onError: (err) =>
 			toast.error("Failed to save override", { description: err.message }),
