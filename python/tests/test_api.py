@@ -10,6 +10,7 @@ from pywaze.route_calculator import CalcRoutesResponse
 from api.app import (
     _apply_confirmed_marker,
     _find_duplicates,
+    _session_cache,
     col_num_to_letter,
     find_drive_folder,
     get_current_user,
@@ -124,6 +125,7 @@ class TestGetCurrentUser:
     @pytest.fixture(autouse=True)
     def app_url(self, monkeypatch):
         monkeypatch.setenv("EMR_APP_URL", "https://app.example.com/")
+        _session_cache.clear()
 
     def test_raises_401_when_no_cookie(self):
         with pytest.raises(HTTPException) as exc_info:
@@ -174,10 +176,7 @@ class TestGetCurrentUser:
             "permissions": {"clients:view": True},
         }
 
-    @pytest.mark.parametrize(
-        ("status_code", "body"),
-        [(200, None), (401, None), (403, {"message": "no"}), (404, None)],
-    )
+    @pytest.mark.parametrize(("status_code", "body"), [(200, None), (401, None)])
     def test_raises_401_when_the_app_has_no_session(self, status_code, body):
         request = _mock_request({"cookie": "a=b"})
         with (
@@ -189,6 +188,59 @@ class TestGetCurrentUser:
         ):
             get_current_user(request)
         assert exc_info.value.status_code == 401
+
+    @pytest.mark.parametrize("status_code", [403, 404, 429, 502])
+    def test_raises_503_when_the_app_cannot_answer(self, status_code):
+        """A rate limit or an unexpected answer says nothing about the session."""
+        request = _mock_request({"cookie": "a=b"})
+        with (
+            patch(
+                "api.app.httpx.get",
+                return_value=_session_response(status_code, None),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            get_current_user(request)
+        assert exc_info.value.status_code == 503
+
+    def test_reuses_a_recent_lookup_for_the_same_cookie(self):
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            first = get_current_user(_mock_request({"cookie": "a=b"}))
+            second = get_current_user(_mock_request({"cookie": "a=b"}))
+        assert first == second
+        assert get.call_count == 1
+
+    def test_does_not_share_a_lookup_between_cookies(self):
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(_mock_request({"cookie": "a=b"}))
+            get_current_user(_mock_request({"cookie": "a=c"}))
+        assert get.call_count == 2
+
+    def test_does_not_cache_a_failed_lookup(self):
+        request = _mock_request({"cookie": "a=b"})
+        with (
+            patch("api.app.httpx.get", return_value=_session_response(401, None)),
+            pytest.raises(HTTPException),
+        ):
+            get_current_user(request)
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ):
+            assert get_current_user(request)["user_id"] == "u1"
+
+    def test_uses_the_production_app_when_the_url_is_blank(self, monkeypatch):
+        monkeypatch.setenv("EMR_APP_URL", "")
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(_mock_request({"cookie": "a=b"}))
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/auth/get-session"
+        )
 
     def test_raises_403_for_archived_account(self):
         request = _mock_request({"cookie": "a=b"})

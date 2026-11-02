@@ -44,6 +44,19 @@ class TestGetUsersWithPermission:
         with patch("utils.app_api.requests.get", return_value=_response(users)):
             assert get_users_with_permission("reports:notifications") == users
 
+    def test_sends_an_empty_email_so_it_matches_no_one(self):
+        with patch("utils.app_api.requests.get", return_value=_response([])) as get:
+            get_users_with_permission("reports:notifications", email="")
+        assert get.call_args.kwargs["params"]["email"] == ""
+
+    def test_uses_the_production_app_when_the_url_is_blank(self, monkeypatch):
+        monkeypatch.setenv("EMR_APP_URL", "")
+        with patch("utils.app_api.requests.get", return_value=_response([])) as get:
+            get_users_with_permission("reports:notifications")
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/internal/users-with-permission"
+        )
+
     def test_defaults_to_the_production_app(self, monkeypatch):
         monkeypatch.delenv("EMR_APP_URL")
         with patch("utils.app_api.requests.get", return_value=_response([])) as get:

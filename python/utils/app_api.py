@@ -10,7 +10,8 @@ REQUEST_TIMEOUT_SECONDS = 30
 
 def app_url() -> str:
     """The web app's base URL, without a trailing slash."""
-    return os.getenv("EMR_APP_URL", "https://emr.driftwoodeval.com").rstrip("/")
+    # A blank value (an unfilled `.env` entry) counts as unset.
+    return (os.getenv("EMR_APP_URL") or "https://emr.driftwoodeval.com").rstrip("/")
 
 
 def get_users_with_permission(permission: str, email: str | None = None) -> list[dict]:
@@ -18,14 +19,14 @@ def get_users_with_permission(permission: str, email: str | None = None) -> list
 
     The web app decides who holds it, so the permission rules live in one place.
     Each user has `email`, `name`, `claimedReportFolder`, and `blockedEvaluatorNpis`.
-    `email` narrows the result to that one user.
+    `email` narrows the result to that one user, and an empty `email` matches no one.
     """
     api_key = os.getenv("API_KEY")
     if not api_key:
         raise RuntimeError("API_KEY is not set, cannot look up users by permission")
 
     params = {"permission": permission}
-    if email:
+    if email is not None:
         params["email"] = email
     response = requests.get(
         f"{app_url()}/api/internal/users-with-permission",

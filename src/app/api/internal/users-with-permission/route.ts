@@ -10,7 +10,7 @@ import { users } from "~/server/db/schema";
 /**
  * Active users who hold a permission, counting their role and their own
  * overrides. Lets the Python side pick notification recipients without
- * repeating the permission rules. `email` narrows the result to one user.
+ * repeating the permission rules. `email` narrows the result to one user, and an empty `email` matches no one.
  */
 export async function GET(req: NextRequest) {
 	const auth = await checkInternalApiAuth(
@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
 
 	const holders = activeUsers
 		.filter(
-			(user) => !email || user.email.toLowerCase() === email.toLowerCase(),
+			(user) =>
+				email === null || user.email.toLowerCase() === email.toLowerCase(),
 		)
 		.filter((user) =>
 			hasPermission(

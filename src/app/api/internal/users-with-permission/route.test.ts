@@ -67,6 +67,13 @@ describe("GET /api/internal/users-with-permission", () => {
 		expect(emails).toEqual(["alice@example.com"]);
 	});
 
+	it("matches no one for an empty email filter", async () => {
+		const response = await GET(
+			request("permission=reports:notifications&email="),
+		);
+		expect(await response.json()).toEqual([]);
+	});
+
 	it.each(["constructor", "toString", "__proto__", "not:a-permission", ""])(
 		"rejects %j as an unknown permission",
 		async (permission) => {
