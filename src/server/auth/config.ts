@@ -15,7 +15,7 @@ import { hasPermission } from "~/lib/utils";
 import { recordAuthAudit } from "~/server/auth/audit";
 import { CLIENT_IP_HEADERS } from "~/server/auth/client-ip";
 import { clearCachedGoogleToken } from "~/server/auth/google-token-cache";
-import { impersonation } from "~/server/auth/impersonation";
+import { getImpersonatedBy, impersonation } from "~/server/auth/impersonation";
 import { resolvePermissions } from "~/server/auth/permissions";
 import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
@@ -250,7 +250,7 @@ const authOptions = {
 				},
 				// "View as" sessions are audited when they start, not here.
 				after: async (session) => {
-					if ((session as { impersonatedBy?: string | null }).impersonatedBy) {
+					if (getImpersonatedBy(session)) {
 						return;
 					}
 					const userInDb = await db.query.users.findFirst({
@@ -277,9 +277,7 @@ const authOptions = {
 			// While viewing as someone, the session's user is the person being
 			// viewed. Record who actually signed out, as the audit log does for
 			// other actions taken while viewing as someone.
-			const impersonatorId = (
-				current.session as { impersonatedBy?: string | null }
-			).impersonatedBy;
+			const impersonatorId = getImpersonatedBy(current.session);
 			const impersonator = impersonatorId
 				? await db.query.users.findFirst({
 						where: eq(users.id, impersonatorId),
@@ -294,7 +292,30 @@ const authOptions = {
 			});
 		}),
 	},
-	plugins: [impersonation()],
+	plugins: [
+		impersonation({
+			canImpersonate: async (userId) => {
+				const user = await db.query.users.findFirst({
+					where: eq(users.id, userId),
+				});
+				return (
+					!!user &&
+					!user.archived &&
+					hasPermission(await resolvePermissions(user), "settings:impersonate")
+				);
+			},
+			onEvent: (event) =>
+				recordAuthAudit({
+					userId: event.userId,
+					userEmail: event.userEmail,
+					action: event.action,
+					detail: {
+						targetUserId: event.targetUserId,
+						targetEmail: event.targetEmail,
+					},
+				}),
+		}),
+	],
 } satisfies BetterAuthOptions;
 
 export const authInstance = betterAuth({

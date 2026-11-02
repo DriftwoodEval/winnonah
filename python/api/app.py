@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import re
 import time
@@ -186,6 +187,37 @@ def get_google_services():
     return {"drive": drive_service, "sheets": sheets_service}
 
 
+# How long a session lookup is reused. A page loads several endpoints at once,
+# and each would otherwise ask the web app separately. A sign-out or archive
+# takes effect here within this time.
+SESSION_CACHE_SECONDS = 5
+SESSION_CACHE_MAX_ENTRIES = 256
+_session_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _session_cache_key(cookie: str) -> str:
+    return hashlib.sha256(cookie.encode()).hexdigest()
+
+
+def _cached_user(key: str) -> dict | None:
+    entry = _session_cache.get(key)
+    if entry and entry[0] > time.monotonic():
+        return entry[1]
+    return None
+
+
+def _remember_user(key: str, user: dict) -> None:
+    now = time.monotonic()
+    if len(_session_cache) >= SESSION_CACHE_MAX_ENTRIES:
+        for stale_key in [
+            k for k, (expires, _) in _session_cache.items() if expires <= now
+        ]:
+            _session_cache.pop(stale_key, None)
+        if len(_session_cache) >= SESSION_CACHE_MAX_ENTRIES:
+            _session_cache.clear()
+    _session_cache[key] = (now + SESSION_CACHE_SECONDS, user)
+
+
 def get_current_user(request: Request):
     """Resolves the signed-in user by asking the web app, which owns sessions.
 
@@ -196,6 +228,14 @@ def get_current_user(request: Request):
     if not cookie:
         raise HTTPException(status_code=401, detail="Authentication required")
 
+    cache_key = _session_cache_key(cookie)
+    cached = _cached_user(cache_key)
+    if cached:
+        return cached
+
+    unavailable = HTTPException(
+        status_code=503, detail="Authentication service unavailable"
+    )
     try:
         response = httpx.get(
             f"{app_url()}/api/auth/get-session",
@@ -204,20 +244,17 @@ def get_current_user(request: Request):
         )
     except httpx.HTTPError as error:
         logger.error(f"Could not reach the web app to check a session: {error}")
-        raise HTTPException(
-            status_code=503, detail="Authentication service unavailable"
-        ) from error
+        raise unavailable from error
 
-    if response.status_code >= 500:
-        raise HTTPException(
-            status_code=503, detail="Authentication service unavailable"
-        )
+    # The app answers 200 with a session, 200 with null, or 401 when there is none.
+    # Anything else (a rate limit, a server error) says nothing about the session.
+    if response.status_code not in (200, 401):
+        logger.error(f"The web app answered {response.status_code} to a session check")
+        raise unavailable
     try:
         session = response.json() if response.status_code == 200 else None
     except ValueError as error:
-        raise HTTPException(
-            status_code=503, detail="Authentication service unavailable"
-        ) from error
+        raise unavailable from error
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
 
@@ -225,13 +262,15 @@ def get_current_user(request: Request):
     if user.get("archived"):
         raise HTTPException(status_code=403, detail="Account archived")
 
-    return {
+    current_user = {
         "user_id": user["id"],
         "email": user["email"],
         "name": user["name"],
         "permissions": user.get("permissions") or {},
         "role_id": user.get("roleId"),
     }
+    _remember_user(cache_key, current_user)
+    return current_user
 
 
 def get_writer_id(user_name: str) -> str:
@@ -650,6 +689,9 @@ def notify_admin_review_claimed(
             status_code=403,
             detail="Not authorized to send admin review notifications",
         )
+
+    if not request.user_email:
+        return {"status": "skipped", "reason": "no recipient given"}
 
     recipients = get_users_with_permission(
         "clients:admin:review:email-notifications", email=request.user_email

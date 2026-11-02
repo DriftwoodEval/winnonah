@@ -6,30 +6,45 @@ import {
 	sessionMiddleware,
 } from "better-auth/api";
 import { expireCookie, setSessionCookie } from "better-auth/cookies";
-import { eq } from "drizzle-orm";
 import z from "zod";
-import { hasPermission } from "~/lib/utils";
-import { recordAuthAudit } from "~/server/auth/audit";
-import { resolvePermissions } from "~/server/auth/permissions";
-import { db } from "~/server/db";
-import { users } from "~/server/db/schema";
 
 /** How long a "view as another user" session lasts. */
 const IMPERSONATION_SECONDS = 60 * 60;
 
+/** The real user's id on a "view as" session, or null on any other session. */
+export function getImpersonatedBy(session: object): string | null {
+	return (session as { impersonatedBy?: string | null }).impersonatedBy ?? null;
+}
+
+export interface ImpersonationEvent {
+	action: "impersonation.started" | "impersonation.stopped";
+	/** The real user, who started or stopped viewing as someone else. */
+	userId: string;
+	userEmail: string;
+	targetUserId: string;
+	targetEmail: string;
+}
+
+export interface ImpersonationOptions {
+	/** Whether a user is allowed to view the app as someone else. */
+	canImpersonate: (userId: string) => Promise<boolean>;
+	/** Told whenever a "view as" session starts or stops. */
+	onEvent: (event: ImpersonationEvent) => Promise<void>;
+}
+
 /**
- * "View as another user", gated behind the `settings:impersonate` permission.
+ * "View as another user".
  *
  * Starting creates a real session for the target user, marked with
  * `impersonatedBy`, so every part of the app (RSC, tRPC, the Python API) sees
  * that user with no special handling. The session is capped at one hour, and
  * the real session is kept aside in a signed cookie so stopping restores it.
  *
- * The permission is read from the real user's role and overrides (not a fixed
- * role string like Better Auth's admin plugin), so this is a small plugin of
- * our own.
+ * Who may do this is decided by `canImpersonate` (our role and permission
+ * rules), not by a fixed role string like Better Auth's admin plugin uses, so
+ * this is a small plugin of our own.
  */
-export const impersonation = () =>
+export const impersonation = (options: ImpersonationOptions) =>
 	({
 		id: "impersonation",
 		schema: {
@@ -51,18 +66,10 @@ export const impersonation = () =>
 					const current = ctx.context.session;
 					// Switching from one impersonated user to another keeps the original
 					// session and checks the permission of the person who started it.
-					const currentImpersonatedBy = (
-						current.session as { impersonatedBy?: string | null }
-					).impersonatedBy;
+					const currentImpersonatedBy = getImpersonatedBy(current.session);
 					const realUserId = currentImpersonatedBy ?? current.user.id;
 
-					const realUser = await db.query.users.findFirst({
-						where: eq(users.id, realUserId),
-					});
-					const realPermissions = realUser
-						? await resolvePermissions(realUser)
-						: {};
-					if (!hasPermission(realPermissions, "settings:impersonate")) {
+					if (!(await options.canImpersonate(realUserId))) {
 						throw APIError.fromStatus("FORBIDDEN", {
 							message: "You are not allowed to view as another user.",
 						});
@@ -79,6 +86,13 @@ export const impersonation = () =>
 					if (!target) {
 						throw APIError.fromStatus("NOT_FOUND", {
 							message: "User not found.",
+						});
+					}
+					const realUser =
+						await ctx.context.internalAdapter.findUserById(realUserId);
+					if (!realUser) {
+						throw APIError.fromStatus("UNAUTHORIZED", {
+							message: "Your own user could not be found.",
 						});
 					}
 
@@ -118,11 +132,12 @@ export const impersonation = () =>
 
 					// `true` marks the session as non-renewing, so the one-hour cap holds.
 					await setSessionCookie(ctx, { session, user: target }, true);
-					await recordAuthAudit({
-						userId: realUserId,
-						userEmail: realUser?.email ?? "",
+					await options.onEvent({
 						action: "impersonation.started",
-						detail: { targetUserId: target.id, targetEmail: target.email },
+						userId: realUser.id,
+						userEmail: realUser.email,
+						targetUserId: target.id,
+						targetEmail: target.email,
 					});
 					return ctx.json({ ok: true });
 				},
@@ -132,9 +147,7 @@ export const impersonation = () =>
 				{ method: "POST", use: [sessionMiddleware] },
 				async (ctx) => {
 					const current = ctx.context.session;
-					const impersonatedBy = (
-						current.session as { impersonatedBy?: string | null }
-					).impersonatedBy;
+					const impersonatedBy = getImpersonatedBy(current.session);
 					if (!impersonatedBy) {
 						throw APIError.fromStatus("BAD_REQUEST", {
 							message: "You are not viewing as another user.",
@@ -151,7 +164,13 @@ export const impersonation = () =>
 					const realSession = token
 						? await ctx.context.internalAdapter.findSession(token)
 						: null;
-					if (!realSession || realSession.session.userId !== impersonatedBy) {
+					// The real session does not renew while viewing as someone else, so
+					// it may have run out in the meantime.
+					if (
+						!realSession ||
+						realSession.session.userId !== impersonatedBy ||
+						realSession.session.expiresAt.getTime() <= Date.now()
+					) {
 						throw APIError.fromStatus("UNAUTHORIZED", {
 							message: "Your own session has expired. Sign in again.",
 						});
@@ -167,14 +186,12 @@ export const impersonation = () =>
 						expireCookie(ctx, ctx.context.authCookies.dontRememberToken);
 					}
 					expireCookie(ctx, realSessionCookie);
-					await recordAuthAudit({
+					await options.onEvent({
+						action: "impersonation.stopped",
 						userId: realSession.user.id,
 						userEmail: realSession.user.email,
-						action: "impersonation.stopped",
-						detail: {
-							targetUserId: current.user.id,
-							targetEmail: current.user.email,
-						},
+						targetUserId: current.user.id,
+						targetEmail: current.user.email,
 					});
 					return ctx.json({ ok: true });
 				},

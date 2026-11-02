@@ -14,6 +14,7 @@ from loguru import logger
 
 import utils.database
 import utils.google
+from utils.app_api import app_url
 from utils.constants import TABLE_REFERRAL_STATUS_FAX_LOGS
 from utils.referrals import IGNORE_SOURCES, LETTERHEAD_PATH, process_source_metadata
 
@@ -81,10 +82,8 @@ def fetch_referral_statuses() -> list[dict]:
         logger.error("API_KEY is not set, cannot fetch referral statuses")
         return []
 
-    app_url = os.getenv("EMR_APP_URL", "https://emr.driftwoodeval.com")
-    endpoint = f"{app_url.rstrip('/')}/api/internal/referral-status"
     response = requests.get(
-        endpoint,
+        f"{app_url()}/api/internal/referral-status",
         headers={"Authorization": f"Bearer {api_key}"},
         timeout=30,
     )

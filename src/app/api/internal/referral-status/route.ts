@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
 
-	const session = await getServiceSession();
+	const session = getServiceSession();
 	const { punchClients } = await getFullDashboardData({ db, redis, session });
 
 	const eligibleClients = (punchClients ?? []).filter((client) => {

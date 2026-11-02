@@ -41,19 +41,17 @@ import {
 const log = logger.child({ module: "dashboard-history" });
 
 /**
- * Builds a session-shaped credential from the shared Google OAuth token used
- * by the Python sidecar and one-off scripts (see scripts/oneoff/migrate-punchlist-records.ts),
- * so this background job can call the same session-scoped data fetchers
- * (getPunchData, getMissingFromPunchlistData) used by the live dashboard.
+ * The shared Google OAuth credentials used by the Python sidecar and one-off
+ * scripts (see scripts/oneoff/migrate-punchlist-records.ts), so this background
+ * job can call the same Google data fetchers (getPunchData,
+ * getMissingFromPunchlistData) used by the live dashboard.
  *
  * The refresh token in token.json was issued to Python's own OAuth client
- * (auth_cache/credentials.json), not this app's AUTH_GOOGLE_ID/SECRET. If we
- * hand a stale access token to getSheetsClient, its auto-refresh uses the
- * wrong client and Google rejects it with "unauthorized_client". So we
- * proactively refresh here, with the matching client, before building the
- * session.
+ * (auth_cache/credentials.json), not this app's AUTH_GOOGLE_ID/SECRET, so the
+ * client is built with that client's id and secret. It gets its access token
+ * from the refresh token the first time it is used.
  */
-export async function getServiceSession(): Promise<ServiceSession> {
+export function getServiceSession(): ServiceSession {
 	const tokenPath = path.resolve("python/auth_cache/token.json");
 	const credentialsPath = path.resolve("python/auth_cache/credentials.json");
 
@@ -70,11 +68,6 @@ export async function getServiceSession(): Promise<ServiceSession> {
 	});
 	oauth2Client.setCredentials({ refresh_token: token.refresh_token });
 
-	const { credentials: refreshed } = await oauth2Client.refreshAccessToken();
-	if (!refreshed.access_token) {
-		throw new Error("Failed to refresh Google access token for dashboard sync");
-	}
-
 	return { serviceOAuthClient: oauth2Client };
 }
 
@@ -88,7 +81,7 @@ function sectionsKey(sections: string[]): string {
  * history row whenever a client's matched sections change.
  */
 export async function syncDashboardSectionHistory() {
-	const session = await getServiceSession();
+	const session = getServiceSession();
 	const [
 		{ punchClients, missingClients, needsReachOut, needsReview },
 		allClients,

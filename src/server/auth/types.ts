@@ -16,7 +16,7 @@ export interface SessionUser {
 	archived: boolean | null;
 	claimedReportFolder: { name: string; id: string }[] | null;
 	maxClaimedReports: number | null;
-	/** True when a permitted user is viewing the app as this user via the impersonation cookie. */
+	/** True when a permitted user is viewing the app as this user through a "view as" session. */
 	isImpersonating: boolean;
 	/** The real signed-in user's id, set only while `isImpersonating` is true. */
 	impersonatorId: string | null;

@@ -7,11 +7,13 @@ export interface CachedGoogleToken {
 }
 
 const KEY_PREFIX = "google-access-token:";
-// Refresh a little early so a token never expires mid-request.
-const EXPIRY_MARGIN_MS = 60 * 1000;
+// Google's client library treats a token with under 5 minutes left as expired
+// and asks for another one. Stop caching a minute before that point, so a
+// cached token is never handed out only to be replaced at once.
+const EXPIRY_MARGIN_MS = 6 * 60 * 1000;
 
 /**
- * Google access tokens are cached until shortly before they expire, in Redis
+ * Google access tokens are cached until a few minutes before they expire, in Redis
  * so every web instance sees a sign-in or re-authorization right away.
  *
  * The cache only saves work, so every function here keeps going when Redis is

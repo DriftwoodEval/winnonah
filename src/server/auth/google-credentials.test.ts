@@ -1,3 +1,4 @@
+import { APIError } from "better-auth/api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getAccessToken = vi.fn();
@@ -9,7 +10,7 @@ const writeCache = vi.fn();
 vi.mock("~/env", () => ({
 	env: { AUTH_GOOGLE_ID: "id", AUTH_GOOGLE_SECRET: "secret" },
 }));
-vi.mock("~/lib/logger", () => ({ logger: { error: vi.fn() } }));
+vi.mock("~/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn() } }));
 vi.mock("~/server/auth/config", () => ({
 	authInstance: { api: { getAccessToken, refreshToken } },
 }));
@@ -101,11 +102,44 @@ describe("createUserOAuth2Client", () => {
 		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 	});
 
-	it("asks the user to sign in again when the refresh fails", async () => {
-		getAccessToken.mockRejectedValue(new Error("invalid_grant"));
+	it("asks the user to sign in again when Google rejects the refresh", async () => {
+		getAccessToken.mockRejectedValue(
+			APIError.from("BAD_REQUEST", {
+				message: "Failed to get a valid access token",
+				code: "FAILED_TO_GET_ACCESS_TOKEN",
+			}),
+		);
 
 		await expect(
 			requestToken(createUserOAuth2Client("u1")),
 		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+
+	it("passes on a failure that signing in again would not fix", async () => {
+		const outage = new Error("connection reset");
+		getAccessToken.mockRejectedValue(outage);
+
+		await expect(requestToken(createUserOAuth2Client("u1"))).rejects.toBe(
+			outage,
+		);
+	});
+
+	it("shares one lookup between requests that start together", async () => {
+		getAccessToken.mockResolvedValue({
+			accessToken: "fresh",
+			accessTokenExpiresAt: expiresAt,
+		});
+		const client = createUserOAuth2Client("u1");
+
+		const [first, second, third] = await Promise.all([
+			requestToken(client),
+			requestToken(client),
+			requestToken(client),
+		]);
+
+		expect(getAccessToken).toHaveBeenCalledTimes(1);
+		expect(refreshToken).not.toHaveBeenCalled();
+		expect(second).toEqual(first);
+		expect(third).toEqual(first);
 	});
 });
