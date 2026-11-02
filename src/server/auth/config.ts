@@ -162,11 +162,6 @@ const authOptions = {
 		// secret. Tokens saved before this was on stay readable and are
 		// encrypted the next time they are written.
 		encryptOAuthTokens: true,
-		// Google is the only way in and every user already has a Google account
-		// row, so signing in never needs to link by email. A sign-in whose Google
-		// id is not on file is refused instead of attaching to a user with the
-		// same email.
-		accountLinking: { disableImplicitLinking: true },
 	},
 	session: {
 		expiresIn: 60 * 60 * 5, // 5 hours
