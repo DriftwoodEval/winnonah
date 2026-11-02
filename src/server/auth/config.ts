@@ -9,9 +9,11 @@ import { nextCookies } from "better-auth/next-js";
 import { customSession } from "better-auth/plugins";
 import { and, eq } from "drizzle-orm";
 import { env } from "~/env";
+import { logger } from "~/lib/logger";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { recordAuthAudit } from "~/server/auth/audit";
+import { CLIENT_IP_HEADERS } from "~/server/auth/client-ip";
 import { clearCachedGoogleToken } from "~/server/auth/google-token-cache";
 import { impersonation } from "~/server/auth/impersonation";
 import { resolvePermissions } from "~/server/auth/permissions";
@@ -27,6 +29,44 @@ import {
 	users,
 	verifications,
 } from "~/server/db/schema";
+
+const authLogger = logger.child({ module: "auth" });
+
+/**
+ * HTTP endpoints under /api/auth that nothing uses. They answer 404. Only
+ * requests from the browser are blocked: the server's own `auth.api` calls are
+ * not affected.
+ *
+ * Some of these would be harmful if left open. `/update-user` lets anyone
+ * rename themselves, and the app treats a user's name as their identity.
+ * `/get-access-token` and `/refresh-token` hand a Google token to the browser,
+ * including the target's token while viewing as another user.
+ */
+const DISABLED_PATHS = [
+	"/sign-in/email",
+	"/sign-up/email",
+	"/request-password-reset",
+	"/reset-password",
+	"/change-password",
+	"/verify-password",
+	"/change-email",
+	"/send-verification-email",
+	"/verify-email",
+	"/delete-user",
+	"/delete-user/callback",
+	"/update-user",
+	"/update-session",
+	"/link-social",
+	"/unlink-account",
+	"/list-accounts",
+	"/account-info",
+	"/get-access-token",
+	"/refresh-token",
+	"/list-sessions",
+	"/revoke-session",
+	"/revoke-sessions",
+	"/revoke-other-sessions",
+];
 
 const GOOGLE_SCOPES = [
 	"https://www.googleapis.com/auth/spreadsheets",
@@ -83,10 +123,9 @@ const authOptions = {
 	trustedOrigins: env.AUTH_TRUSTED_ORIGINS?.split(",")
 		.map((origin) => origin.trim())
 		.filter(Boolean),
-	// Every request reaches the app from the proxy's address, so these limits
-	// are shared by all users, and the Python API reads the session on every
-	// request. The defaults (3 sign-ins and 100 session reads per 10 seconds)
-	// are too tight for that.
+	// The Python API reads the session on every request, so the defaults (3
+	// sign-ins and 100 session reads per 10 seconds from one address) are too
+	// tight for it.
 	rateLimit: {
 		customRules: {
 			"/get-session": { window: 10, max: 300 },
@@ -102,8 +141,28 @@ const authOptions = {
 			verification: verifications,
 		},
 	}),
-	// Existing user ids are UUIDs, so new rows get the same format.
-	advanced: { database: { generateId: "uuid" } },
+	advanced: {
+		// Existing user ids are UUIDs, so new rows get the same format.
+		database: { generateId: "uuid" },
+		// Rate limits and `emr_session.ipAddress` use the real client address.
+		ipAddress: { ipAddressHeaders: CLIENT_IP_HEADERS },
+	},
+	disabledPaths: DISABLED_PATHS,
+	// Better Auth's own messages (a rejected Workspace domain, rate limit
+	// problems) go to the app's log stream instead of the console.
+	logger: {
+		level: "warn",
+		log: (level, message, ...args) => {
+			authLogger[level]({ args }, message);
+		},
+	},
+	telemetry: { enabled: false },
+	account: {
+		// Google access and refresh tokens are stored encrypted with the auth
+		// secret. Tokens saved before this was on stay readable and are
+		// encrypted the next time they are written.
+		encryptOAuthTokens: true,
+	},
 	session: {
 		expiresIn: 60 * 60 * 5, // 5 hours
 		updateAge: 60 * 10, // 10 minutes
@@ -188,6 +247,7 @@ const authOptions = {
 						userId: session.userId,
 						userEmail: userInDb.email,
 						action: "auth.sign_in",
+						detail: { ipAddress: session.ipAddress || null },
 					});
 				},
 			},
