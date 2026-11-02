@@ -23,6 +23,7 @@ import { History, Info, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { usePausedClientWarning } from "~/hooks/use-paused-client-warning";
 import { NOTE_TEMPLATES } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import {
@@ -161,6 +162,8 @@ export function RecordsNoteEditor({
 		}
 	}, [record?.contentJson]);
 
+	const warnIfPaused = usePausedClientWarning(clientId);
+
 	const handleError = (error: unknown, action: string) => {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		log.error(error, `Failed to ${action}`);
@@ -179,6 +182,7 @@ export function RecordsNoteEditor({
 		onSuccess: () => {
 			utils.clients.getOne.invalidate({ value: clientId.toString() });
 			utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
+			warnIfPaused("The records status");
 		},
 		onError: (error) => handleError(error, "update client 'Needed' status"),
 	});
@@ -199,6 +203,7 @@ export function RecordsNoteEditor({
 		api.externalRecords.flagRecordRequest.useMutation({
 			onSuccess: () => {
 				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
+				warnIfPaused("The records request");
 			},
 			onError: (error) => handleError(error, "flag record request"),
 		});
@@ -215,6 +220,7 @@ export function RecordsNoteEditor({
 		api.externalRecords.setRecordRequestDate.useMutation({
 			onSuccess: () => {
 				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
+				warnIfPaused("The request date");
 			},
 			onError: (error) => handleError(error, "set record request date"),
 		});
