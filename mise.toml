@@ -148,6 +148,11 @@ uvx ruff check python --fix
 uvx ruff format python
 """
 
+[tasks."check:pyright"]
+description = "Type-check Python"
+dir = "python"
+run = "uv run pyright"
+
 [tasks."check:knip"]
 description = "Report unused TS files, exports, and dependencies (advisory, never fails)"
 env = { SKIP_ENV_VALIDATION = "1" }
@@ -171,6 +176,7 @@ description = "Type-check and lint everything (TS + Python)"
 depends = [
   "check:pnpm",
   "check:ruff",
+  "check:pyright",
   "check:changelog",
   "check:knip",
   "check:deptry",

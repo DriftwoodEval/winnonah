@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import cast
 from unittest.mock import MagicMock, patch
@@ -350,7 +351,7 @@ class TestClassifyReviewColor:
         assert classify_review_color({}) is None
 
 
-def _mock_grid_service(rows: list[list[tuple[str, dict | None]]]):
+def _mock_grid_service(rows: Sequence[Sequence[tuple[str, dict | None]]]):
     """rows: per row, a list of (formattedValue, backgroundColor) cells."""
     service = MagicMock()
     service.spreadsheets.return_value.get.return_value.execute.return_value = {

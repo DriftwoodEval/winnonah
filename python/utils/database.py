@@ -1221,8 +1221,8 @@ def get_open_balances(
     owing = owing.dropna(subset=["Client"]).drop_duplicates(
         subset=["Client", "Balance ($)", "Client Resp. ($)", "Insurance Resp. ($)"]
     )
-    names = owing["Client"].map(lambda name: " ".join(name.split()).lower())
-    return owing["balance"].groupby(names).sum().to_dict()
+    names = owing["Client"].map(lambda name: " ".join(str(name).split()).lower())
+    return {str(k): float(v) for k, v in owing["balance"].groupby(names).sum().items()}
 
 
 def sync_client_outstanding_balances(
@@ -1867,7 +1867,7 @@ def put_client_insurance_policies_in_db(
 
     if not values_to_insert:
         logger.info("No insurance policies to insert.")
-        return None
+        return 0
 
     # Collapse to one row per policyId, keeping the last, so superseded duplicate
     # rows in the export aren't diffed against the final DB state.
@@ -2695,7 +2695,7 @@ def insert_by_matching_criteria_incremental(
                     row_errors.append(
                         (
                             "Failed to update evaluator matches",
-                            get_column(client, "HASH") or client_id,
+                            str(get_column(client, "HASH") or client_id),
                             get_full_name(
                                 get_column(client, "FIRSTNAME"),
                                 get_column(client, "LASTNAME"),
@@ -2778,7 +2778,7 @@ def insert_by_matching_criteria_client_specific(
                 row_errors.append(
                     (
                         "Failed to update evaluator matches",
-                        get_column(client, "HASH") or client_id,
+                        str(get_column(client, "HASH") or client_id),
                         full_name,
                     )
                 )

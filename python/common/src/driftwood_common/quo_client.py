@@ -80,7 +80,7 @@ class NotEnoughCreditsError(requests.HTTPError):
         super().__init__(message)
 
 
-def is_transient_error(exception: Exception) -> bool:
+def is_transient_error(exception: BaseException) -> bool:
     """Check if the exception is a transient error that should be retried."""
     if isinstance(exception, requests.HTTPError) and exception.response is not None:
         # Do not retry on 400, 401, 403, 404, 422
@@ -244,7 +244,7 @@ class QuoClient:
 
     @limits(calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
     @_retry_read
-    def _fetch_messages(self, params: dict) -> list[dict]:
+    def _fetch_messages(self, params: dict | list[tuple[str, str]]) -> list[dict]:
         """Fetch raw message data. Retries only on network errors."""
         response = self.session.get(
             f"{API_BASE}messages", params=params, timeout=REQUEST_TIMEOUT_SECONDS

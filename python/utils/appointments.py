@@ -5,7 +5,7 @@ import re
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import pandas as pd
 from dateutil import parser
@@ -784,6 +784,7 @@ def batch_search_calendar_events(
     results: dict[int, dict] = {}
 
     for idx, appointment in appointments_df.iterrows():
+        idx = cast(int, idx)
         expected_npi = _parse_csv_npi(appointment.get("NPI"))
         expected_email = npi_to_email.get(expected_npi) if expected_npi else None
 
@@ -853,7 +854,8 @@ def batch_search_calendar_events(
             "description": chosen["description"],
         }
 
-        other_calendar_ids = {
+        chosen_calendar_id: str = chosen["calendar_id"]
+        other_calendar_ids: set[str] = {
             c["calendar_id"]
             for c in candidates
             if c["calendar_id"] != chosen["calendar_id"]
@@ -867,7 +869,7 @@ def batch_search_calendar_events(
                 .strftime("%m/%d/%Y %-I:%M %p"),
                 appointment_id=str(appointment["APPOINTMENT_ID"]),
                 chosen_evaluator_name=calendar_names.get(
-                    chosen["calendar_id"], chosen["calendar_id"]
+                    chosen_calendar_id, chosen_calendar_id
                 ),
                 matched_expected_evaluator=bool(expected_candidates),
                 other_evaluators=sorted(
@@ -1249,8 +1251,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     real_title = real_title_for_placeholder_event(
                         gcal_event_title, _clean_appointment_name(appointment)
                     )
-                    if real_title and update_gcal_event_title(
-                        gcal_event_id, real_title, calendar_id=gcal_calendar_id
+                    if (
+                        real_title
+                        and gcal_event_id
+                        and update_gcal_event_title(
+                            gcal_event_id, real_title, calendar_id=gcal_calendar_id
+                        )
                     ):
                         gcal_event_title = real_title
                         promoted_placeholder = True
@@ -1365,7 +1371,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 not cancelled
                 and gcal_daeval
                 and (was_new_appointment or promoted_placeholder)
-                and not _is_placeholder_title(gcal_event_title)
+                and not _is_placeholder_title(gcal_event_title or "")
             ):
                 try:
                     replace_placeholder_with_real_appointment(
@@ -1676,7 +1682,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
         if errors:
             email_for_errors = os.getenv("ERROR_EMAILS", "")
             if email_for_errors:
-                html = (
+                body = (
                     "<h3>Client Drive Folder Move Errors</h3><ul>"
                     + "".join(f"<li>{html.escape(e)}</li>" for e in errors)
                     + "</ul>"
@@ -1686,7 +1692,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
                     subject=f"Client Folder Move Errors - {now_business().strftime('%Y-%m-%d')}",
                     to_addr=email_for_errors,
                     from_addr="tech@driftwoodeval.com",
-                    html=html,
+                    html=body,
                 )
 
 

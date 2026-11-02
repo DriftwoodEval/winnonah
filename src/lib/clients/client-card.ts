@@ -6,8 +6,6 @@ export const CLIENT_CARD_GROUPS = [
 	"Details",
 ] as const;
 
-export type ClientCardGroup = (typeof CLIENT_CARD_GROUPS)[number];
-
 /**
  * Fields the hover card can show, in the order they are displayed: grouped by
  * card section, and within a section in the order the card renders them.

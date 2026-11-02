@@ -1218,7 +1218,7 @@ def confirm_appointment_calendar(
     current_title = row.get("calendarEventTitle") or ""
 
     new_title = _apply_confirmed_marker(current_title, confirmed) if event_id else None
-    if new_title is not None:
+    if event_id and new_title is not None:
         try:
             update_gcal_event_title(event_id, new_title)
         except Exception as e:

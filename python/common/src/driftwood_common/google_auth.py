@@ -10,6 +10,7 @@ import os
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
@@ -79,7 +80,7 @@ def authenticate(
         flow = InstalledAppFlow.from_client_secrets_file(
             str(credentials_path), list(scopes)
         )
-        creds = flow.run_local_server(port=0)
+        creds = cast(Credentials, flow.run_local_server(port=0))
 
     assert creds is not None
     token_path.write_text(creds.to_json())

@@ -220,7 +220,7 @@ def parse_sc_rows(rows: list[tuple]) -> tuple[list[dict], str]:
                 "state": str(row[col["State"]] or ""),
                 "exclusion_type": str(row[col["Excluded/Terminated"]] or ""),
                 "exclusion_date": exclusion_date.strftime("%Y-%m-%d")
-                if hasattr(exclusion_date, "strftime")
+                if exclusion_date is not None and hasattr(exclusion_date, "strftime")
                 else str(exclusion_date or ""),
             }
         )

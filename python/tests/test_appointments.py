@@ -332,6 +332,7 @@ class TestPlaceholderTitlePromotion:
 
         match = find_matching_placeholder(placeholders, "EVAL", REAL_START, "promoted")
 
+        assert match is not None
         assert match["id"] == "owner"
 
 

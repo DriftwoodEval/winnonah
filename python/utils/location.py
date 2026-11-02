@@ -137,6 +137,9 @@ def _search_geocodio(full_address: str) -> tuple[str, float, float] | None:
             )
             return None
 
+        if best_match.location is None:
+            return None
+
         lat = best_match.location.lat
         lon = best_match.location.lng
 
@@ -174,6 +177,7 @@ def search_addresses(query: str, limit: int = 5) -> list[dict]:
             "accuracy": r.accuracy,
         }
         for r in response.results
+        if r.location
     ]
 
 

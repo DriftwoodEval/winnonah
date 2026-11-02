@@ -68,7 +68,10 @@ class TestValidToken:
         creds = FakeCreds(valid=True)
 
         result = google_auth.authenticate(
-            SCOPES, credentials_path, token_path, creds=creds
+            SCOPES,
+            credentials_path,
+            token_path,
+            creds=creds,  # pyright: ignore[reportArgumentType]
         )
 
         assert result is creds
@@ -125,7 +128,7 @@ class TestLogin:
         assert result is new_creds
         assert token_path.read_text() == '{"saved": true}'
         from_secrets = google_auth.InstalledAppFlow.from_client_secrets_file
-        from_secrets.assert_called_once_with(str(credentials_path), SCOPES)
+        from_secrets.assert_called_once_with(str(credentials_path), SCOPES)  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_headless_raises_instead_of_opening_a_browser(self, paths, monkeypatch):
         credentials_path, token_path = paths
@@ -135,7 +138,7 @@ class TestLogin:
 
         with pytest.raises(RuntimeError, match=str(token_path)):
             google_auth.authenticate(SCOPES, credentials_path, token_path)
-        google_auth.InstalledAppFlow.from_client_secrets_file.assert_not_called()
+        google_auth.InstalledAppFlow.from_client_secrets_file.assert_not_called()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class TestScopes:
