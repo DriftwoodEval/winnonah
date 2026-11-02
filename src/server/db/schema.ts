@@ -1428,6 +1428,25 @@ export const logins = createTable("login", (d) => ({
 	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
 }));
 
+// Append-only record of changes to logins. Credential values are never stored,
+// only which ones changed. Rows outlive the login so deletions stay on record.
+export const loginHistory = createTable(
+	"login_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		loginId: d.int().notNull(),
+		loginName: d.varchar({ length: 255 }).notNull(),
+		action: d
+			.varchar({ length: 32 })
+			.$type<"created" | "updated" | "access" | "deleted">()
+			.notNull(),
+		detail: d.json().$type<Record<string, unknown>>(),
+		changedBy: d.varchar({ length: 255 }).notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [index("login_history_login_idx").on(t.loginId)],
+);
+
 export const seenReportFolders = createTable("seen_report_folders", (d) => ({
 	folderId: d.varchar({ length: 255 }).notNull().primaryKey(),
 	notifiedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),

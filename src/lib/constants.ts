@@ -289,10 +289,6 @@ export const PERMISSIONS = {
 						title: "Delete Any Login",
 					},
 					{
-						id: "settings:qsuite:logins:manage-access",
-						title: "Manage Who Can Access Each Login",
-					},
-					{
 						id: "settings:qsuite:records",
 						title: "Edit QSuite Records Config",
 					},

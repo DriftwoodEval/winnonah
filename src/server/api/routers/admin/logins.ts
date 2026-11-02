@@ -18,7 +18,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import type { db } from "~/server/db";
-import { logins, pythonConfig } from "~/server/db/schema";
+import { loginHistory, logins, pythonConfig } from "~/server/db/schema";
 
 type Db = typeof db;
 
@@ -30,6 +30,26 @@ async function readServices(db: Db) {
 	});
 	const data = (record?.data ?? {}) as { services?: Services };
 	return { record, services: data.services ?? {} };
+}
+
+type HistoryEntry = {
+	loginId: number;
+	loginName: string;
+	action: (typeof loginHistory.$inferInsert)["action"];
+	detail?: Record<string, unknown>;
+};
+
+async function recordHistory(
+	ctx: {
+		db: Db;
+		session: { user: { name?: string | null; email?: string | null } };
+	},
+	entry: HistoryEntry,
+) {
+	const { name, email } = ctx.session.user;
+	await ctx.db
+		.insert(loginHistory)
+		.values({ ...entry, changedBy: name ?? email ?? "Unknown" });
 }
 
 const textField = z.string().trim().max(500);
@@ -67,7 +87,7 @@ export const loginsRouter = createTRPCRouter({
 		const { services } = await readServices(ctx.db);
 		const canManageAccess = hasPermission(
 			user.permissions,
-			"settings:qsuite:logins:manage-access",
+			"settings:users:edit",
 		);
 
 		return visible.map((row) => {
@@ -115,7 +135,13 @@ export const loginsRouter = createTRPCRouter({
 				access[verb].userIds.push(ctx.session.user.id);
 			}
 
-			await ctx.db.insert(logins).values({ ...input, access });
+			const [result] = await ctx.db.insert(logins).values({ ...input, access });
+			await recordHistory(ctx, {
+				loginId: result.insertId,
+				loginName: input.name,
+				action: "created",
+				detail: { url: input.url, notes: input.notes },
+			});
 
 			setAuditDetail(ctx, {
 				name: input.name,
@@ -203,19 +229,29 @@ export const loginsRouter = createTRPCRouter({
 				})
 				.where(eq(logins.id, input.id));
 
-			// Credential values never go in the audit log, only which ones changed.
+			// Credential values never go in the audit log or history, only which
+			// ones changed.
+			const details = diffValues(
+				{ name: row.name, url: row.url ?? "", notes: row.notes ?? "" },
+				{
+					name: builtIn ? row.name : input.name,
+					url: input.url,
+					notes: input.notes,
+				},
+			);
 			setAuditDetail(ctx, {
 				login: row.name,
-				details: diffValues(
-					{ name: row.name, url: row.url ?? "", notes: row.notes ?? "" },
-					{
-						name: builtIn ? row.name : input.name,
-						url: input.url,
-						notes: input.notes,
-					},
-				),
+				details,
 				changedCredentials: changedFields,
 			});
+			if (details !== undefined || changedFields.length > 0) {
+				await recordHistory(ctx, {
+					loginId: row.id,
+					loginName: builtIn ? row.name : input.name,
+					action: "updated",
+					detail: { details, changedCredentials: changedFields },
+				});
+			}
 			return { success: true };
 		}),
 
@@ -241,6 +277,11 @@ export const loginsRouter = createTRPCRouter({
 			}
 
 			await ctx.db.delete(logins).where(eq(logins.id, input.id));
+			await recordHistory(ctx, {
+				loginId: row.id,
+				loginName: row.name,
+				action: "deleted",
+			});
 			setAuditDetail(ctx, { login: row.name });
 			return { success: true };
 		}),
@@ -248,10 +289,7 @@ export const loginsRouter = createTRPCRouter({
 	setAccess: protectedProcedure
 		.input(z.object({ id: z.number(), access: loginAccessSchema }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"settings:qsuite:logins:manage-access",
-			);
+			assertPermission(ctx.session.user, "settings:users:edit");
 			const row = await ctx.db.query.logins.findFirst({
 				where: eq(logins.id, input.id),
 			});
@@ -261,10 +299,40 @@ export const loginsRouter = createTRPCRouter({
 				.update(logins)
 				.set({ access: input.access })
 				.where(eq(logins.id, input.id));
-			setAuditDetail(ctx, {
-				login: row.name,
-				access: diffValues(row.access, input.access),
-			});
+			const accessDiff = diffValues(row.access, input.access);
+			setAuditDetail(ctx, { login: row.name, access: accessDiff });
+			if (accessDiff !== undefined) {
+				await recordHistory(ctx, {
+					loginId: row.id,
+					loginName: row.name,
+					action: "access",
+					detail: { access: accessDiff },
+				});
+			}
 			return { success: true };
+		}),
+
+	// Changes to one login, newest first. Needs edit access to that login.
+	history: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const row = await ctx.db.query.logins.findFirst({
+				where: eq(logins.id, input.id),
+			});
+			if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+			if (!canAccessLogin(ctx.session.user, row, "edit")) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You don't have permission to view this login's history",
+				});
+			}
+
+			return await ctx.db.query.loginHistory.findMany({
+				where: eq(loginHistory.loginId, input.id),
+				orderBy: (history, { desc }) => [
+					desc(history.createdAt),
+					desc(history.id),
+				],
+			});
 		}),
 });

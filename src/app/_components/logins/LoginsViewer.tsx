@@ -19,6 +19,7 @@ import { Label } from "@ui/label";
 import {
 	Copy,
 	ExternalLink,
+	History,
 	Loader2,
 	Mail,
 	Pencil,
@@ -34,6 +35,7 @@ import { scrambleText } from "~/lib/utils.client";
 import { api } from "~/trpc/react";
 import { LoginAccessDialog } from "./LoginAccessDialog";
 import { type Login, LoginDialog } from "./LoginDialog";
+import { LoginHistoryDialog } from "./LoginHistoryDialog";
 
 function CredentialField({ label, value }: { label: string; value: string }) {
 	const { enabled } = useRedaction();
@@ -130,11 +132,13 @@ function LoginCard({
 	login,
 	onEdit,
 	onDelete,
+	onHistory,
 	onManageAccess,
 }: {
 	login: Login;
 	onEdit: () => void;
 	onDelete: () => void;
+	onHistory: () => void;
 	onManageAccess: () => void;
 }) {
 	return (
@@ -152,6 +156,17 @@ function LoginCard({
 								variant="ghost"
 							>
 								<ShieldCheck className="h-4 w-4" />
+							</Button>
+						)}
+						{login.canEdit && (
+							<Button
+								onClick={onHistory}
+								size="icon"
+								title="History"
+								type="button"
+								variant="ghost"
+							>
+								<History className="h-4 w-4" />
 							</Button>
 						)}
 						{login.canEdit && (
@@ -217,6 +232,7 @@ export function LoginsViewer() {
 	const [editing, setEditing] = useState<Login | null>(null);
 	const [deleting, setDeleting] = useState<Login | null>(null);
 	const [managingAccess, setManagingAccess] = useState<Login | null>(null);
+	const [viewingHistory, setViewingHistory] = useState<Login | null>(null);
 
 	const deleteLogin = api.logins.delete.useMutation({
 		onSuccess: () => {
@@ -254,6 +270,7 @@ export function LoginsViewer() {
 							login={login}
 							onDelete={() => setDeleting(login)}
 							onEdit={() => setEditing(login)}
+							onHistory={() => setViewingHistory(login)}
 							onManageAccess={() => setManagingAccess(login)}
 						/>
 					))}
@@ -265,6 +282,10 @@ export function LoginsViewer() {
 				isOpen={!!editing}
 				login={editing ?? undefined}
 				onClose={() => setEditing(null)}
+			/>
+			<LoginHistoryDialog
+				login={viewingHistory}
+				onClose={() => setViewingHistory(null)}
 			/>
 			<LoginAccessDialog
 				login={managingAccess}
