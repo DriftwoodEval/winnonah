@@ -1,4 +1,7 @@
 import pytest
+from selenium.common.exceptions import WebDriverException
+
+from utils.webdriving import initialize_selenium
 
 
 def pytest_addoption(parser):
@@ -25,3 +28,19 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(skip_integration)
+
+
+@pytest.fixture
+def driver(monkeypatch):
+    """A headless Chrome driver, or a skip when no usable browser is installed.
+
+    Browser startup fails when Chrome and chromedriver are missing or have
+    mismatched versions. The Docker test image ships a matching pair.
+    """
+    monkeypatch.setenv("HEADLESS", "true")
+    try:
+        driver, _ = initialize_selenium()
+    except WebDriverException as e:
+        pytest.skip(f"Chrome and chromedriver unavailable: {e.msg}")
+    yield driver
+    driver.quit()

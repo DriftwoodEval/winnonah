@@ -1,12 +1,10 @@
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
 
-import pytest
 from selenium.common.exceptions import TimeoutException
 
 import utils.database
 from utils import medicaid
-from utils.webdriving import initialize_selenium
 
 RESULTS_PAGE = (
     "<html><body><ul>"
@@ -23,14 +21,6 @@ CARRIER_ROWS = (
     "<tr><td class='td3b'>Carrier 1:</td><td class='td4'>CARRIER ONE</td></tr>"
     "<tr><td class='td3b'>Carrier 2:</td><td class='td4'>CARRIER TWO</td></tr>"
 )
-
-
-@pytest.fixture
-def driver(monkeypatch):
-    monkeypatch.setenv("HEADLESS", "true")
-    driver, _ = initialize_selenium()
-    yield driver
-    driver.quit()
 
 
 def _load(driver, carriers: str) -> None:
