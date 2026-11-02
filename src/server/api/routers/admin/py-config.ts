@@ -1,8 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { env } from "~/env";
+import {
+	QUESTIONNAIRE_LOGIN_SERVICES,
+	type QuestionnaireLoginServiceId,
+} from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
+import { canViewQuestionnaireLogin, hasPermission } from "~/lib/utils";
 import {
 	appointmentSyncConfigSchema,
 	lenientPythonConfigSchema,
@@ -12,14 +16,14 @@ import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
 
-function assertQSuiteServicesAccess(perms: PermissionsObject) {
-	if (
-		!hasPermission(perms, "settings:qsuite:services") &&
-		!hasPermission(perms, "settings:qsuite:services:view")
-	) {
+function assertQuestionnaireLoginAccess(
+	perms: PermissionsObject,
+	service: QuestionnaireLoginServiceId,
+) {
+	if (!canViewQuestionnaireLogin(perms, service)) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
-			message: "You don't have permission to view QSuite services credentials",
+			message: "You don't have permission to view this login",
 		});
 	}
 }
@@ -75,8 +79,13 @@ export const pyConfigRouter = createTRPCRouter({
 		return result.success ? result.data.config.name : "";
 	}),
 
+	// Only the logins the current user may see. Every signed-in user can call
+	// this; a user with no login permissions gets an empty list.
 	getServices: protectedProcedure.query(async ({ ctx }) => {
-		assertQSuiteServicesAccess(ctx.session.user.permissions);
+		const allowed = QUESTIONNAIRE_LOGIN_SERVICES.filter((svc) =>
+			canViewQuestionnaireLogin(ctx.session.user.permissions, svc.id),
+		);
+		if (allowed.length === 0) return [];
 
 		const record = await ctx.db.query.pythonConfig.findFirst({
 			where: eq(pythonConfig.id, 1),
@@ -86,12 +95,17 @@ export const pyConfigRouter = createTRPCRouter({
 		const result = lenientPythonConfigSchema.safeParse(record.data);
 		if (!result.success) return null;
 
-		const { therapyappointment, ...services } = result.data.services;
-		return services;
+		const { services } = result.data;
+		return allowed.map((svc) => ({
+			id: svc.id,
+			label: svc.label,
+			username: services[svc.id].username,
+			password: services[svc.id].password,
+		}));
 	}),
 
 	getPearsonVerificationEmail: protectedProcedure.mutation(async ({ ctx }) => {
-		assertQSuiteServicesAccess(ctx.session.user.permissions);
+		assertQuestionnaireLoginAccess(ctx.session.user.permissions, "qglobal");
 
 		const cookieHeader = ctx.headers.get("cookie") ?? "";
 
