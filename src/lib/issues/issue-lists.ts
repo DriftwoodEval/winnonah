@@ -12,10 +12,14 @@ import {
 	not,
 	sql,
 } from "drizzle-orm";
-import type { Session } from "next-auth";
 import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
-import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/integrations/google";
+import {
+	CACHE_KEY_PUNCHLIST,
+	type GoogleCaller,
+	getPunchData,
+	hasGoogleAccess,
+} from "~/lib/integrations/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	getInsuranceMismatchSignature,
@@ -502,9 +506,9 @@ function groupByClientId<T extends { clientId: number }>(rows: T[]) {
  * resolving their applicable rules the same way the live page does.
  */
 export async function getPartialBatteriesList(
-	ctx: Pick<Context, "db" | "redis"> & { session: Session },
+	ctx: Pick<Context, "db" | "redis"> & { session: GoogleCaller },
 ) {
-	if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+	if (!(await hasGoogleAccess(ctx.session))) {
 		throw new Error("No access token or refresh token");
 	}
 

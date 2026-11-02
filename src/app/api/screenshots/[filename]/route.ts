@@ -3,12 +3,16 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { auth } from "~/server/auth";
 
-export const GET = auth(async (req, { params }) => {
-	if (!req.auth) {
+export async function GET(
+	_req: Request,
+	{ params }: { params: Promise<{ filename: string }> },
+) {
+	const session = await auth();
+	if (!session) {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
 
-	const { filename } = (await params) as { filename: string };
+	const { filename } = await params;
 
 	if (!filename || filename.includes("..") || filename.includes("/")) {
 		return new NextResponse("Invalid filename", { status: 400 });
@@ -32,4 +36,4 @@ export const GET = auth(async (req, { params }) => {
 	} catch (_error) {
 		return new NextResponse("Error reading file", { status: 500 });
 	}
-});
+}

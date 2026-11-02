@@ -1,3 +1,4 @@
+import { savedFiltersRouter } from "~/server/api/routers/clients/savedFilters";
 import { auditLogRouter } from "./routers/admin/auditLog";
 import { googleRouter } from "./routers/admin/google";
 import { insuranceRouter } from "./routers/admin/insurance";
@@ -19,7 +20,6 @@ import { noteRouter } from "./routers/clients/notes";
 import { questionnaireRouter } from "./routers/clients/questionnaires";
 import { quoRouter } from "./routers/clients/quo";
 import { reminderRouter } from "./routers/clients/reminders";
-import { sessionRouter } from "./routers/clients/sessions";
 import { ddsQueueRouter } from "./routers/reports/ddsQueue";
 import { evaluatorDashboardRouter } from "./routers/reports/evaluatorDashboard";
 import { faxCategorizationRouter } from "./routers/reports/faxCategorization";
@@ -70,7 +70,7 @@ export const appRouter = createTRPCRouter({
 	roles: rolesRouter,
 	scheduling: schedulingRouter,
 	schedulingHelper: schedulingHelperRouter,
-	sessions: sessionRouter,
+	savedFilters: savedFiltersRouter,
 	system: systemRouter,
 	tasks: taskRouter,
 	users: userRouter,

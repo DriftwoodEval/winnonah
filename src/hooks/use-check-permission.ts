@@ -1,9 +1,9 @@
-import { useSession } from "next-auth/react";
+import { authClient } from "~/lib/auth-client";
 import type { PermissionId } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 
 export function useCheckPermission() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	return (id: PermissionId) => {
 		if (!session?.user?.permissions) return false;

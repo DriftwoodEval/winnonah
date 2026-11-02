@@ -1,4 +1,4 @@
-T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cron Python scripts.
+T3 stack app (Next.js, tRPC, Drizzle ORM, Better Auth) + a Python API sidecar + cron Python scripts.
 
 ## Code Style
 
@@ -31,7 +31,7 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 
 ## Local Development
 
-Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
+Every page requires a logged-in Better Auth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
 
 ## Tests
 

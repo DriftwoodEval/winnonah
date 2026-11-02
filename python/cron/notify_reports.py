@@ -1,16 +1,15 @@
-import json
 import re
 
 from dotenv import load_dotenv
 from driftwood_common.log_format import json_log_format
 from loguru import logger
 
+from utils.app_api import get_queue_notify_users
 from utils.config import validate_config
 from utils.constants import REPORT_QUEUE_FOLDER_ID, TABLE_SEEN_REPORT_FOLDERS
 from utils.database import (
     get_db,
     get_most_recent_non_billing_evaluator_npi,
-    get_queue_notify_users,
     reconcile_pool_report_queue_state,
     sync_punchlist_to_db,
 )
@@ -81,8 +80,7 @@ def check_report_queue_and_notify():
 
         for user in eligible_users:
             if evaluator_npi is not None:
-                blocked_raw = user.get("blockedEvaluatorNpis")
-                blocked = json.loads(blocked_raw) if blocked_raw else []
+                blocked = user.get("blockedEvaluatorNpis") or []
                 if evaluator_npi in blocked:
                     logger.info(
                         f"Skipping {user['email']} for folder {folder_name} - evaluator {evaluator_npi} is blocked"

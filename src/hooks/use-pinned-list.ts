@@ -1,5 +1,5 @@
-import { useSession } from "next-auth/react";
 import { useMemo } from "react";
+import { authClient } from "~/lib/auth-client";
 import {
 	type PinnedList,
 	type PinnedListEntry,
@@ -15,7 +15,7 @@ import { api } from "~/trpc/react";
  * reads it here.
  */
 export function usePinnedList() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const utils = api.useUtils();
 
 	const { data: pinned, isLoading } = api.users.getPinnedList.useQuery(

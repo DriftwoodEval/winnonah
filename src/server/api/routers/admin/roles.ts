@@ -8,6 +8,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import { clearRoleCache } from "~/server/auth/permissions";
 import { invitations, roles, users } from "~/server/db/schema";
 
 export const rolesRouter = createTRPCRouter({
@@ -87,6 +88,7 @@ export const rolesRouter = createTRPCRouter({
 				}
 				await tx.update(roles).set(updateData).where(eq(roles.id, input.id));
 			});
+			clearRoleCache(input.id);
 		}),
 
 	delete: protectedProcedure
@@ -128,5 +130,6 @@ export const rolesRouter = createTRPCRouter({
 			ctx.logger.info(input, "Deleting role");
 
 			await ctx.db.delete(roles).where(eq(roles.id, input.id));
+			clearRoleCache(input.id);
 		}),
 });

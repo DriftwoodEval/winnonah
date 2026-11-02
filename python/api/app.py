@@ -1,12 +1,14 @@
 import asyncio
+import hashlib
 import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 from dotenv import load_dotenv
 from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import business_to_utc, now_business, now_utc
@@ -17,6 +19,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from api import appointment_reminders, greeter_proxy
+from utils.app_api import app_url, get_users_with_permission
 from utils.appointments import (
     DAEvalType,
     build_placeholder_description,
@@ -25,14 +28,10 @@ from utils.appointments import (
 from utils.constants import (
     MAX_POST_VISIT_ATTACHMENT_BYTES,
     POST_VISIT_ATTACHMENT,
-    TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_OFFICE,
-    TABLE_ROLE,
-    TABLE_SESSION,
-    TABLE_USER,
 )
 from utils.database import (
     delete_appointment,
@@ -67,7 +66,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.location import search_addresses
-from utils.permissions import effective_permissions, has_permission
+from utils.permissions import has_permission
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,
@@ -184,101 +183,89 @@ def get_google_services():
     return {"drive": drive_service, "sheets": sheets_service}
 
 
-def get_current_user(request: Request):
-    cookie_names = [
-        "authjs.session-token",
-        "__Secure-authjs.session-token",
-        "next-auth.session-token",
-        "__Secure-next-auth.session-token",
-    ]
-    session_token = next(
-        (
-            request.cookies.get(name)
-            for name in cookie_names
-            if request.cookies.get(name)
-        ),
-        None,
-    )
+# How long a session lookup is reused. A page loads several endpoints at once,
+# and each would otherwise ask the web app separately. A sign-out or archive
+# takes effect here within this time.
+SESSION_CACHE_SECONDS = 5
+SESSION_CACHE_MAX_ENTRIES = 256
+_session_cache: dict[str, tuple[float, dict]] = {}
 
-    if not session_token:
+
+def _session_cache_key(cookie: str) -> str:
+    return hashlib.sha256(cookie.encode()).hexdigest()
+
+
+def _cached_user(key: str) -> dict | None:
+    entry = _session_cache.get(key)
+    if entry and entry[0] > time.monotonic():
+        return entry[1]
+    return None
+
+
+def _remember_user(key: str, user: dict) -> None:
+    now = time.monotonic()
+    if len(_session_cache) >= SESSION_CACHE_MAX_ENTRIES:
+        for stale_key in [
+            k for k, (expires, _) in _session_cache.items() if expires <= now
+        ]:
+            _session_cache.pop(stale_key, None)
+        if len(_session_cache) >= SESSION_CACHE_MAX_ENTRIES:
+            _session_cache.clear()
+    _session_cache[key] = (now + SESSION_CACHE_SECONDS, user)
+
+
+def get_current_user(request: Request):
+    """Resolves the signed-in user by asking the web app, which owns sessions.
+
+    The app returns the user the request acts as, with permissions already
+    merged, so "view as another user" sessions need no handling here.
+    """
+    cookie = request.headers.get("cookie")
+    if not cookie:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    impersonate_user_id = request.cookies.get("impersonate-user-id")
+    cache_key = _session_cache_key(cookie)
+    cached = _cached_user(cache_key)
+    if cached:
+        return cached
 
-    conn = get_db()
+    unavailable = HTTPException(
+        status_code=503, detail="Authentication service unavailable"
+    )
     try:
-        with conn.cursor() as cursor:
-            sql = f"""
-                SELECT
-                    u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
-                    r.permissions AS role_permissions,
-                    s.expires,
-                    a.access_token, a.refresh_token, a.expires_at, a.scope
-                FROM {TABLE_SESSION} s
-                JOIN {TABLE_USER} u ON s.userId = u.id
-                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
-                WHERE s.sessionToken = %s
-            """
-            cursor.execute(sql, (session_token,))
-            row = cursor.fetchone()
+        response = httpx.get(
+            f"{app_url()}/api/auth/get-session",
+            headers={"Cookie": cookie},
+            timeout=5,
+        )
+    except httpx.HTTPError as error:
+        logger.error(f"Could not reach the web app to check a session: {error}")
+        raise unavailable from error
 
-            if not row:
-                raise HTTPException(status_code=401, detail="Invalid session")
-            if row["expires"].replace(tzinfo=UTC) < datetime.now(UTC):
-                raise HTTPException(status_code=401, detail="Session expired")
-            if row.get("archived"):
-                raise HTTPException(status_code=403, detail="Account archived")
+    # The app answers 200 with a session, 200 with null, or 401 when there is none.
+    # Anything else (a rate limit, a server error) says nothing about the session.
+    if response.status_code not in (200, 401):
+        logger.error(f"The web app answered {response.status_code} to a session check")
+        raise unavailable
+    try:
+        session = response.json() if response.status_code == 200 else None
+    except ValueError as error:
+        raise unavailable from error
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid session")
 
-            permissions = effective_permissions(
-                row["permissions"], row.get("role_permissions")
-            )
+    user = session["user"]
+    if user.get("archived"):
+        raise HTTPException(status_code=403, detail="Account archived")
 
-            # Mirror the "view as another user" behavior in src/server/auth/config.ts:
-            # when a permitted user has an impersonation cookie set, everything
-            # downstream sees the impersonated user's identity and permissions.
-            if (
-                impersonate_user_id
-                and impersonate_user_id != row["id"]
-                and has_permission(permissions, "settings:impersonate")
-            ):
-                target = _lookup_user(cursor, impersonate_user_id)
-                if target:
-                    return target
-
-            return {
-                "user_id": row["id"],
-                "email": row["email"],
-                "name": row["name"],
-                "permissions": permissions,
-            }
-    finally:
-        conn.close()
-
-
-def _lookup_user(cursor, user_id: str) -> dict | None:
-    """Resolves a user's identity and effective permissions by id."""
-    sql = f"""
-        SELECT
-            u.id, u.email, u.name, u.permissions, u.archived,
-            r.permissions AS role_permissions
-        FROM {TABLE_USER} u
-        LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-        WHERE u.id = %s
-    """
-    cursor.execute(sql, (user_id,))
-    row = cursor.fetchone()
-    if not row or row.get("archived"):
-        return None
-
-    permissions = effective_permissions(row["permissions"], row.get("role_permissions"))
-
-    return {
-        "user_id": row["id"],
-        "email": row["email"],
-        "name": row["name"],
-        "permissions": permissions,
+    current_user = {
+        "user_id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "permissions": user.get("permissions") or {},
     }
+    _remember_user(cache_key, current_user)
+    return current_user
 
 
 def get_writer_id(user_name: str) -> str:
@@ -698,34 +685,16 @@ def notify_admin_review_claimed(
             detail="Not authorized to send admin review notifications",
         )
 
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                f"""
-                    SELECT u.permissions, r.permissions AS role_permissions
-                    FROM {TABLE_USER} u
-                    LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                    WHERE u.email = %s AND u.archived = 0
-                """,
-                (request.user_email,),
-            )
-            row = cursor.fetchone()
-    finally:
-        conn.close()
+    if not request.user_email:
+        return {"status": "skipped", "reason": "no recipient given"}
 
-    if not row:
-        return {"status": "skipped", "reason": "recipient not found"}
-
-    recipient_permissions = effective_permissions(
-        row["permissions"], row["role_permissions"]
+    recipients = get_users_with_permission(
+        "clients:admin:review:email-notifications", email=request.user_email
     )
-    if not has_permission(
-        recipient_permissions, "clients:admin:review:email-notifications"
-    ):
+    if not recipients:
         return {
             "status": "skipped",
-            "reason": "recipient has not opted in to email notifications",
+            "reason": "recipient is not an active user or has not opted in to email notifications",
         }
 
     subject = (

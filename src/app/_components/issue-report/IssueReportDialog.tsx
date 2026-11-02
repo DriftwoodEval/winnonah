@@ -14,9 +14,9 @@ import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Textarea } from "@ui/textarea";
 import { ImagePlus, X } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { authClient } from "~/lib/auth-client";
 import { cn } from "~/lib/utils";
 import { MAX_ISSUE_REPORT_SCREENSHOTS } from "~/lib/validations/config";
 import { api } from "~/trpc/react";
@@ -64,7 +64,7 @@ export function IssueReportDialog({
 	onDiscard,
 	onSent,
 }: IssueReportDialogProps) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const [preparing, setPreparing] = useState(false);
 	const { data: recipientConfig } = api.issueReport.getRecipients.useQuery(
 		undefined,

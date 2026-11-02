@@ -1,5 +1,4 @@
 import { and, eq, not, sql } from "drizzle-orm";
-import type { Session } from "next-auth";
 import { fetchWithCache } from "~/lib/cache";
 import {
 	getDashboardSections,
@@ -9,6 +8,7 @@ import {
 import {
 	CACHE_KEY_MISSING_PUNCHLIST,
 	CACHE_KEY_PUNCHLIST,
+	type GoogleCaller,
 	getMissingFromPunchlistData,
 	getPunchData,
 } from "~/lib/integrations/google";
@@ -21,7 +21,7 @@ import { clients } from "~/server/db/schema";
  * both use identical filtering logic.
  */
 export async function getFullDashboardData(
-	ctx: Pick<Context, "db" | "redis"> & { session: Session },
+	ctx: Pick<Context, "db" | "redis"> & { session: GoogleCaller },
 ) {
 	const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 

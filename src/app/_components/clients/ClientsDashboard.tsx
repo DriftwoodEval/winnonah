@@ -17,9 +17,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { authClient } from "~/lib/auth-client";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -50,7 +50,7 @@ export function ClientsDashboard() {
 	const sortLastNameId = useId();
 	const sortPaExpirationId = useId();
 
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -65,7 +65,7 @@ export function ClientsDashboard() {
 	const showRecentDropdown = searchFocused && !!recentClients?.length;
 
 	// Fetch saved filters from the session
-	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
+	const { data: savedFiltersData } = api.savedFilters.getClientFilters.useQuery(
 		undefined,
 		{
 			enabled: !!session,
@@ -73,7 +73,7 @@ export function ClientsDashboard() {
 	);
 
 	// Mutation to save filters to the session
-	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation();
+	const saveFiltersMutation = api.savedFilters.saveClientFilters.useMutation();
 
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
 

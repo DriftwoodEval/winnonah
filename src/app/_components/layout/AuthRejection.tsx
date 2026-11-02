@@ -2,7 +2,7 @@
 
 import { Button } from "@ui/button";
 import { usePathname } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { authClient } from "~/lib/auth-client";
 
 export function AuthRejection({
 	reason = "unauthenticated",
@@ -22,7 +22,12 @@ export function AuthRejection({
 
 			{!isUnauthorized && (
 				<Button
-					onClick={() => signIn("google", { callbackUrl: pathname })}
+					onClick={() =>
+						authClient.signIn.social({
+							provider: "google",
+							callbackURL: pathname,
+						})
+					}
 					size="lg"
 					variant="secondary"
 				>

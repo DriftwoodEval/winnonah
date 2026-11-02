@@ -1,8 +1,8 @@
 import asyncio
-import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from pywaze.route_calculator import CalcRoutesResponse
@@ -10,6 +10,7 @@ from pywaze.route_calculator import CalcRoutesResponse
 from api.app import (
     _apply_confirmed_marker,
     _find_duplicates,
+    _session_cache,
     col_num_to_letter,
     find_drive_folder,
     get_current_user,
@@ -76,9 +77,9 @@ class FakeConnection:
         self.commits += 1
 
 
-def _mock_request(cookies: dict):
+def _mock_request(headers: dict):
     request = MagicMock()
-    request.cookies = cookies
+    request.headers = headers
     return request
 
 
@@ -101,128 +102,175 @@ class TestApplyConfirmedMarker:
         assert _apply_confirmed_marker("[CONFIRMED]", False) == ""
 
 
+def _session_response(status_code=200, body=None):
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = body
+    return response
+
+
+def _session_body(**user_overrides):
+    user = {
+        "id": "u1",
+        "email": "a@example.com",
+        "name": "Alice",
+        "permissions": {"clients:view": True},
+        "archived": False,
+    }
+    user.update(user_overrides)
+    return {"user": user, "session": {"id": "s1"}}
+
+
 class TestGetCurrentUser:
-    def test_raises_401_when_no_session_cookie(self):
-        request = _mock_request({})
+    @pytest.fixture(autouse=True)
+    def app_url(self, monkeypatch):
+        monkeypatch.setenv("EMR_APP_URL", "https://app.example.com/")
+        _session_cache.clear()
+
+    def test_raises_401_when_no_cookie(self):
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(request)
+            get_current_user(_mock_request({}))
         assert exc_info.value.status_code == 401
 
-    def test_checks_each_known_cookie_name_in_order(self):
-        request = _mock_request({"next-auth.session-token": "tok"})
-        row = {
-            "id": "u1",
-            "email": "a@example.com",
-            "name": "Alice",
-            "permissions": None,
-            "archived": 0,
-            "roleId": None,
-            "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
+    def test_uses_the_production_app_when_no_url_is_configured(self, monkeypatch):
+        monkeypatch.delenv("EMR_APP_URL")
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(_mock_request({"cookie": "a=b"}))
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/auth/get-session"
+        )
+
+    def test_raises_503_when_the_app_returns_malformed_json(self):
+        response = _session_response(200, None)
+        response.json.side_effect = ValueError("not json")
+        with (
+            patch("api.app.httpx.get", return_value=response),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            get_current_user(_mock_request({"cookie": "a=b"}))
+        assert exc_info.value.status_code == 503
+
+    def test_forwards_the_cookie_to_the_app_session_endpoint(self):
+        request = _mock_request({"cookie": "better-auth.session_token=tok.sig"})
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(request)
+        assert get.call_args.args[0] == "https://app.example.com/api/auth/get-session"
+        assert get.call_args.kwargs["headers"] == {
+            "Cookie": "better-auth.session_token=tok.sig"
         }
-        conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.app.get_db", return_value=conn):
+
+    def test_returns_identity_and_permissions_from_the_session(self):
+        request = _mock_request({"cookie": "a=b"})
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ):
             user = get_current_user(request)
-        assert user["email"] == "a@example.com"
-
-    def test_raises_401_for_unknown_session_token(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        conn = FakeConnection(FakeCursor(fetchone_result=None))
-        with (
-            patch("api.app.get_db", return_value=conn),
-            pytest.raises(HTTPException) as exc_info,
-        ):
-            get_current_user(request)
-        assert exc_info.value.status_code == 401
-
-    def test_raises_401_for_expired_session(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        row = {
-            "id": "u1",
+        assert user == {
+            "user_id": "u1",
             "email": "a@example.com",
             "name": "Alice",
-            "permissions": None,
-            "archived": 0,
-            "roleId": None,
-            "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+            "permissions": {"clients:view": True},
         }
-        conn = FakeConnection(FakeCursor(fetchone_result=row))
+
+    @pytest.mark.parametrize(("status_code", "body"), [(200, None), (401, None)])
+    def test_raises_401_when_the_app_has_no_session(self, status_code, body):
+        request = _mock_request({"cookie": "a=b"})
         with (
-            patch("api.app.get_db", return_value=conn),
+            patch(
+                "api.app.httpx.get",
+                return_value=_session_response(status_code, body),
+            ),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
         assert exc_info.value.status_code == 401
+
+    @pytest.mark.parametrize("status_code", [403, 404, 429, 502])
+    def test_raises_503_when_the_app_cannot_answer(self, status_code):
+        """A rate limit or an unexpected answer says nothing about the session."""
+        request = _mock_request({"cookie": "a=b"})
+        with (
+            patch(
+                "api.app.httpx.get",
+                return_value=_session_response(status_code, None),
+            ),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            get_current_user(request)
+        assert exc_info.value.status_code == 503
+
+    def test_reuses_a_recent_lookup_for_the_same_cookie(self):
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            first = get_current_user(_mock_request({"cookie": "a=b"}))
+            second = get_current_user(_mock_request({"cookie": "a=b"}))
+        assert first == second
+        assert get.call_count == 1
+
+    def test_does_not_share_a_lookup_between_cookies(self):
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(_mock_request({"cookie": "a=b"}))
+            get_current_user(_mock_request({"cookie": "a=c"}))
+        assert get.call_count == 2
+
+    def test_does_not_cache_a_failed_lookup(self):
+        request = _mock_request({"cookie": "a=b"})
+        with (
+            patch("api.app.httpx.get", return_value=_session_response(401, None)),
+            pytest.raises(HTTPException),
+        ):
+            get_current_user(request)
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ):
+            assert get_current_user(request)["user_id"] == "u1"
+
+    def test_uses_the_production_app_when_the_url_is_blank(self, monkeypatch):
+        monkeypatch.setenv("EMR_APP_URL", "")
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
+            get_current_user(_mock_request({"cookie": "a=b"}))
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/auth/get-session"
+        )
 
     def test_raises_403_for_archived_account(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        row = {
-            "id": "u1",
-            "email": "a@example.com",
-            "name": "Alice",
-            "permissions": None,
-            "archived": 1,
-            "roleId": None,
-            "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
-        }
-        conn = FakeConnection(FakeCursor(fetchone_result=row))
+        request = _mock_request({"cookie": "a=b"})
         with (
-            patch("api.app.get_db", return_value=conn),
+            patch(
+                "api.app.httpx.get",
+                return_value=_session_response(200, _session_body(archived=True)),
+            ),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
         assert exc_info.value.status_code == 403
 
-    def test_merges_role_permissions_under_user_overrides(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        row = {
-            "id": "u1",
-            "email": "a@example.com",
-            "name": "Alice",
-            "permissions": json.dumps({"reports:notifications": True}),
-            "archived": 0,
-            "roleId": 5,
-            "role_permissions": json.dumps(
-                {"reports:notifications": False, "clients:view": True}
-            ),
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
-        }
-        conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.app.get_db", return_value=conn):
-            user = get_current_user(request)
-        assert user["permissions"] == {
-            "reports:notifications": True,
-            "clients:view": True,
-        }
-
-    def test_closes_connection_after_lookup(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        row = {
-            "id": "u1",
-            "email": "a@example.com",
-            "name": "Alice",
-            "permissions": None,
-            "archived": 0,
-            "roleId": None,
-            "role_permissions": None,
-            "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
-        }
-        conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.app.get_db", return_value=conn):
-            get_current_user(request)
-        assert conn.closed
-
-    def test_closes_connection_even_when_session_invalid(self):
-        request = _mock_request({"authjs.session-token": "tok"})
-        conn = FakeConnection(FakeCursor(fetchone_result=None))
+    def test_raises_503_when_the_app_errors(self):
+        request = _mock_request({"cookie": "a=b"})
         with (
-            patch("api.app.get_db", return_value=conn),
-            pytest.raises(HTTPException),
+            patch("api.app.httpx.get", return_value=_session_response(502, None)),
+            pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
-        assert conn.closed
+        assert exc_info.value.status_code == 503
+
+    def test_raises_503_when_the_app_is_unreachable(self):
+        request = _mock_request({"cookie": "a=b"})
+        with (
+            patch("api.app.httpx.get", side_effect=httpx.ConnectError("down")),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            get_current_user(request)
+        assert exc_info.value.status_code == 503
 
 
 class TestGetWriterId:
@@ -561,4 +609,3 @@ class TestOfficeDriveTimes:
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))
         assert exc_info.value.status_code == 422
-

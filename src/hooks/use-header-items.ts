@@ -1,5 +1,5 @@
-import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { authClient } from "~/lib/auth-client";
 import { QUESTIONNAIRE_LOGIN_SERVICES } from "~/lib/constants";
 import { HEADER_ITEM_DEFS, type HeaderItemId } from "~/lib/layout/header-items";
 import type { PermissionId } from "~/lib/types";
@@ -23,7 +23,7 @@ const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
  * customizer both read this, so they always agree on what is available.
  */
 export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const can = useCheckPermission();
 
 	const canSeeEvalReportDashboard =
@@ -61,7 +61,7 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 
 /** Display labels that depend on data, overriding the static label in the defs. */
 export function useHeaderItemLabels(): Partial<Record<HeaderItemId, string>> {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const can = useCheckPermission();
 	const canSeeEvalReportDashboard =
 		(session?.user.hasEvaluatorDashboard ?? false) ||

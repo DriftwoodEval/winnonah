@@ -5,8 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Progress } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
 import { Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 const PROGRESS_UNIT_LABELS: Record<string, string> = {
@@ -23,16 +23,16 @@ function relativeTime(date: Date) {
 }
 
 export function TaskQueueBubble() {
-	const { status } = useSession();
+	const { data: session } = authClient.useSession();
 	const [open, setOpen] = useState(false);
 
 	const { data: initialTasks } = api.tasks.getActive.useQuery(undefined, {
-		enabled: status === "authenticated",
+		enabled: !!session,
 	});
 
 	const { data: liveTasks } = api.tasks.onTaskUpdate.useSubscription(
 		undefined,
-		{ enabled: status === "authenticated" },
+		{ enabled: !!session },
 	);
 
 	const tasks = liveTasks ?? initialTasks ?? [];

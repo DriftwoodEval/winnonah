@@ -5,13 +5,12 @@ import { SystemUpdateMonitor } from "@components/providers/SystemUpdateMonitor";
 import { ThemeProvider } from "@components/providers/ThemeProvider";
 import { ImageLightboxProvider } from "@components/shared/ImageLightbox";
 import { TooltipProvider } from "@ui/tooltip";
-import { SessionProvider } from "next-auth/react";
 import { RedactionProvider } from "~/app/_components/redaction/redaction";
 import { TRPCReactProvider } from "~/trpc/react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
 	return (
-		<SessionProvider refetchOnWindowFocus={false}>
+		<>
 			<SessionExpiryMonitor />
 			<TRPCReactProvider>
 				<SystemUpdateMonitor />
@@ -28,6 +27,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 					</TooltipProvider>
 				</ThemeProvider>
 			</TRPCReactProvider>
-		</SessionProvider>
+		</>
 	);
 }
