@@ -1,6 +1,7 @@
 FROM node:26-trixie-slim AS base
-ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN npm install -g corepack && corepack enable
+# Node 25+ no longer bundles corepack, so install the pnpm version pinned in package.json.
+COPY package.json ./
+RUN npm install -g "pnpm@$(node -p "require('./package.json').packageManager.split('@')[1].split('+')[0]")"
 
 FROM base AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \

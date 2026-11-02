@@ -4,17 +4,14 @@ uv = "latest"
 
 [env]
 _.file = ".env"
-# Corepack otherwise asks before downloading a new pnpm version, which hangs
-# non-interactive runs like the lefthook install hooks.
-COREPACK_ENABLE_DOWNLOAD_PROMPT = "0"
+
+[settings]
+# Take the pnpm version from the `packageManager` field in package.json, our
+# single source for it.
+idiomatic_version_file_enable_tools = ["pnpm"]
 
 [settings.task]
 output = "interleave"
-
-[settings.node]
-# Run `corepack enable` after installing Node so pnpm comes from the
-# `packageManager` field in package.json, our single source for the pnpm version.
-corepack = true
 
 [tasks.deps]
 description = "Spin up needed Docker containers for development"
