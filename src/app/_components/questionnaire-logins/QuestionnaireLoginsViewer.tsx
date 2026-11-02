@@ -114,14 +114,6 @@ export function QuestionnaireLoginsViewer() {
 			<p className="text-sm text-muted-foreground">No services config found.</p>
 		);
 
-	if (services.length === 0)
-		return (
-			<p className="text-sm text-muted-foreground">
-				You don't have access to any questionnaire logins. Ask an admin if you
-				need one.
-			</p>
-		);
-
 	return (
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
 			{services.map((svc) => (
