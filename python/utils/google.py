@@ -9,7 +9,6 @@ from functools import lru_cache
 import pandas as pd
 from dateutil import parser as dtparser
 from driftwood_common import gmail
-from driftwood_common.constants import BUSINESS_TIMEZONE
 from driftwood_common.gmail import Attachment
 from driftwood_common.google_auth import authenticate
 from driftwood_common.google_service import build_google_service
@@ -970,35 +969,6 @@ def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
         return True
 
     return False
-
-
-def promote_placeholder_event(
-    calendar_id: str,
-    event_id: str,
-    title: str,
-    start: datetime,
-    end: datetime,
-) -> bool:
-    """Turn a placeholder hold event into the real appointment's event by giving
-    it the real title and the appointment's times. Returns True if patched.
-
-    start/end are naive business-local wall-clock times, as exported by TA.
-    """
-    time_zone = str(BUSINESS_TIMEZONE)
-    patched = _patch_gcal_event(
-        event_id,
-        calendar_id,
-        lambda _: {
-            "summary": title,
-            "start": {"dateTime": start.isoformat(), "timeZone": time_zone},
-            "end": {"dateTime": end.isoformat(), "timeZone": time_zone},
-        },
-    )
-    if patched:
-        logger.info(f"Promoted placeholder event {event_id} to: {title}")
-    else:
-        logger.warning(f"Could not promote placeholder event {event_id}")
-    return patched
 
 
 def update_gcal_event_title(

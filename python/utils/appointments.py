@@ -46,10 +46,10 @@ from utils.google import (
     google_authenticate,
     list_subfolders,
     move_drive_folder,
-    promote_placeholder_event,
     rename_drive_folder,
     send_gmail,
     set_gcal_event_drive_link,
+    update_gcal_event_title,
 )
 from utils.special_accommodations import (
     queue_special_accommodations,
@@ -1244,17 +1244,13 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     gcal_event_title = ""
 
                 # The matched event is a placeholder hold: it becomes this
-                # appointment's real event, with the real title and times.
+                # appointment's real event by taking the real title.
                 if _is_placeholder_title(gcal_event_title):
                     real_title = real_title_for_placeholder_event(
                         gcal_event_title, _clean_appointment_name(appointment)
                     )
-                    if real_title and promote_placeholder_event(
-                        gcal_calendar_id,
-                        gcal_event_id,
-                        real_title,
-                        start_time_business,
-                        end_time_business,
+                    if real_title and update_gcal_event_title(
+                        gcal_event_id, real_title, calendar_id=gcal_calendar_id
                     ):
                         gcal_event_title = real_title
                         promoted_placeholder = True
