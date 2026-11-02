@@ -1241,35 +1241,40 @@ export const rolesRelations = relations(roles, ({ many }) => ({
 	invitations: many(invitations),
 }));
 
-export const users = createTable("user", (d) => ({
-	id: d
-		.varchar({ length: 255 })
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	name: d.varchar({ length: 255 }),
-	email: d.varchar({ length: 255 }).notNull(),
-	emailVerified: d.boolean().notNull().default(false),
-	image: d.varchar({ length: 255 }),
-	savedPlaces: d.json(),
-	permissions: d.json("permissions").$type<PermissionsObject>(),
-	roleId: d.int().references(() => roles.id),
-	archived: d.boolean("archived").notNull().default(false),
-	claimedReportFolder: d.json().$type<{ name: string; id: string }[]>(),
-	maxClaimedReports: d.tinyint(),
-	phoneNumber: d.varchar({ length: 20 }),
-	recentClients: d.text(),
-	// Per-user display preferences (see ~/lib/preferences).
-	preferences: d.json().$type<UserPreferences>(),
-	lastSeenChangelogMarker: d.text(),
-	blockedEvaluatorNpis: d.json().$type<number[]>(),
-	listFilters: d.json().$type<Record<string, string[]>>(),
-	pinnedList: d.json().$type<PinnedList>(),
-	// Last-used table filters (see ~/lib/saved-filters).
-	savedFilters: d.json().$type<SavedFilters>(),
-	createdAt: d.timestamp().defaultNow().notNull(),
-	updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
-}));
+export const users = createTable(
+	"user",
+	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.varchar({ length: 255 }),
+		email: d.varchar({ length: 255 }).notNull(),
+		emailVerified: d.boolean().notNull().default(false),
+		image: d.varchar({ length: 255 }),
+		savedPlaces: d.json(),
+		permissions: d.json("permissions").$type<PermissionsObject>(),
+		roleId: d.int().references(() => roles.id),
+		archived: d.boolean("archived").notNull().default(false),
+		claimedReportFolder: d.json().$type<{ name: string; id: string }[]>(),
+		maxClaimedReports: d.tinyint(),
+		phoneNumber: d.varchar({ length: 20 }),
+		recentClients: d.text(),
+		// Per-user display preferences (see ~/lib/preferences).
+		preferences: d.json().$type<UserPreferences>(),
+		lastSeenChangelogMarker: d.text(),
+		blockedEvaluatorNpis: d.json().$type<number[]>(),
+		listFilters: d.json().$type<Record<string, string[]>>(),
+		pinnedList: d.json().$type<PinnedList>(),
+		// Last-used table filters (see ~/lib/saved-filters).
+		savedFilters: d.json().$type<SavedFilters>(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
+	}),
+	// Better Auth looks users up by email and assumes there is only one.
+	(t) => [uniqueIndex("user_email_idx").on(t.email)],
+);
 
 export const usersRelations = relations(users, ({ many, one }) => ({
 	accounts: many(accounts),

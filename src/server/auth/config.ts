@@ -83,9 +83,10 @@ const authOptions = {
 	trustedOrigins: env.AUTH_TRUSTED_ORIGINS?.split(",")
 		.map((origin) => origin.trim())
 		.filter(Boolean),
-	// The office shares one IP, and the Python API checks sessions on every
-	// request, so the defaults (3 sign-ins and 100 session reads per 10
-	// seconds) are too tight. Limits are counted per web instance.
+	// Every request reaches the app from the proxy's address, so these limits
+	// are shared by all users, and the Python API reads the session on every
+	// request. The defaults (3 sign-ins and 100 session reads per 10 seconds)
+	// are too tight for that.
 	rateLimit: {
 		customRules: {
 			"/get-session": { window: 10, max: 300 },

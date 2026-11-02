@@ -11,15 +11,23 @@ const ERROR_MESSAGES: Record<string, string> = {
 		"Your account does not have access to this application.",
 	unable_to_create_session:
 		"Your account does not have access to this application.",
+	// Google returned an account outside the practice's Workspace domain.
+	unable_to_get_user_info:
+		"That Google account is not part of the practice. Sign in with your work account.",
+	account_not_linked:
+		"This Google account could not be matched to your user. Ask an admin for help.",
 	access_denied: "Sign-in was cancelled or not allowed.",
 	invalid_code: "The sign-in link has expired or already been used.",
 	state_mismatch: "The sign-in link has expired or already been used.",
+	state_invalid: "The sign-in link has expired or already been used.",
+	state_not_found: "The sign-in link has expired or already been used.",
 };
 
 /** Errors where signing in again cannot help. */
 const NON_RETRYABLE_ERRORS = new Set([
 	"unable_to_create_user",
 	"unable_to_create_session",
+	"account_not_linked",
 ]);
 
 function AuthError() {
