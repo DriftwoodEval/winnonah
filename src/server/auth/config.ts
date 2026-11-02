@@ -1,10 +1,10 @@
-import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
 	APIError,
 	createAuthMiddleware,
 	getSessionFromCtx,
 } from "better-auth/api";
+import { type BetterAuthOptions, betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
 import { customSession } from "better-auth/plugins";
 import { and, eq } from "drizzle-orm";
