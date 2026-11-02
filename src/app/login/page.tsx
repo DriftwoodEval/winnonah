@@ -4,11 +4,7 @@ import { Button } from "@ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { authClient } from "~/lib/auth-client";
-
-/** Only same-site paths are allowed, so a crafted link cannot send people elsewhere. */
-function toSitePath(value: string | null) {
-	return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
+import { toSitePath } from "~/lib/site-path";
 
 function LoginPage() {
 	const params = useSearchParams();

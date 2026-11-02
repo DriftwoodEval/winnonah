@@ -18,7 +18,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from api import appointment_reminders, greeter_proxy
-from utils.app_api import get_users_with_permission
+from utils.app_api import app_url, get_users_with_permission
 from utils.appointments import (
     DAEvalType,
     build_placeholder_description,
@@ -192,13 +192,9 @@ def get_current_user(request: Request):
     if not cookie:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    app_url = os.getenv("EMR_APP_URL")
-    if not app_url:
-        raise HTTPException(status_code=500, detail="EMR_APP_URL is not configured")
-
     try:
         response = httpx.get(
-            f"{app_url.rstrip('/')}/api/auth/get-session",
+            f"{app_url()}/api/auth/get-session",
             headers={"Cookie": cookie},
             timeout=5,
         )
@@ -212,7 +208,12 @@ def get_current_user(request: Request):
         raise HTTPException(
             status_code=503, detail="Authentication service unavailable"
         )
-    session = response.json() if response.status_code == 200 else None
+    try:
+        session = response.json() if response.status_code == 200 else None
+    except ValueError as error:
+        raise HTTPException(
+            status_code=503, detail="Authentication service unavailable"
+        ) from error
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
 

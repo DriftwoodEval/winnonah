@@ -130,11 +130,25 @@ class TestGetCurrentUser:
             get_current_user(_mock_request({}))
         assert exc_info.value.status_code == 401
 
-    def test_raises_500_when_app_url_missing(self, monkeypatch):
+    def test_uses_the_production_app_when_no_url_is_configured(self, monkeypatch):
         monkeypatch.delenv("EMR_APP_URL")
-        with pytest.raises(HTTPException) as exc_info:
+        with patch(
+            "api.app.httpx.get", return_value=_session_response(200, _session_body())
+        ) as get:
             get_current_user(_mock_request({"cookie": "a=b"}))
-        assert exc_info.value.status_code == 500
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/auth/get-session"
+        )
+
+    def test_raises_503_when_the_app_returns_malformed_json(self):
+        response = _session_response(200, None)
+        response.json.side_effect = ValueError("not json")
+        with (
+            patch("api.app.httpx.get", return_value=response),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            get_current_user(_mock_request({"cookie": "a=b"}))
+        assert exc_info.value.status_code == 503
 
     def test_forwards_the_cookie_to_the_app_session_endpoint(self):
         request = _mock_request({"cookie": "better-auth.session_token=tok.sig"})

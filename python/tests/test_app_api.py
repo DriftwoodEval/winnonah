@@ -44,6 +44,14 @@ class TestGetUsersWithPermission:
         with patch("utils.app_api.requests.get", return_value=_response(users)):
             assert get_users_with_permission("reports:notifications") == users
 
+    def test_defaults_to_the_production_app(self, monkeypatch):
+        monkeypatch.delenv("EMR_APP_URL")
+        with patch("utils.app_api.requests.get", return_value=_response([])) as get:
+            get_users_with_permission("reports:notifications")
+        assert get.call_args.args[0] == (
+            "https://emr.driftwoodeval.com/api/internal/users-with-permission"
+        )
+
     def test_raises_without_an_api_key(self, monkeypatch):
         monkeypatch.delenv("API_KEY")
         with pytest.raises(RuntimeError):

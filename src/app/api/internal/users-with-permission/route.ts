@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 	}
 
 	const permission = req.nextUrl.searchParams.get("permission");
-	if (!permission || !(permission in PERMISSION_GROUP_IDS)) {
+	if (!permission || !Object.hasOwn(PERMISSION_GROUP_IDS, permission)) {
 		return NextResponse.json({ error: "Unknown permission" }, { status: 400 });
 	}
 	const email = req.nextUrl.searchParams.get("email");
@@ -35,7 +35,9 @@ export async function GET(req: NextRequest) {
 	});
 
 	const holders = activeUsers
-		.filter((user) => !email || user.email === email)
+		.filter(
+			(user) => !email || user.email.toLowerCase() === email.toLowerCase(),
+		)
 		.filter((user) =>
 			hasPermission(
 				mergePermissions(user.permissions, user.role?.permissions),
