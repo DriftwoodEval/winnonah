@@ -17,6 +17,9 @@
 -- Two users whose emails differ only by case would collide once lowercased.
 -- This must return no rows:
 --   SELECT LOWER(email), COUNT(*) FROM emr_user GROUP BY LOWER(email) HAVING COUNT(*) > 1;
+-- Better Auth also needs one user per email (it looks users up by email), so
+-- step 2 adds a unique index. The collision check above is what protects it.
+--
 -- If both checks are clean up front, fix the first list with:
 --   UPDATE emr_user SET email = LOWER(email) WHERE BINARY email <> LOWER(email);
 --
@@ -38,6 +41,7 @@ ALTER TABLE `emr_user`
   ADD COLUMN `createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ADD COLUMN `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 UPDATE `emr_user` SET `emailVerified` = 1;
+ALTER TABLE `emr_user` ADD UNIQUE INDEX `user_email_idx` (`email`);
 
 -- 3. emr_account: use Better Auth's column names, add a row id (the old key was
 --    provider + providerAccountId), real token expiry timestamps, and audit
