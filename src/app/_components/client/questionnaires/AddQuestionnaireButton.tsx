@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { usePausedClientWarning } from "~/hooks/use-paused-client-warning";
 import { logger } from "~/lib/logger";
 import { api } from "~/trpc/react";
 import {
@@ -44,6 +45,7 @@ export function AddQuestionnaireButton({
 	const addSingleQDialog = useResponsiveDialog();
 	const addBulkQDialog = useResponsiveDialog();
 	const utils = api.useUtils();
+	const warnIfPaused = usePausedClientWarning(clientId);
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 
 	const [qsSentDialog, setQsSentDialog] = useState(false);
@@ -131,6 +133,7 @@ export function AddQuestionnaireButton({
 		onSuccess: (data) => {
 			utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
 			addSingleQDialog.closeDialog();
+			warnIfPaused("The questionnaire");
 
 			qsSent &&
 				[
@@ -158,6 +161,7 @@ export function AddQuestionnaireButton({
 			onSuccess: () => {
 				utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
 				addBulkQDialog.closeDialog();
+				warnIfPaused("The questionnaires");
 				qsSent &&
 					(!qsSent?.["DA Qs Sent"] || !qsSent?.["EVAL Qs Sent"]) &&
 					setQsSentDialog(true);

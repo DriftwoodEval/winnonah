@@ -876,10 +876,14 @@ def preview_dds_request(
 
 @app.get("/gmail/pearson-verification-code")
 def get_pearson_verification_code(current_user: dict = Depends(get_current_user)):
-    if not has_permission(
-        current_user["permissions"], "settings:qsuite:services"
-    ) and not has_permission(
-        current_user["permissions"], "settings:qsuite:services:view"
+    permissions = current_user["permissions"]
+    if not any(
+        has_permission(permissions, permission)
+        for permission in (
+            "settings:qsuite:services",
+            "settings:qsuite:services:view",
+            "settings:qsuite:services:view:qglobal",
+        )
     ):
         raise HTTPException(status_code=403, detail="Not authorized")
 

@@ -10,7 +10,9 @@ import {
 import {
 	BUSINESS_TIMEZONE,
 	PERMISSION_MAP,
+	QUESTIONNAIRE_LOGIN_SERVICES,
 	type QUESTIONNAIRE_STATUSES,
+	type QuestionnaireLoginServiceId,
 } from "./constants";
 
 export const IS_DEV = process.env.NODE_ENV === "development";
@@ -46,6 +48,25 @@ export function hasPermission(
 	return !!(
 		userPerms[permission] ?? userPerms[PERMISSION_GROUP_IDS[permission]]
 	);
+}
+
+/**
+ * Whether a user may see a questionnaire platform's shared login: editing the
+ * services config or the all-logins permission covers every platform, otherwise
+ * the platform's own permission is needed.
+ */
+export function canViewQuestionnaireLogin(
+	userPerms: PermissionsObject,
+	service: QuestionnaireLoginServiceId,
+): boolean {
+	if (
+		hasPermission(userPerms, "settings:qsuite:services") ||
+		hasPermission(userPerms, "settings:qsuite:services:view")
+	) {
+		return true;
+	}
+	const def = QUESTIONNAIRE_LOGIN_SERVICES.find((s) => s.id === service);
+	return !!def && hasPermission(userPerms, def.permission);
 }
 
 /**

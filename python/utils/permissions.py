@@ -15,6 +15,7 @@ PERMISSION_GROUPS = {
     "settings:post-visit-attachment:edit": "system:settings:all",
     "settings:qsuite:services": "system:qsuite:all",
     "settings:qsuite:services:view": "system:qsuite:all",
+    "settings:qsuite:services:view:qglobal": "system:qsuite:all",
 }
 
 

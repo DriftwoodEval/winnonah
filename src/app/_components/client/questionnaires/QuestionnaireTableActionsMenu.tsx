@@ -21,6 +21,7 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { usePausedClientWarning } from "~/hooks/use-paused-client-warning";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { QuestionnaireReminderOverrideDialog } from "./QuestionnaireReminderOverride";
@@ -46,6 +47,7 @@ export function QuestionnaireActionsMenu({
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
 	const utils = api.useUtils();
+	const warnIfPaused = usePausedClientWarning(questionnaire.clientId);
 
 	const { mutate: updateQuestionnaire, isPending: isUpdating } =
 		api.questionnaires.updateQuestionnaire.useMutation({
@@ -54,6 +56,7 @@ export function QuestionnaireActionsMenu({
 					questionnaire.clientId,
 				);
 				setIsEditDialogOpen(false);
+				warnIfPaused("The questionnaire change");
 			},
 			onError: (error) => {
 				log.error(error, "Failed to update");
