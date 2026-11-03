@@ -6,6 +6,7 @@ import {
 	isNotNull,
 	isNull,
 	ne,
+	or,
 	type SQL,
 	sql,
 } from "drizzle-orm";
@@ -308,6 +309,12 @@ export const reportsRouter = createTRPCRouter({
 			if (writersIndex >= 0 && writerFolderName) {
 				const candidates = await ctx.db.query.users.findMany({
 					columns: { id: true, name: true, email: true },
+					// Users capped at zero reports never write them. A null cap
+					// means the default applies, so those users stay eligible.
+					where: or(
+						isNull(users.maxClaimedReports),
+						ne(users.maxClaimedReports, 0),
+					),
 				});
 				inferredWriter =
 					candidates.find(
