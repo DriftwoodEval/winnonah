@@ -13,7 +13,6 @@ import {
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
-import type { LoginAccess } from "~/lib/logins";
 import type { PinnedList } from "~/lib/pinned-list";
 import type { UserPreferences } from "~/lib/preferences";
 import type { RunSummary } from "~/lib/run-summary";
@@ -1423,7 +1422,6 @@ export const logins = createTable("login", (d) => ({
 	username: d.text(),
 	password: d.text(),
 	notes: d.text(),
-	access: d.json().$type<LoginAccess>().notNull(),
 	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
 }));

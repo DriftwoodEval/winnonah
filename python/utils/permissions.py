@@ -48,18 +48,13 @@ def effective_permissions(
     return {**role, **user}
 
 
-def login_access_allows_view(
-    access: dict | None, user_id: str, role_id: int | None
-) -> bool:
-    """Whether a login's access list lets a user view it.
+def login_permissions_allow_view(permissions: dict, login_id: int) -> bool:
+    """Whether a user's permissions let them view one login.
 
     Mirrors canAccessLogin in src/lib/logins.ts for the global-permission-free
-    case: edit and delete access both include viewing.
+    case: edit and delete permission both include viewing.
     """
-    for verb in ("view", "edit", "delete"):
-        principals = (access or {}).get(verb, {})
-        if user_id in principals.get("userIds", []):
-            return True
-        if role_id is not None and role_id in principals.get("roleIds", []):
-            return True
-    return False
+    return any(
+        permissions.get(f"logins:{login_id}:{verb}") is True
+        for verb in ("view", "edit", "delete")
+    )

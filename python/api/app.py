@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import re
 import time
@@ -72,7 +71,7 @@ from utils.location import search_addresses
 from utils.permissions import (
     effective_permissions,
     has_permission,
-    login_access_allows_view,
+    login_permissions_allow_view,
 )
 from utils.waze import (
     KM_PER_MILE,
@@ -915,7 +914,7 @@ def preview_dds_request(
 
 def _can_view_qglobal_login(current_user: dict) -> bool:
     """Whether the user may see the QGlobal login: a global login permission, or
-    a place on the login's own access list."""
+    a permission on the login itself."""
     permissions = current_user["permissions"]
     if has_permission(permissions, "settings:qsuite:services") or has_permission(
         permissions, "settings:qsuite:services:view"
@@ -926,7 +925,7 @@ def _can_view_qglobal_login(current_user: dict) -> bool:
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT access FROM {TABLE_LOGIN} WHERE builtInKey = %s",
+                f"SELECT id FROM {TABLE_LOGIN} WHERE builtInKey = %s",
                 ("qglobal",),
             )
             row = cursor.fetchone()
@@ -935,12 +934,7 @@ def _can_view_qglobal_login(current_user: dict) -> bool:
     if not row:
         return False
 
-    access = row["access"]
-    if isinstance(access, str):
-        access = json.loads(access)
-    return login_access_allows_view(
-        access, current_user["user_id"], current_user.get("role_id")
-    )
+    return login_permissions_allow_view(permissions, row["id"])
 
 
 @app.get("/gmail/pearson-verification-code")

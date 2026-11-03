@@ -4,10 +4,10 @@ import z from "zod";
 import {
 	CUSTOM_LOGIN_FIELDS,
 	canAccessLogin,
-	emptyLoginAccess,
 	getBuiltInLogin,
+	LOGIN_VERBS,
 	type LoginVerb,
-	loginAccessSchema,
+	loginPermissionKey,
 } from "~/lib/logins";
 import { hasPermission } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -18,7 +18,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import type { db } from "~/server/db";
-import { loginHistory, logins, pythonConfig } from "~/server/db/schema";
+import { loginHistory, logins, pythonConfig, users } from "~/server/db/schema";
 
 type Db = typeof db;
 
@@ -80,7 +80,7 @@ export const loginsRouter = createTRPCRouter({
 	}),
 
 	// Every login the user may view, with its credentials and what they may do
-	// to it. The access list is included only for users who manage access.
+	// to it.
 	list: protectedProcedure.query(async ({ ctx }) => {
 		const user = ctx.session.user;
 		await ensureBuiltInLogins(ctx.db);
@@ -96,10 +96,6 @@ export const loginsRouter = createTRPCRouter({
 		if (visible.length === 0) return [];
 
 		const { services } = await readServices(ctx.db);
-		const canManageAccess = hasPermission(
-			user.permissions,
-			"settings:users:edit",
-		);
 
 		return visible.map((row) => {
 			const builtIn = getBuiltInLogin(row.builtInKey);
@@ -125,7 +121,6 @@ export const loginsRouter = createTRPCRouter({
 				fields,
 				canEdit: canAccessLogin(user, row, "edit"),
 				canDelete: !builtIn && canAccessLogin(user, row, "delete"),
-				access: canManageAccess ? row.access : null,
 			};
 		});
 	}),
@@ -140,13 +135,24 @@ export const loginsRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:qsuite:logins:create");
 
-			// The creator keeps full access to what they create.
-			const access = emptyLoginAccess();
-			for (const verb of ["view", "edit", "delete"] as const) {
-				access[verb].userIds.push(ctx.session.user.id);
-			}
+			const [result] = await ctx.db.insert(logins).values(input);
 
-			const [result] = await ctx.db.insert(logins).values({ ...input, access });
+			// The creator keeps full access to what they create.
+			const creator = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { permissions: true },
+			});
+			const grants = Object.fromEntries(
+				LOGIN_VERBS.map((verb) => [
+					loginPermissionKey(result.insertId, verb),
+					true,
+				]),
+			);
+			await ctx.db
+				.update(users)
+				.set({ permissions: { ...creator?.permissions, ...grants } })
+				.where(eq(users.id, ctx.session.user.id));
+
 			await recordHistory(ctx, {
 				loginId: result.insertId,
 				loginName: input.name,
@@ -297,31 +303,18 @@ export const loginsRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	setAccess: protectedProcedure
-		.input(z.object({ id: z.number(), access: loginAccessSchema }))
-		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
-			const row = await ctx.db.query.logins.findFirst({
-				where: eq(logins.id, input.id),
-			});
-			if (!row) throw new TRPCError({ code: "NOT_FOUND" });
-
-			await ctx.db
-				.update(logins)
-				.set({ access: input.access })
-				.where(eq(logins.id, input.id));
-			const accessDiff = diffValues(row.access, input.access);
-			setAuditDetail(ctx, { login: row.name, access: accessDiff });
-			if (accessDiff !== undefined) {
-				await recordHistory(ctx, {
-					loginId: row.id,
-					loginName: row.name,
-					action: "access",
-					detail: { access: accessDiff },
-				});
-			}
-			return { success: true };
-		}),
+	// Every login, for the per-login checkboxes in the permissions editor.
+	permissionList: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "settings:users:edit");
+		await ensureBuiltInLogins(ctx.db);
+		const rows = await ctx.db.query.logins.findMany({
+			columns: { id: true, name: true, builtInKey: true },
+			orderBy: (logins, { asc }) => [asc(logins.name)],
+		});
+		return rows
+			.filter((row) => !HIDDEN_BUILT_IN_KEYS.includes(row.builtInKey ?? ""))
+			.map(({ id, name }) => ({ id, name }));
+	}),
 
 	// Changes to one login, newest first. Needs edit access to that login.
 	history: protectedProcedure

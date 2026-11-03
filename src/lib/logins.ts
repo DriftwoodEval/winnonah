@@ -1,4 +1,3 @@
-import z from "zod";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 
@@ -6,32 +5,10 @@ export const LOGIN_VERBS = ["view", "edit", "delete"] as const;
 export type LoginVerb = (typeof LOGIN_VERBS)[number];
 
 export const LOGIN_VERB_LABELS: Record<LoginVerb, string> = {
-	view: "Can view",
-	edit: "Can edit",
-	delete: "Can delete",
+	view: "View",
+	edit: "Edit",
+	delete: "Delete",
 };
-
-const principalsSchema = z.object({
-	roleIds: z.array(z.number()),
-	userIds: z.array(z.string()),
-});
-
-/** Who may view, edit, or delete one login, by role and by individual user. */
-export const loginAccessSchema = z.object({
-	view: principalsSchema,
-	edit: principalsSchema,
-	delete: principalsSchema,
-});
-
-export type LoginAccess = z.infer<typeof loginAccessSchema>;
-
-export function emptyLoginAccess(): LoginAccess {
-	return {
-		view: { roleIds: [], userIds: [] },
-		edit: { roleIds: [], userIds: [] },
-		delete: { roleIds: [], userIds: [] },
-	};
-}
 
 /** The credential fields every custom login has. */
 export const CUSTOM_LOGIN_FIELDS = [
@@ -144,30 +121,32 @@ export function getBuiltInLogin(key: string | null) {
 	return BUILT_IN_LOGINS.find((def) => def.key === key);
 }
 
-type LoginUser = {
-	id: string;
-	roleId?: number | null;
-	permissions: PermissionsObject;
-};
+/**
+ * The key in a permissions object that grants one verb on one login. Logins
+ * are created at runtime, so these keys are not part of the static PERMISSIONS
+ * list in constants.ts.
+ */
+export function loginPermissionKey(loginId: number, verb: LoginVerb) {
+	return `logins:${loginId}:${verb}`;
+}
 
-function isInPrincipals(
-	principals: LoginAccess[LoginVerb],
-	user: Pick<LoginUser, "id" | "roleId">,
+function hasLoginPermission(
+	permissions: PermissionsObject,
+	loginId: number,
+	verb: LoginVerb,
 ) {
-	return (
-		principals.userIds.includes(user.id) ||
-		(user.roleId != null && principals.roleIds.includes(user.roleId))
-	);
+	const granted = permissions as Record<string, boolean | undefined>;
+	return granted[loginPermissionKey(loginId, verb)] === true;
 }
 
 /**
  * Whether a user may view, edit, or delete a login. Global permissions cover
- * every login; otherwise the login's own access list decides, where edit and
- * delete access both include viewing.
+ * every login; otherwise the login's own permissions decide, where edit and
+ * delete both include viewing.
  */
 export function canAccessLogin(
-	user: LoginUser,
-	login: { access: LoginAccess },
+	user: { permissions: PermissionsObject },
+	login: { id: number },
 	verb: LoginVerb,
 ): boolean {
 	const { permissions } = user;
@@ -190,5 +169,7 @@ export function canAccessLogin(
 
 	const grantingVerbs: LoginVerb[] =
 		verb === "view" ? ["view", "edit", "delete"] : [verb];
-	return grantingVerbs.some((v) => isInPrincipals(login.access[v], user));
+	return grantingVerbs.some((v) =>
+		hasLoginPermission(permissions, login.id, v),
+	);
 }

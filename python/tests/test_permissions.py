@@ -3,7 +3,7 @@ import pytest
 from utils.permissions import (
     effective_permissions,
     has_permission,
-    login_access_allows_view,
+    login_permissions_allow_view,
 )
 
 
@@ -46,17 +46,15 @@ def test_effective_permissions(user_permissions, role_permissions, expected):
 
 
 @pytest.mark.parametrize(
-    ("access", "user_id", "role_id", "expected"),
+    ("permissions", "expected"),
     [
-        (None, "u1", 1, False),
-        ({}, "u1", 1, False),
-        ({"view": {"userIds": ["u1"], "roleIds": []}}, "u1", None, True),
-        ({"view": {"userIds": ["u2"], "roleIds": []}}, "u1", None, False),
-        ({"view": {"userIds": [], "roleIds": [3]}}, "u1", 3, True),
-        ({"view": {"userIds": [], "roleIds": [3]}}, "u1", None, False),
-        ({"edit": {"userIds": ["u1"], "roleIds": []}}, "u1", None, True),
-        ({"delete": {"userIds": [], "roleIds": [3]}}, "u1", 3, True),
+        ({}, False),
+        ({"logins:5:view": True}, True),
+        ({"logins:5:edit": True}, True),
+        ({"logins:5:delete": True}, True),
+        ({"logins:5:view": False}, False),
+        ({"logins:6:view": True}, False),
     ],
 )
-def test_login_access_allows_view(access, user_id, role_id, expected):
-    assert login_access_allows_view(access, user_id, role_id) is expected
+def test_login_permissions_allow_view(permissions, expected):
+    assert login_permissions_allow_view(permissions, 5) is expected

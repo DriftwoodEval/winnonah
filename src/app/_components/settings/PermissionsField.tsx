@@ -27,6 +27,8 @@ import {
 	permissionGroupId,
 } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
+import { api } from "~/trpc/react";
+import { LOGIN_PERMISSIONS_ITEM, LoginPermissions } from "./LoginPermissions";
 
 type PermissionEntry = { id: string; title: string; parent?: string };
 
@@ -59,6 +61,14 @@ export function PermissionsField({
 
 	const titleMatches = (title: string) =>
 		title.toLowerCase().includes(trimmedQuery);
+
+	// Only people who can edit users get the list; for everyone else the section is hidden.
+	const { data: allLogins } = api.logins.permissionList.useQuery(undefined, {
+		retry: false,
+	});
+	const visibleLogins = (allLogins ?? []).filter(
+		(login) => !hasQuery || titleMatches("logins") || titleMatches(login.name),
+	);
 
 	const isOverridden = (id: PermissionId) =>
 		value?.[id] !== undefined &&
@@ -191,7 +201,10 @@ export function PermissionsField({
 	);
 
 	const openItems = hasQuery
-		? categoryEntries.filter((c) => c.visible).map((c) => c.categoryKey)
+		? [
+				...categoryEntries.filter((c) => c.visible).map((c) => c.categoryKey),
+				...(visibleLogins.length > 0 ? [LOGIN_PERMISSIONS_ITEM] : []),
+			]
 		: manualOpenItems;
 
 	return (
@@ -210,11 +223,13 @@ export function PermissionsField({
 				/>
 			</div>
 
-			{hasQuery && categoryEntries.every((c) => !c.visible) && (
-				<p className="py-2 text-sm text-muted-foreground">
-					No permissions match "{query}".
-				</p>
-			)}
+			{hasQuery &&
+				visibleLogins.length === 0 &&
+				categoryEntries.every((c) => !c.visible) && (
+					<p className="py-2 text-sm text-muted-foreground">
+						No permissions match "{query}".
+					</p>
+				)}
 
 			<Accordion
 				className="rounded-md border"
@@ -461,6 +476,15 @@ export function PermissionsField({
 							</AccordionContent>
 						</AccordionItem>
 					))}
+				{visibleLogins.length > 0 && (
+					<LoginPermissions
+						disabled={disabled}
+						effective={effective}
+						logins={visibleLogins}
+						onChange={commit}
+						value={value}
+					/>
+				)}
 			</Accordion>
 		</div>
 	);

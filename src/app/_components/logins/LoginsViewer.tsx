@@ -24,7 +24,6 @@ import {
 	Mail,
 	Pencil,
 	Plus,
-	ShieldCheck,
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
@@ -33,7 +32,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { formatInBusinessTime } from "~/lib/utils";
 import { scrambleText } from "~/lib/utils.client";
 import { api } from "~/trpc/react";
-import { LoginAccessDialog } from "./LoginAccessDialog";
 import { type Login, LoginDialog } from "./LoginDialog";
 import { LoginHistoryDialog } from "./LoginHistoryDialog";
 
@@ -133,13 +131,11 @@ function LoginCard({
 	onEdit,
 	onDelete,
 	onHistory,
-	onManageAccess,
 }: {
 	login: Login;
 	onEdit: () => void;
 	onDelete: () => void;
 	onHistory: () => void;
-	onManageAccess: () => void;
 }) {
 	return (
 		<Card>
@@ -147,17 +143,6 @@ function LoginCard({
 				<div className="flex items-start justify-between gap-2">
 					<CardTitle>{login.name}</CardTitle>
 					<div className="flex shrink-0 gap-1">
-						{login.access && (
-							<Button
-								onClick={onManageAccess}
-								size="icon"
-								title="Manage access"
-								type="button"
-								variant="ghost"
-							>
-								<ShieldCheck className="h-4 w-4" />
-							</Button>
-						)}
 						{login.canEdit && (
 							<Button
 								onClick={onHistory}
@@ -231,7 +216,6 @@ export function LoginsViewer() {
 	const [isCreating, setIsCreating] = useState(false);
 	const [editing, setEditing] = useState<Login | null>(null);
 	const [deleting, setDeleting] = useState<Login | null>(null);
-	const [managingAccess, setManagingAccess] = useState<Login | null>(null);
 	const [viewingHistory, setViewingHistory] = useState<Login | null>(null);
 
 	const deleteLogin = api.logins.delete.useMutation({
@@ -271,7 +255,6 @@ export function LoginsViewer() {
 							onDelete={() => setDeleting(login)}
 							onEdit={() => setEditing(login)}
 							onHistory={() => setViewingHistory(login)}
-							onManageAccess={() => setManagingAccess(login)}
 						/>
 					))}
 				</div>
@@ -286,10 +269,6 @@ export function LoginsViewer() {
 			<LoginHistoryDialog
 				login={viewingHistory}
 				onClose={() => setViewingHistory(null)}
-			/>
-			<LoginAccessDialog
-				login={managingAccess}
-				onClose={() => setManagingAccess(null)}
 			/>
 
 			<AlertDialog onOpenChange={() => setDeleting(null)} open={!!deleting}>
