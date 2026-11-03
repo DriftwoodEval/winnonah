@@ -19,6 +19,8 @@ import { Label } from "@ui/label";
 import {
 	Copy,
 	ExternalLink,
+	Eye,
+	EyeOff,
 	History,
 	Loader2,
 	Mail,
@@ -35,8 +37,17 @@ import { api } from "~/trpc/react";
 import { type Login, LoginDialog } from "./LoginDialog";
 import { LoginHistoryDialog } from "./LoginHistoryDialog";
 
-function CredentialField({ label, value }: { label: string; value: string }) {
+function CredentialField({
+	label,
+	value,
+	secret,
+}: {
+	label: string;
+	value: string;
+	secret: boolean;
+}) {
 	const { enabled } = useRedaction();
+	const [revealed, setRevealed] = useState(false);
 
 	const copy = async () => {
 		await navigator.clipboard.writeText(value);
@@ -50,8 +61,24 @@ function CredentialField({ label, value }: { label: string; value: string }) {
 				<Input
 					className={enabled ? "font-mono blur-sm select-none" : "font-mono"}
 					readOnly
+					type={secret && !revealed ? "password" : "text"}
 					value={enabled ? scrambleText(value) : value}
 				/>
+				{secret && (
+					<Button
+						onClick={() => setRevealed(!revealed)}
+						size="icon"
+						title={revealed ? "Hide" : "Show"}
+						type="button"
+						variant="ghost"
+					>
+						{revealed ? (
+							<EyeOff className="h-4 w-4" />
+						) : (
+							<Eye className="h-4 w-4" />
+						)}
+					</Button>
+				)}
 				<Button onClick={copy} size="icon" type="button" variant="ghost">
 					<Copy className="h-4 w-4" />
 				</Button>
@@ -200,6 +227,7 @@ function LoginCard({
 					<CredentialField
 						key={field.name}
 						label={field.label}
+						secret={field.secret}
 						value={field.value}
 					/>
 				))}

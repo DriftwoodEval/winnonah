@@ -61,7 +61,12 @@ const loginDetailsSchema = z.object({
 });
 
 // Built-in logins the automated jobs use but that are never shown on the page.
-const HIDDEN_BUILT_IN_KEYS = ["medicaid"];
+const HIDDEN_BUILT_IN_KEYS = [
+	"medicaid",
+	"therapyappointment",
+	"openphone",
+	"kimai",
+];
 
 export const loginsRouter = createTRPCRouter({
 	// Whether the nav link should show: the user can create logins or reach at
@@ -104,11 +109,13 @@ export const loginsRouter = createTRPCRouter({
 				? builtIn.fields.map((field) => ({
 						name: field.name,
 						label: field.label,
+						secret: field.secret,
 						value: String(services[builtIn.key]?.[field.name] ?? ""),
 					}))
 				: CUSTOM_LOGIN_FIELDS.map((field) => ({
 						name: field.name,
 						label: field.label,
+						secret: field.secret,
 						value:
 							(field.name === "username" ? row.username : row.password) ?? "",
 					}));
