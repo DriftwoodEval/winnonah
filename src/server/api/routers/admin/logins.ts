@@ -60,6 +60,9 @@ const loginDetailsSchema = z.object({
 	notes: z.string().trim().max(5000),
 });
 
+// Built-in logins the automated jobs use but that are never shown on the page.
+const HIDDEN_BUILT_IN_KEYS = ["medicaid"];
+
 export const loginsRouter = createTRPCRouter({
 	// Whether the nav link should show: the user can create logins or reach at
 	// least one existing one.
@@ -69,7 +72,11 @@ export const loginsRouter = createTRPCRouter({
 			return true;
 		}
 		const rows = await ctx.db.query.logins.findMany();
-		return rows.some((row) => canAccessLogin(user, row, "view"));
+		return rows.some(
+			(row) =>
+				!HIDDEN_BUILT_IN_KEYS.includes(row.builtInKey ?? "") &&
+				canAccessLogin(user, row, "view"),
+		);
 	}),
 
 	// Every login the user may view, with its credentials and what they may do
@@ -81,7 +88,11 @@ export const loginsRouter = createTRPCRouter({
 		const rows = await ctx.db.query.logins.findMany({
 			orderBy: (logins, { asc }) => [asc(logins.name)],
 		});
-		const visible = rows.filter((row) => canAccessLogin(user, row, "view"));
+		const visible = rows.filter(
+			(row) =>
+				!HIDDEN_BUILT_IN_KEYS.includes(row.builtInKey ?? "") &&
+				canAccessLogin(user, row, "view"),
+		);
 		if (visible.length === 0) return [];
 
 		const { services } = await readServices(ctx.db);
