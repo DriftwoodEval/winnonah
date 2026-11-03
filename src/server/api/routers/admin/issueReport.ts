@@ -1,7 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
-import { ISSUE_REPORT_EMAIL } from "~/lib/constants";
-import { GmailScopeError, sendGmailAsUser } from "~/lib/integrations/gmail";
+import { desc, eq, or, sql } from "drizzle-orm";
 import { hasPermission } from "~/lib/utils";
 import {
 	issueReportRecipientsSchema,
@@ -10,7 +8,12 @@ import {
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { db } from "~/server/db";
-import { pythonConfig } from "~/server/db/schema";
+import {
+	issueReportScreenshots,
+	issueReports,
+	pythonConfig,
+	users,
+} from "~/server/db/schema";
 
 const RECIPIENTS_CONFIG_ID = 4;
 const EDIT_PERMISSION = "settings:issue-report:edit";
@@ -41,7 +44,7 @@ export const issueReportRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	send: protectedProcedure
+	submit: protectedProcedure
 		.input(issueReportSubmissionSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { user } = ctx.session;
@@ -59,36 +62,56 @@ export const issueReportRouter = createTRPCRouter({
 				(email) => allowedEmails.has(email) && email !== ownEmail,
 			);
 
-			const pageLines = input.screenshots.map(
-				(screenshot, index) => `Screenshot ${index + 1}: ${screenshot.pageUrl}`,
-			);
-
-			try {
-				await sendGmailAsUser(ctx.session, {
-					to: ISSUE_REPORT_EMAIL,
-					cc: ccEmails,
-					subject: `[EMR Issue] ${input.subject}`,
-					text: [...pageLines, "", input.body].join("\n"),
-					attachments: input.screenshots.map((screenshot, index) => ({
-						filename: `screenshot-${index + 1}.jpg`,
-						contentType: "image/jpeg",
-						base64: screenshot.base64,
-					})),
+			// The background worker creates the Jira ticket and sends the email.
+			await ctx.db.transaction(async (tx) => {
+				const [{ insertId }] = await tx.insert(issueReports).values({
+					reporterUserId: user.id,
+					type: input.type,
+					subject: input.subject,
+					body: input.body,
+					priority: input.priority,
+					pageUrl: input.pageUrl,
+					userAgent: input.userAgent,
+					ccEmails: ccEmails.map((email) => email.toLowerCase()),
 				});
-			} catch (error) {
-				ctx.logger.error(error, "Failed to send issue report");
-				if (error instanceof GmailScopeError) {
-					throw new TRPCError({
-						code: "FORBIDDEN",
-						message:
-							"Sign out and sign back in, then allow sending email when Google asks.",
-					});
+				if (input.screenshots.length > 0) {
+					await tx.insert(issueReportScreenshots).values(
+						input.screenshots.map((screenshot) => ({
+							reportId: insertId,
+							pageUrl: screenshot.pageUrl,
+							base64: screenshot.base64,
+						})),
+					);
 				}
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to send the report",
-				});
-			}
+			});
 			return { success: true };
 		}),
+
+	// Reports the user submitted, plus ones they were CC'd on (read-only).
+	listMine: protectedProcedure.query(async ({ ctx }) => {
+		const { id, email } = ctx.session.user;
+		// CC addresses are stored lowercased, so the match ignores case.
+		const ccedOn = email
+			? sql`JSON_CONTAINS(${issueReports.ccEmails}, JSON_QUOTE(${email.toLowerCase()}))`
+			: sql`false`;
+		const rows = await ctx.db
+			.select({
+				id: issueReports.id,
+				type: issueReports.type,
+				subject: issueReports.subject,
+				jiraKey: issueReports.jiraKey,
+				jiraStatus: issueReports.jiraStatus,
+				createdAt: issueReports.createdAt,
+				reporterId: issueReports.reporterUserId,
+				reporterName: users.name,
+			})
+			.from(issueReports)
+			.innerJoin(users, eq(users.id, issueReports.reporterUserId))
+			.where(or(eq(issueReports.reporterUserId, id), ccedOn))
+			.orderBy(desc(issueReports.createdAt));
+		return rows.map(({ reporterId, ...row }) => ({
+			...row,
+			sharedWithYou: reporterId !== id,
+		}));
+	}),
 });

@@ -41,6 +41,10 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: z.string(),
 		OPENPHONE_NUMBER_ID: z.string(),
 		PY_API: z.url(),
+		JIRA_BASE_URL: z.url(),
+		JIRA_EMAIL: z.string(),
+		JIRA_API_TOKEN: z.string(),
+		JIRA_PROJECT_KEY: z.string(),
 		SERVER_ROLE: z.enum(["primary", "standby"]).default("primary"),
 	},
 
@@ -74,6 +78,10 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
 		PY_API: process.env.PY_API,
+		JIRA_BASE_URL: process.env.JIRA_BASE_URL,
+		JIRA_EMAIL: process.env.JIRA_EMAIL,
+		JIRA_API_TOKEN: process.env.JIRA_API_TOKEN,
+		JIRA_PROJECT_KEY: process.env.JIRA_PROJECT_KEY,
 		SERVER_ROLE: process.env.SERVER_ROLE,
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Driftwood EMR",
 		NEXT_PUBLIC_APP_DOMAIN:

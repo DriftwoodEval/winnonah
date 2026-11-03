@@ -1,6 +1,10 @@
 import { OAuth2Client } from "google-auth-library";
-import type { Session } from "next-auth";
 import { env } from "~/env";
+
+interface GoogleCredentials {
+	accessToken?: string | null;
+	refreshToken?: string | null;
+}
 
 interface EmailAttachment {
 	filename: string;
@@ -63,8 +67,11 @@ function buildMime(email: OutgoingEmail) {
  * Sends an email from the signed-in user's own Gmail account. Throws a
  * `GmailScopeError` when the user has not yet granted permission to send.
  */
-export async function sendGmailAsUser(session: Session, email: OutgoingEmail) {
-	if (!session.user.accessToken || !session.user.refreshToken) {
+export async function sendGmailAsUser(
+	credentials: GoogleCredentials,
+	email: OutgoingEmail,
+) {
+	if (!credentials.accessToken || !credentials.refreshToken) {
 		throw new Error("Missing Google credentials for sending email.");
 	}
 
@@ -73,8 +80,8 @@ export async function sendGmailAsUser(session: Session, email: OutgoingEmail) {
 		clientSecret: env.AUTH_GOOGLE_SECRET,
 	});
 	oauth2Client.setCredentials({
-		access_token: session.user.accessToken,
-		refresh_token: session.user.refreshToken,
+		access_token: credentials.accessToken,
+		refresh_token: credentials.refreshToken,
 	});
 
 	const raw = Buffer.from(buildMime(email), "utf8").toString("base64url");

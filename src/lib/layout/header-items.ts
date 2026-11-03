@@ -42,6 +42,7 @@ export type HeaderItemId =
 	| "work-summary"
 	| "calculator"
 	| "logins"
+	| "issue-reports"
 	| "docs"
 	| "search"
 	| "recent-clients"
@@ -220,6 +221,15 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		icon: KeyRound,
 		area: "nav",
 		href: "/logins",
+		category: "Tools",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "issue-reports",
+		label: "My Reports",
+		icon: Bug,
+		area: "nav",
+		href: "/issue-reports",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},

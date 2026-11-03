@@ -25,6 +25,7 @@ import type {
 	pythonConfigSchema,
 	referralDataSchema,
 } from "~/lib/validations/config";
+import { ISSUE_REPORT_PRIORITIES } from "~/lib/validations/config";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -2079,5 +2080,60 @@ export const scriptRunLogs = createTable(
 		index("script_run_log_run_idx").on(t.runId, t.id),
 		index("script_run_log_client_idx").on(t.clientId, t.time),
 		index("script_run_log_time_idx").on(t.time),
+	],
+);
+
+/**
+ * A bug report or feature request. The Jira ticket and the tech@ email are
+ * created in the background after submit, so `jiraKey` and `emailSentAt` stay
+ * null until the worker has handled the report.
+ */
+export const issueReports = createTable(
+	"issue_report",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reporterUserId: d.varchar({ length: 255 }).notNull(),
+		type: d.mysqlEnum("type", ["bug", "feature"]).notNull(),
+		subject: d.varchar({ length: 200 }).notNull(),
+		body: d.text().notNull(),
+		priority: d
+			.mysqlEnum("priority", ISSUE_REPORT_PRIORITIES)
+			.notNull()
+			.default("Medium"),
+		pageUrl: d.varchar({ length: 2000 }),
+		userAgent: d.varchar({ length: 500 }),
+		ccEmails: d.json().$type<string[]>().notNull(),
+		jiraKey: d.varchar({ length: 32 }),
+		jiraStatus: d.varchar({ length: 100 }),
+		jiraAttempts: d.int().notNull().default(0),
+		emailSentAt: d.timestamp(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		foreignKey({
+			columns: [t.reporterUserId],
+			foreignColumns: [users.id],
+			name: "issue_report_reporter_fk",
+		}).onDelete("cascade"),
+		index("issue_report_reporter_idx").on(t.reporterUserId, t.createdAt),
+	],
+);
+
+/** A JPEG screenshot (base64) attached to an issue report. */
+export const issueReportScreenshots = createTable(
+	"issue_report_screenshot",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reportId: d.int().notNull(),
+		pageUrl: d.varchar({ length: 2000 }).notNull(),
+		base64: d.longtext().notNull(),
+	}),
+	(t) => [
+		foreignKey({
+			columns: [t.reportId],
+			foreignColumns: [issueReports.id],
+			name: "issue_report_screenshot_report_fk",
+		}).onDelete("cascade"),
+		index("issue_report_screenshot_report_idx").on(t.reportId),
 	],
 );

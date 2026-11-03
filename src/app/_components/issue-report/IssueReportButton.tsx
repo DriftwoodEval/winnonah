@@ -1,7 +1,9 @@
 "use client";
 
 import { Button } from "@ui/button";
-import { Bug, Loader2 } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@ui/hover-card";
+import { Bug, Lightbulb, ListChecks, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -57,7 +59,13 @@ async function capturePage(): Promise<string | null> {
 	return null;
 }
 
-const EMPTY_FORM: IssueReportForm = { subject: "", body: "", ccEmails: [] };
+const EMPTY_FORM: IssueReportForm = {
+	type: "bug",
+	subject: "",
+	body: "",
+	priority: "Medium",
+	ccEmails: [],
+};
 
 /** Whether a modal dialog or menu currently blocks clicks on the page. */
 function isPageBlocked() {
@@ -93,6 +101,7 @@ export function IssueReportButton() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [form, setForm] = useState<IssueReportForm>(EMPTY_FORM);
 	const [open, setOpen] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
 
 	// While a modal blocks the header, the button is drawn from a portal on top
 	// of the overlay at the header slot's position.
@@ -104,7 +113,7 @@ export function IssueReportButton() {
 
 	// The draft lives here, in the header, so it survives client-side
 	// navigation. That lets a report collect screenshots from several pages.
-	const startReport = async () => {
+	const captureScreenshot = async () => {
 		if (images.length >= MAX_ISSUE_REPORT_SCREENSHOTS) {
 			toast.warning(
 				`A report can include up to ${MAX_ISSUE_REPORT_SCREENSHOTS} screenshots`,
@@ -126,9 +135,22 @@ export function IssueReportButton() {
 		} else {
 			toast.warning("Could not capture a screenshot", {
 				description:
-					"A report needs a screenshot. Try again, or check the browser console for details.",
+					"Bug reports need a screenshot. Try again, or check the browser console for details.",
 			});
 		}
+		setOpen(true);
+	};
+
+	const startBug = () => {
+		setMenuOpen(false);
+		setForm((current) => ({ ...current, type: "bug" }));
+		void captureScreenshot();
+	};
+
+	// Feature requests do not need a screenshot, so the dialog opens right away.
+	const startFeature = () => {
+		setMenuOpen(false);
+		setForm((current) => ({ ...current, type: "feature" }));
 		setOpen(true);
 	};
 
@@ -163,19 +185,55 @@ export function IssueReportButton() {
 	// the screenshot can include it. Stopping the pointer event keeps Radix from
 	// seeing an outside click, and preventing the mouse down keeps focus where
 	// it was.
+	//
+	// Hovering the icon also opens a menu of the other report types. The menu is
+	// left out of screenshots and sits above any modal overlay like the button.
+	const menuItemClass =
+		"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent";
 	const button = (
-		<Button
-			className="pointer-events-auto cursor-pointer rounded-full"
-			disabled={capturing}
-			onClick={startReport}
-			onMouseDown={(event) => event.preventDefault()}
-			onPointerDown={(event) => event.stopPropagation()}
-			size="icon"
-			variant="ghost"
+		<HoverCard
+			closeDelay={150}
+			onOpenChange={setMenuOpen}
+			open={menuOpen}
+			openDelay={100}
 		>
-			{capturing ? <Loader2 className="animate-spin" /> : <Bug />}
-			<span className="sr-only">Report issue</span>
-		</Button>
+			<HoverCardTrigger asChild>
+				<Button
+					className="pointer-events-auto cursor-pointer rounded-full"
+					disabled={capturing}
+					onClick={startBug}
+					onMouseDown={(event) => event.preventDefault()}
+					onPointerDown={(event) => event.stopPropagation()}
+					size="icon"
+					variant="ghost"
+				>
+					{capturing ? <Loader2 className="animate-spin" /> : <Bug />}
+					<span className="sr-only">Report issue</span>
+				</Button>
+			</HoverCardTrigger>
+			<HoverCardContent
+				align="end"
+				className="pointer-events-auto z-[100] w-52 p-1"
+				data-issue-report-ignore
+			>
+				<button className={menuItemClass} onClick={startBug} type="button">
+					<Bug className="size-4" />
+					Create bug report
+				</button>
+				<button className={menuItemClass} onClick={startFeature} type="button">
+					<Lightbulb className="size-4" />
+					Create feature request
+				</button>
+				<Link
+					className={menuItemClass}
+					href="/issue-reports"
+					onClick={() => setMenuOpen(false)}
+				>
+					<ListChecks className="size-4" />
+					My reports
+				</Link>
+			</HoverCardContent>
+		</HoverCard>
 	);
 
 	// The report dialog has its own overlay, so the button goes back under it
@@ -208,7 +266,7 @@ export function IssueReportButton() {
 					</span>
 					<Button
 						disabled={capturing}
-						onClick={startReport}
+						onClick={captureScreenshot}
 						size="sm"
 						variant="outline"
 					>

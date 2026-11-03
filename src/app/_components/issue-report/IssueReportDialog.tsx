@@ -12,13 +12,25 @@ import {
 } from "@ui/dialog";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Textarea } from "@ui/textarea";
 import { ImagePlus, X } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "~/lib/utils";
-import { MAX_ISSUE_REPORT_SCREENSHOTS } from "~/lib/validations/config";
+import {
+	ISSUE_REPORT_PRIORITIES,
+	type IssueReportPriority,
+	MAX_ISSUE_REPORT_SCREENSHOTS,
+} from "~/lib/validations/config";
 import { api } from "~/trpc/react";
 import {
 	type DraftImage,
@@ -30,6 +42,8 @@ import {
 export interface IssueReportForm {
 	subject: string;
 	body: string;
+	type: "bug" | "feature";
+	priority: IssueReportPriority;
 	ccEmails: string[];
 }
 
@@ -71,16 +85,16 @@ export function IssueReportDialog({
 		{ enabled: open },
 	);
 
-	const send = api.issueReport.send.useMutation({
+	const send = api.issueReport.submit.useMutation({
 		// Retry when the request never got a tRPC response (a dropped upload or a
 		// proxy error page), but not when the server answered with an error.
 		retry: (failureCount, error) => failureCount < 2 && !error.data,
 		onSuccess: () => {
-			toast.success("Report sent");
+			toast.success("Report submitted");
 			onSent();
 		},
 		onError: (error) => {
-			toast.error("Failed to send report", { description: error.message });
+			toast.error("Failed to submit report", { description: error.message });
 		},
 	});
 
@@ -103,6 +117,10 @@ export function IssueReportDialog({
 				})),
 			);
 			send.mutate({
+				type: form.type,
+				priority: form.priority,
+				pageUrl: images[0]?.pageUrl ?? window.location.href,
+				userAgent: navigator.userAgent.slice(0, 500),
 				subject: form.subject,
 				body: form.body,
 				ccEmails: form.ccEmails,
@@ -116,6 +134,7 @@ export function IssueReportDialog({
 	};
 
 	const selected = images.find((image) => image.id === selectedId) ?? images[0];
+	const needsScreenshot = form.type === "bug" && images.length === 0;
 
 	// The sender is already on the email, so they are not offered as a recipient.
 	const ownEmail = session?.user.email?.toLowerCase();
@@ -128,12 +147,34 @@ export function IssueReportDialog({
 			<DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-6xl">
 				<form className="grid gap-4" onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>Report an issue</DialogTitle>
+						<DialogTitle>
+							{form.type === "bug" ? "Report a bug" : "Request a feature"}
+						</DialogTitle>
 						<DialogDescription>
-							Mark up the screenshots to point out the problem, then describe
-							what happened.
+							{form.type === "bug"
+								? "Mark up the screenshots to point out the problem, then describe what happened."
+								: "Describe what you would like. A screenshot is optional."}{" "}
+							Track your reports under{" "}
+							<Link className="underline" href="/issue-reports">
+								My Reports
+							</Link>
+							.
 						</DialogDescription>
 					</DialogHeader>
+
+					<div className="flex gap-2">
+						{(["bug", "feature"] as const).map((type) => (
+							<Button
+								key={type}
+								onClick={() => onFormChange({ type })}
+								size="sm"
+								type="button"
+								variant={form.type === type ? "default" : "outline"}
+							>
+								{type === "bug" ? "Bug" : "Feature request"}
+							</Button>
+						))}
+					</div>
 
 					{selected && (
 						<ScreenshotEditor
@@ -143,10 +184,10 @@ export function IssueReportDialog({
 						/>
 					)}
 
-					{images.length === 0 && (
+					{needsScreenshot && (
 						<p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-							A report needs at least one screenshot. Use "Add another
-							screenshot" to capture a page.
+							A bug report needs at least one screenshot. Use "Add another
+							screenshot" to capture a page, or switch to Feature request.
 						</p>
 					)}
 
@@ -215,6 +256,27 @@ export function IssueReportDialog({
 						/>
 					</div>
 
+					<div className="grid gap-2">
+						<Label htmlFor="issue-priority">Priority</Label>
+						<Select
+							onValueChange={(priority) =>
+								onFormChange({ priority: priority as IssueReportPriority })
+							}
+							value={form.priority}
+						>
+							<SelectTrigger className="w-40" id="issue-priority">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{ISSUE_REPORT_PRIORITIES.map((priority) => (
+									<SelectItem key={priority} value={priority}>
+										{priority}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
 					{recipients.length > 0 && (
 						<fieldset>
 							<legend className="mb-2 text-sm font-medium">
@@ -244,7 +306,7 @@ export function IssueReportDialog({
 							Discard
 						</Button>
 						<Button
-							disabled={images.length === 0 || preparing || send.isPending}
+							disabled={needsScreenshot || preparing || send.isPending}
 							type="submit"
 						>
 							{preparing || send.isPending ? "Sending..." : "Send"}
