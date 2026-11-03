@@ -34,7 +34,10 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 			can("reports:approve") ||
 			can("reports:billing")) &&
 		can("reports:beta");
-	const { data: canSeeLogins = false } = api.logins.hasAccess.useQuery();
+	const { data: canSeeLogins = false } = api.logins.hasAccess.useQuery(
+		undefined,
+		{ enabled: !!session },
+	);
 
 	const availability = {} as Record<HeaderItemId, boolean>;
 	for (const def of HEADER_ITEM_DEFS) {
