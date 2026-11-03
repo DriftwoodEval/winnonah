@@ -3760,7 +3760,11 @@ def reconcile_pool_report_queue_state(
             """
         )
         open_pool = cursor.fetchall()
-        seen = {row["clientId"] for row in open_pool}
+        # Any open report, self-written or not, means the client already has one.
+        cursor.execute(
+            f"SELECT DISTINCT clientId FROM `{TABLE_REPORT}` WHERE archivedAt IS NULL"
+        )
+        seen = {row["clientId"] for row in cursor.fetchall()}
 
         for report in open_pool:
             in_queue = report["clientId"] in queued_client_ids
