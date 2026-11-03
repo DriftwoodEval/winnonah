@@ -710,6 +710,7 @@ export const appointmentRouter = createTRPCRouter({
 				appointmentTime: string;
 				officeName: string | null;
 				officeLocationPhrase: string | null;
+				clientPreferredName: string;
 				sent: {
 					sentAt: string;
 					templateName: string;
@@ -734,6 +735,7 @@ export const appointmentRouter = createTRPCRouter({
 				appointmentTime: new Date(data.appointmentTime),
 				officeName: data.officeName,
 				officeLocationPhrase: data.officeLocationPhrase,
+				clientPreferredName: data.clientPreferredName,
 			};
 		}),
 

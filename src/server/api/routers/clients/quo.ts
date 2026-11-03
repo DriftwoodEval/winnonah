@@ -33,6 +33,7 @@ type AutomatedContext = {
 };
 
 const APPOINTMENT_REMINDER_TOKENS = [
+	"$CLIENT_FNAME",
 	"$START_TIME",
 	"$DATE",
 	"$OFFICE_NAME",

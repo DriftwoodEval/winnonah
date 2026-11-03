@@ -118,11 +118,19 @@ def _to_utc_iso(dt: datetime) -> str:
     return dt.replace(tzinfo=UTC).isoformat()
 
 
+def client_display_name(appt: dict) -> str:
+    """ "Preferred (First)", or just the first name if there is no preferred name."""
+    first = appt.get("firstName") or ""
+    preferred = appt.get("preferredName")
+    return f"{preferred} ({first})" if preferred else first
+
+
 def format_message(template: str, appointment: dict) -> str:
     """Replaces placeholders with actual data."""
     office_label, office_location_phrase = _office_fields(appointment)
     start_time_business = utc_to_business(appointment["startTime"])
     variables = {
+        "$CLIENT_FNAME": client_display_name(appointment),
         "$START_TIME": start_time_business.strftime("%-I:%M %p"),
         "$DATE": start_time_business.strftime("%A, %B %d"),
         "$OFFICE_NAME": office_label or "",
@@ -263,6 +271,7 @@ def get_reminder_preview(
             SELECT a.id, a.startTime, a.daEval, a.locationKey, a.calendarEventTitle,
                    a.cancelled, a.rescheduled, a.placeholder, a.doNotRemind, a.billingOnly,
                    a.confirmedAt, c.language, c.phoneNumber, c.dob,
+                   c.firstName, c.preferredName,
                    o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
@@ -386,6 +395,7 @@ def get_reminder_preview(
         "appointmentTime": _to_utc_iso(start_time),
         "officeName": office_label,
         "officeLocationPhrase": office_location_phrase,
+        "clientPreferredName": client_display_name(appt),
         "suppressed": bool(suppressed_reason),
         "suppressedReason": suppressed_reason,
         "clientLanguage": appt.get("language"),
@@ -813,7 +823,7 @@ async def handle_incoming_reply(
             SELECT a.id as appointment_id, a.clientId, t.confirmationReply, a.startTime,
                    a.calendarEventId, a.calendarEventTitle,
                    o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase,
-                   l.sentAt AS lastReminderSentAt, c.fullName
+                   l.sentAt AS lastReminderSentAt, c.fullName, c.firstName, c.preferredName
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`

@@ -84,6 +84,15 @@ class TestFormatMessage:
             "located at our Downtown office."
         )
 
+    def test_preferred_name_shows_with_first_name_or_falls_back(self):
+        base = {"startTime": datetime(2026, 3, 5, 14, 30), "firstName": "Alexander"}
+        template = "Hi $CLIENT_FNAME"
+        assert format_message(template, base) == "Hi Alexander"
+        assert (
+            format_message(template, {**base, "preferredName": "Alex"})
+            == "Hi Alex (Alexander)"
+        )
+
     def test_missing_office_fields_become_empty_string(self):
         template = "$OFFICE_NAME / $LOCATION"
         appointment = {

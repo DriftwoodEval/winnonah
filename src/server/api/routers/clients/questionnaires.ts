@@ -801,6 +801,9 @@ export const questionnaireRouter = createTRPCRouter({
 				remindedCount,
 				values: {
 					$CLIENT_FIRST_NAME: client?.firstName ?? "",
+					$CLIENT_FNAME: client?.preferredName
+						? `${client.preferredName} (${client.firstName})`
+						: (client?.firstName ?? ""),
 					$STAFF_NAME: staffName,
 					...reminderPluralization(linkCount),
 					$DISTANCE_PHRASE: distancePhrase,

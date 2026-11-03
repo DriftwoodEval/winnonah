@@ -155,6 +155,7 @@ export function ReminderTemplateDialog({
 	);
 
 	const previewValues = {
+		$CLIENT_FNAME: "Alex (Alexander)",
 		$START_TIME: format(previewApptTime, "h:mm a"),
 		$DATE: format(previewApptTime, "EEEE, MMMM d"),
 		$OFFICE_NAME: previewOffice?.prettyName ?? "",
@@ -163,6 +164,7 @@ export function ReminderTemplateDialog({
 
 	const applyPreviewVars = (t: string) =>
 		t
+			.replace(/\$CLIENT_FNAME/g, previewValues.$CLIENT_FNAME)
 			.replace(/\$START_TIME/g, previewValues.$START_TIME)
 			.replace(/\$DATE/g, previewValues.$DATE)
 			.replace(/\$OFFICE_NAME/g, previewValues.$OFFICE_NAME)
@@ -422,7 +424,10 @@ export function ReminderTemplateDialog({
 											/>
 										</FormControl>
 										<p className="text-[10px] text-muted-foreground">
-											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
+											Available:{" "}
+											{
+												"$CLIENT_FNAME, $START_TIME, $DATE, $OFFICE_NAME, $LOCATION"
+											}
 										</p>
 										<SmsSegmentCounter
 											text={messagePreview ?? field.value ?? ""}
@@ -454,7 +459,10 @@ export function ReminderTemplateDialog({
 											/>
 										</FormControl>
 										<p className="text-[10px] text-muted-foreground">
-											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
+											Available:{" "}
+											{
+												"$CLIENT_FNAME, $START_TIME, $DATE, $OFFICE_NAME, $LOCATION"
+											}
 										</p>
 										<SmsSegmentCounter
 											text={confirmationPreview ?? field.value ?? ""}

@@ -9,11 +9,13 @@ function formatPreview(
 	template: string,
 	appointmentTime: Date,
 	officeName: string | null,
+	clientPreferredName: string,
 	officeLocationPhrase: string | null,
 ): string {
 	return template
 		.replace(/\$START_TIME/g, formatInBusinessTime(appointmentTime, "h:mm a"))
 		.replace(/\$DATE/g, formatInBusinessTime(appointmentTime, "EEEE, MMMM d"))
+		.replace(/\$CLIENT_FNAME/g, clientPreferredName)
 		.replace(/\$OFFICE_NAME/g, officeName ?? "")
 		.replace(/\$LOCATION/g, officeLocationPhrase ?? "");
 }
@@ -22,17 +24,20 @@ function MessageSnippet({
 	messageTemplate,
 	appointmentTime,
 	officeName,
+	clientPreferredName,
 	officeLocationPhrase,
 }: {
 	messageTemplate: string;
 	appointmentTime: Date;
 	officeName: string | null;
+	clientPreferredName: string;
 	officeLocationPhrase: string | null;
 }) {
 	const preview = formatPreview(
 		messageTemplate,
 		appointmentTime,
 		officeName,
+		clientPreferredName,
 		officeLocationPhrase,
 	);
 	return (
@@ -73,6 +78,7 @@ export function AppointmentReminderTimeline({
 
 	const appointmentTime = data.appointmentTime;
 	const officeName = data.officeName ?? null;
+	const clientPreferredName = data.clientPreferredName ?? "";
 	const officeLocationPhrase = data.officeLocationPhrase ?? null;
 
 	return (
@@ -94,6 +100,7 @@ export function AppointmentReminderTimeline({
 					</p>
 					<MessageSnippet
 						appointmentTime={appointmentTime}
+						clientPreferredName={clientPreferredName}
 						messageTemplate={item.messageTemplate}
 						officeLocationPhrase={officeLocationPhrase}
 						officeName={officeName}
@@ -133,6 +140,7 @@ export function AppointmentReminderTimeline({
 						</p>
 						<MessageSnippet
 							appointmentTime={appointmentTime}
+							clientPreferredName={clientPreferredName}
 							messageTemplate={item.messageTemplate}
 							officeLocationPhrase={officeLocationPhrase}
 							officeName={officeName}
