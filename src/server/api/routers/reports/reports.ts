@@ -725,6 +725,26 @@ export const reportsRouter = createTRPCRouter({
 			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({ code: "UNAUTHORIZED" });
 			}
+			const report = await ctx.db.query.reports.findFirst({
+				where: eq(reports.id, input.id),
+				columns: { clientId: true },
+			});
+			if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+
+			const openReport = await ctx.db.query.reports.findFirst({
+				where: and(
+					eq(reports.clientId, report.clientId),
+					isNull(reports.archivedAt),
+				),
+				columns: { id: true },
+			});
+			if (openReport) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "This client already has an open report.",
+				});
+			}
+
 			await ctx.db
 				.update(reports)
 				.set({ archivedAt: null })
