@@ -71,6 +71,7 @@ export const loginsRouter = createTRPCRouter({
 		if (hasPermission(user.permissions, "settings:qsuite:logins:create")) {
 			return true;
 		}
+		await ensureBuiltInLogins(ctx.db);
 		const rows = await ctx.db.query.logins.findMany();
 		return rows.some(
 			(row) =>
