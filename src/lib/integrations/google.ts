@@ -849,10 +849,10 @@ export const updatePunchSecondReview = async (
 
 	const sheetId = await getPunchlistSheetId(sheetsApi);
 	const rowIndex = clientRowIndex + 1; // +1 for the header row, grid index is 0-based.
-	const backgroundColor = state.needed
-		? REVIEW_COLOR_RED
-		: state.done
-			? REVIEW_COLOR_GREEN
+	const backgroundColor = state.done
+		? REVIEW_COLOR_GREEN
+		: state.needed
+			? REVIEW_COLOR_RED
 			: REVIEW_COLOR_NONE;
 
 	await googleApiCall(
@@ -918,6 +918,8 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const openReports = await db
 		.select({
 			clientId: reports.clientId,
+			status: reports.status,
+			writerCompletedAt: reports.writerCompletedAt,
 			billed: reports.billed,
 			firstReviewDone: reports.firstReviewDone,
 			secondReviewNeeded: reports.secondReviewNeeded,
@@ -975,8 +977,8 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 				reportPatch[atCol] = sheetValue ? new Date() : null;
 				reportPatch[byCol] = sheetValue ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
 			}
-			// Second review: red sets "needed", green sets "done", any other color
-			// clears both.
+			// Second review: red sets "needed", green sets "needed" and "done" (a
+			// finished review was needed), any other color clears both.
 			const color = secondReviewColors.get(String(client.id));
 			if (color !== undefined) {
 				const secondReviewFields = [
@@ -984,7 +986,7 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 						col: "secondReviewNeeded",
 						atCol: "secondReviewNeededAt",
 						byCol: "secondReviewByEmail",
-						wanted: color === "red",
+						wanted: color === "red" || color === "green",
 					},
 					{
 						col: "secondReviewDone",
@@ -999,6 +1001,25 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 					reportPatch[atCol] = wanted ? new Date() : null;
 					reportPatch[byCol] = wanted ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
 				}
+			}
+			// Billing or reviewing a report means the writer has finished it.
+			const anyBillingOrReview = [
+				"billed",
+				"firstReviewDone",
+				"secondReviewNeeded",
+				"secondReviewDone",
+			].some(
+				(col) =>
+					(reportPatch[col] ?? report[col as keyof typeof report]) === true,
+			);
+			if (
+				anyBillingOrReview &&
+				!report.writerCompletedAt &&
+				["claimed", "submitted", "approved"].includes(report.status)
+			) {
+				reportPatch.writerCompletedAt = new Date();
+				reportPatch.writerCompletedByEmail = PUNCHLIST_SYNC_ACTOR_EMAIL;
+				if (report.status === "claimed") reportPatch.status = "submitted";
 			}
 			if (Object.keys(reportPatch).length > 0) {
 				updatePromises.push(

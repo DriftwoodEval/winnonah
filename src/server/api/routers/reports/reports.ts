@@ -182,7 +182,8 @@ export const reportsRouter = createTRPCRouter({
 			const writerByEmail = alias(users, "writer_by_email");
 
 			// A report is keyed to the client, not one appointment, so the eval date
-			// shown is the client's most recent qualifying eval appointment, mirroring
+			// shown is the client's most recent qualifying eval appointment that has
+			// already started (future appointments are ignored), mirroring
 			// the rule that spawns the report row (reconcile_reports_from_appointments
 			// in python/utils/database.py).
 			const isReportEvalAppointment = sql`
@@ -194,7 +195,8 @@ export const reportsRouter = createTRPCRouter({
 				AND ${appointments.cancelled} = 0
 				AND ${appointments.rescheduled} = 0
 				AND ${appointments.placeholder} = 0
-				AND ${appointments.billingOnly} = 0`;
+				AND ${appointments.billingOnly} = 0
+				AND ${appointments.startTime} <= ${new Date()}`;
 			const evalAppointmentAt = sql<Date | null>`(
 				SELECT MAX(${appointments.startTime})
 				FROM ${appointments}
@@ -466,6 +468,8 @@ export const reportsRouter = createTRPCRouter({
 				columns: {
 					id: true,
 					clientId: true,
+					status: true,
+					writerCompletedAt: true,
 					secondReviewNeeded: true,
 					secondReviewDone: true,
 				},
@@ -478,6 +482,33 @@ export const reportsRouter = createTRPCRouter({
 				[meta.at]: input.value ? new Date() : null,
 				[meta.by]: input.value ? ctx.session.user.email : null,
 			};
+			const now = new Date();
+			const email = ctx.session.user.email;
+			// A finished second review implies it was needed.
+			const secondReviewNeeded =
+				input.field === "secondReviewNeeded"
+					? input.value
+					: report.secondReviewNeeded ||
+						(input.field === "secondReviewDone" && input.value);
+			if (
+				input.field === "secondReviewDone" &&
+				input.value &&
+				!report.secondReviewNeeded
+			) {
+				updateSet.secondReviewNeeded = true;
+				updateSet.secondReviewNeededAt = now;
+				updateSet.secondReviewByEmail = email;
+			}
+			// Billing or reviewing a report means the writer has finished it.
+			if (
+				input.value &&
+				!report.writerCompletedAt &&
+				["claimed", "submitted", "approved"].includes(report.status)
+			) {
+				updateSet.writerCompletedAt = now;
+				updateSet.writerCompletedByEmail = email;
+				if (report.status === "claimed") updateSet.status = "submitted";
+			}
 			await ctx.db
 				.update(reports)
 				.set(updateSet)
@@ -498,10 +529,7 @@ export const reportsRouter = createTRPCRouter({
 					(SECOND_REVIEW_FIELDS as readonly string[]).includes(input.field)
 				) {
 					await updatePunchSecondReview(ctx.session, String(report.clientId), {
-						needed:
-							input.field === "secondReviewNeeded"
-								? input.value
-								: report.secondReviewNeeded,
+						needed: secondReviewNeeded,
 						done:
 							input.field === "secondReviewDone"
 								? input.value

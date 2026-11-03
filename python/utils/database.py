@@ -3595,7 +3595,7 @@ def reconcile_reports_from_appointments(
     yet have one.
 
     A report is warranted once a client has a non-cancelled EVAL or DAEVAL
-    appointment, or a standalone DA for an ADHD-only evaluation (asdAdhd of
+    appointment that has already started (future appointments are ignored), or a standalone DA for an ADHD-only evaluation (asdAdhd of
     'ADHD'), since those never get a separate EVAL. ADHD+LD gets a full EVAL
     like any other diagnosis, so it is not treated as ADHD-only here. Keyed on the
     client, not the appointment (a DA plus an EVAL for the same client is still
@@ -3649,6 +3649,7 @@ def reconcile_reports_from_appointments(
                   AND cancelled = 0 AND rescheduled = 0
                   AND placeholder = 0 AND billingOnly = 0
                   AND startTime >= %s
+                  AND startTime <= %s
                 GROUP BY clientId
             ) latest ON latest.clientId = a.clientId AND latest.maxStart = a.startTime
             LEFT JOIN (
@@ -3657,7 +3658,7 @@ def reconcile_reports_from_appointments(
                 GROUP BY clientId
             ) r ON r.clientId = a.clientId
             """,
-            (cutoff,),
+            (cutoff, now_utc().replace(tzinfo=None)),
         )
         rows = cursor.fetchall()
 
@@ -3909,8 +3910,8 @@ def sync_punchlist_to_db(
 
         cursor.execute(
             f"""
-            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded,
-                   secondReviewDone
+            SELECT id, clientId, status, writerCompletedAt, billed, firstReviewDone,
+                   secondReviewNeeded, secondReviewDone
             FROM `{TABLE_REPORT}`
             WHERE archivedAt IS NULL
             """
@@ -3958,8 +3959,48 @@ def sync_punchlist_to_db(
                     wanted.append((fields, 1 if raw.strip().upper() == "TRUE" else 0))
             if client_key in second_review_colors:
                 color = second_review_colors[client_key]
-                wanted.append((_SECOND_REVIEW_NEEDED_FIELD, int(color == "red")))
+                # A finished (green) review was also needed.
+                wanted.append(
+                    (_SECOND_REVIEW_NEEDED_FIELD, int(color in ("red", "green")))
+                )
                 wanted.append((_SECOND_REVIEW_DONE_FIELD, int(color == "green")))
+            sheet_values = {fields[0]: value for fields, value in wanted}
+            # Billing or reviewing a report means the writer has finished it.
+            if (
+                not report["writerCompletedAt"]
+                and report["status"] in ("claimed", "submitted", "approved")
+                and any(
+                    sheet_values.get(col, int(report[col]))
+                    for col in (
+                        "billed",
+                        "firstReviewDone",
+                        "secondReviewNeeded",
+                        "secondReviewDone",
+                    )
+                )
+            ):
+                cursor.execute(
+                    f"""
+                    UPDATE `{TABLE_REPORT}`
+                    SET writerCompletedAt = %s, writerCompletedByEmail = %s,
+                        status = IF(status = 'claimed', 'submitted', status)
+                    WHERE id = %s
+                    """,
+                    (now, PUNCHLIST_SYNC_ACTOR_EMAIL, report["id"]),
+                )
+                record_audit_log(
+                    connection,
+                    "python.punchlist.updateReportField",
+                    report["clientId"],
+                    "system:punchlist-sync",
+                    PUNCHLIST_SYNC_ACTOR_EMAIL,
+                    detail={
+                        "reportId": report["id"],
+                        "field": "writerCompletedAt",
+                        "newValue": 1,
+                    },
+                )
+                changed += 1
             for (col, at_col, by_col), sheet_value in wanted:
                 if int(report[col]) == sheet_value:
                     continue
