@@ -499,6 +499,20 @@ export const reportsRouter = createTRPCRouter({
 				updateSet.secondReviewNeededAt = now;
 				updateSet.secondReviewByEmail = email;
 			}
+			// Without the review being needed, it cannot be done.
+			const secondReviewDone =
+				input.field === "secondReviewDone"
+					? input.value
+					: report.secondReviewDone && secondReviewNeeded;
+			if (
+				input.field === "secondReviewNeeded" &&
+				!input.value &&
+				report.secondReviewDone
+			) {
+				updateSet.secondReviewDone = false;
+				updateSet.secondReviewDoneAt = null;
+				updateSet.secondReviewDoneByEmail = null;
+			}
 			// Billing or reviewing a report means the writer has finished it.
 			if (
 				input.value &&
@@ -530,10 +544,7 @@ export const reportsRouter = createTRPCRouter({
 				) {
 					await updatePunchSecondReview(ctx.session, String(report.clientId), {
 						needed: secondReviewNeeded,
-						done:
-							input.field === "secondReviewDone"
-								? input.value
-								: report.secondReviewDone,
+						done: secondReviewDone,
 					});
 				}
 			} catch (error) {
