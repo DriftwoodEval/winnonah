@@ -1,32 +1,17 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { env } from "~/env";
-import {
-	QUESTIONNAIRE_LOGIN_SERVICES,
-	type QuestionnaireLoginServiceId,
-} from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
-import { canViewQuestionnaireLogin, hasPermission } from "~/lib/utils";
+import { hasPermission } from "~/lib/utils";
 import {
 	appointmentSyncConfigSchema,
 	lenientPythonConfigSchema,
 	pythonConfigSchema,
 } from "~/lib/validations/config";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
+import { canViewBuiltInLogin } from "~/server/api/login-access";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
-
-function assertQuestionnaireLoginAccess(
-	perms: PermissionsObject,
-	service: QuestionnaireLoginServiceId,
-) {
-	if (!canViewQuestionnaireLogin(perms, service)) {
-		throw new TRPCError({
-			code: "UNAUTHORIZED",
-			message: "You don't have permission to view this login",
-		});
-	}
-}
 
 // The full python config (services credentials, database_url, and other
 // business config) is only for the QSuite settings tab, gated the same way
@@ -79,33 +64,18 @@ export const pyConfigRouter = createTRPCRouter({
 		return result.success ? result.data.config.name : "";
 	}),
 
-	// Only the logins the current user may see. Every signed-in user can call
-	// this; a user with no login permissions gets an empty list.
-	getServices: protectedProcedure.query(async ({ ctx }) => {
-		const allowed = QUESTIONNAIRE_LOGIN_SERVICES.filter((svc) =>
-			canViewQuestionnaireLogin(ctx.session.user.permissions, svc.id),
-		);
-		if (allowed.length === 0) return [];
-
-		const record = await ctx.db.query.pythonConfig.findFirst({
-			where: eq(pythonConfig.id, 1),
-		});
-
-		if (!record?.data) return null;
-		const result = lenientPythonConfigSchema.safeParse(record.data);
-		if (!result.success) return null;
-
-		const { services } = result.data;
-		return allowed.map((svc) => ({
-			id: svc.id,
-			label: svc.label,
-			username: services[svc.id].username,
-			password: services[svc.id].password,
-		}));
-	}),
-
 	getPearsonVerificationEmail: protectedProcedure.mutation(async ({ ctx }) => {
-		assertQuestionnaireLoginAccess(ctx.session.user.permissions, "qglobal");
+		const canView = await canViewBuiltInLogin(
+			ctx.db,
+			ctx.session.user,
+			"qglobal",
+		);
+		if (!canView) {
+			throw new TRPCError({
+				code: "UNAUTHORIZED",
+				message: "You don't have permission to view this login",
+			});
+		}
 
 		const cookieHeader = ctx.headers.get("cookie") ?? "";
 
