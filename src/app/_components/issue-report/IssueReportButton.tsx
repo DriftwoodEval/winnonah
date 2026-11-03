@@ -92,6 +92,15 @@ function useIsPageBlocked() {
 	return blocked;
 }
 
+function readAsDataUrl(file: File) {
+	return new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
+}
+
 export function IssueReportButton() {
 	const slotRef = useRef<HTMLSpanElement>(null);
 	const pageBlocked = useIsPageBlocked();
@@ -160,6 +169,38 @@ export function IssueReportButton() {
 			description:
 				"Use the bug icon or the Add screenshot button at the bottom of the page.",
 		});
+	};
+
+	// Uploaded files join the draft like captured screenshots, so they can be
+	// marked up and are re-encoded as JPEG on send.
+	const uploadImages = async (files: File[]) => {
+		const room = MAX_ISSUE_REPORT_SCREENSHOTS - images.length;
+		const accepted = files.filter((file) => file.type.startsWith("image/"));
+		if (accepted.length < files.length) {
+			toast.warning("Only image files can be added");
+		}
+		if (accepted.length > room) {
+			toast.warning(
+				`A report can include up to ${MAX_ISSUE_REPORT_SCREENSHOTS} images`,
+			);
+		}
+
+		const added: DraftImage[] = [];
+		for (const file of accepted.slice(0, Math.max(room, 0))) {
+			try {
+				added.push({
+					id: crypto.randomUUID(),
+					src: await readAsDataUrl(file),
+					pageUrl: window.location.href,
+					shapes: [],
+				});
+			} catch {
+				toast.error(`Could not read ${file.name}`);
+			}
+		}
+		if (added.length === 0) return;
+		setImages((current) => [...current, ...added]);
+		setSelectedId(added[0]?.id ?? null);
 	};
 
 	const discard = () => {
@@ -293,6 +334,7 @@ export function IssueReportButton() {
 				onSelect={setSelectedId}
 				onSent={discard}
 				onShapesChange={updateShapes}
+				onUploadImages={uploadImages}
 				open={open}
 				selectedId={selectedId}
 			/>

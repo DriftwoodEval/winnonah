@@ -20,10 +20,10 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Textarea } from "@ui/textarea";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "~/lib/utils";
 import {
@@ -54,6 +54,8 @@ interface IssueReportDialogProps {
 	selectedId: string | null;
 	onSelect: (id: string) => void;
 	onShapesChange: (id: string, shapes: Shape[]) => void;
+	/** Adds image files the user picked from their device. */
+	onUploadImages: (files: File[]) => void;
 	onRemoveImage: (id: string) => void;
 	form: IssueReportForm;
 	onFormChange: (patch: Partial<IssueReportForm>) => void;
@@ -71,6 +73,7 @@ export function IssueReportDialog({
 	selectedId,
 	onSelect,
 	onShapesChange,
+	onUploadImages,
 	onRemoveImage,
 	form,
 	onFormChange,
@@ -80,6 +83,7 @@ export function IssueReportDialog({
 }: IssueReportDialogProps) {
 	const { data: session } = useSession();
 	const [preparing, setPreparing] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const { data: recipientConfig } = api.issueReport.getRecipients.useQuery(
 		undefined,
 		{ enabled: open },
@@ -186,8 +190,9 @@ export function IssueReportDialog({
 
 					{needsScreenshot && (
 						<p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-							A bug report needs at least one screenshot. Use "Add another
-							screenshot" to capture a page, or switch to Feature request.
+							A bug report needs at least one image. Use "Add another
+							screenshot" to capture a page, "Upload image" to add your own, or
+							switch to Feature request.
 						</p>
 					)}
 
@@ -232,6 +237,27 @@ export function IssueReportDialog({
 							<ImagePlus />
 							Add another screenshot
 						</Button>
+						<Button
+							disabled={images.length >= MAX_ISSUE_REPORT_SCREENSHOTS}
+							onClick={() => fileInputRef.current?.click()}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<Upload />
+							Upload image
+						</Button>
+						<input
+							accept="image/*"
+							className="hidden"
+							multiple
+							onChange={(e) => {
+								onUploadImages(Array.from(e.target.files ?? []));
+								e.target.value = "";
+							}}
+							ref={fileInputRef}
+							type="file"
+						/>
 					</div>
 
 					<div className="grid gap-2">
