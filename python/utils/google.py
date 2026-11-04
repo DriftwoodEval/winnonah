@@ -758,7 +758,7 @@ def sync_client_info_files(
 ):
     """For each client with an appointment in [start_date, end_date] (inclusive, business
     calendar days), create or update their '0 - {name} info.txt' file in their Drive folder
-    with Name, DOB, Age, Date, and Evaluator.
+    with Name, DOB, Age, Date, Evaluator, and evaluation Type (ASD, ADHD, etc.) when set.
 
     Defaults to tomorrow only when no dates are given.
 
@@ -786,7 +786,7 @@ def sync_client_info_files(
     with utils.database.db_session() as connection, connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT c.driveId, c.fullName, c.dob, a.startTime, e.providerName
+            SELECT c.driveId, c.fullName, c.dob, a.startTime, a.asdAdhd, e.providerName
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             JOIN {TABLE_EVALUATOR} e ON a.evaluatorNpi = e.npi
@@ -832,6 +832,9 @@ def _sync_client_info_file(service, row: dict):
         "Date": row["startTime"].strftime("%m/%d/%Y"),
         "Evaluator": row["providerName"],
     }
+
+    if row.get("asdAdhd"):
+        field_values["Type"] = row["asdAdhd"]
 
     if "Beth" in row["providerName"]:
         field_values["*"] = "Include Beth's notes on the ADOS and ADI"

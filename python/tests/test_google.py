@@ -309,6 +309,24 @@ class TestSyncClientInfoFile:
         content = media.getbytes(0, media.size()).decode()
         assert "Include Beth's notes" in content
 
+    def test_includes_evaluation_type_when_set(self):
+        service = MagicMock()
+        service.files.return_value.list.return_value.execute.return_value = {
+            "files": []
+        }
+        row = {
+            "driveId": "folder-1",
+            "fullName": "John Smith",
+            "dob": datetime(2000, 1, 1),
+            "startTime": datetime(2026, 3, 5),
+            "asdAdhd": "ASD+ADHD",
+            "providerName": "Dr. Jones",
+        }
+        _sync_client_info_file(service, row)
+        media = service.files.return_value.create.call_args.kwargs["media_body"]
+        content = media.getbytes(0, media.size()).decode()
+        assert "Type ASD+ADHD" in content
+
     def test_updates_existing_file_preserving_name_change(self):
         service = MagicMock()
         service.files.return_value.list.return_value.execute.return_value = {
