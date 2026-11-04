@@ -12,6 +12,7 @@ import {
 	accounts,
 	issueReportScreenshots,
 	issueReports,
+	users,
 } from "~/server/db/schema";
 
 const log = logger.child({ module: "issue-report-worker" });
@@ -44,6 +45,9 @@ async function ensureJiraTicket(
 ) {
 	if (report.jiraKey || report.jiraAttempts >= MAX_JIRA_ATTEMPTS) return true;
 
+	const reporter = await db.query.users.findFirst({
+		where: eq(users.id, report.reporterUserId),
+	});
 	const pageLines = [
 		report.pageUrl && `Page: ${report.pageUrl}`,
 		report.userAgent && `Browser: ${report.userAgent}`,
@@ -54,6 +58,8 @@ async function ensureJiraTicket(
 			summary: report.subject,
 			description: [...pageLines, "", report.body].join("\n"),
 			priority: report.priority,
+			reporter:
+				reporter && `${reporter.name ?? reporter.email} (${reporter.email})`,
 		});
 		// Saved before attachments so a retry never creates a second ticket.
 		await db
