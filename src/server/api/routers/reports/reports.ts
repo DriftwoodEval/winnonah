@@ -30,6 +30,7 @@ import {
 	canAccessReportsBeta,
 	hasPermission,
 	REPORT_FIELD_PERMISSIONS,
+	reportPaidDate,
 } from "~/lib/utils";
 import {
 	type Context,
@@ -272,6 +273,7 @@ export const reportsRouter = createTRPCRouter({
 			return rows.map(({ writerEmailName, ...r }) => ({
 				...r,
 				writerName: r.writerName ?? writerEmailName,
+				paidDate: reportPaidDate(r.paidDate, r.writerCompletedAt),
 				isMine: r.writerUserId === user.id,
 			}));
 		}),

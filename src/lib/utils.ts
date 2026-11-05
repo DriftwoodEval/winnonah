@@ -126,6 +126,20 @@ export function canAccessReportsBeta(user: {
 }
 
 /**
+ * The piecework date that paid this report, or null. Piecework tracking is
+ * recorded per client, so a payment only counts for a report the writer had
+ * finished by that date; a later report for the same client is not paid by it.
+ */
+export function reportPaidDate(
+	trackedDate: string | null,
+	writerCompletedAt: Date | null,
+): string | null {
+	if (!trackedDate || !writerCompletedAt) return null;
+	const completedOn = formatInBusinessTime(writerCompletedAt, "yyyy-MM-dd");
+	return compareDateOnly(completedOn, trackedDate) <= 0 ? trackedDate : null;
+}
+
+/**
  * Reformat an error message to be friendlier by replacing permission IDs with their titles.
  */
 export function formatError(message: string): string {
