@@ -51,6 +51,18 @@ export function PermissionsField({
 	isPermissionDisabled = () => false,
 	basePermissions = {},
 }: PermissionsFieldProps) {
+	const { data: reportConfig } = api.reportQueue.getConfig.useQuery();
+	// The report review permissions are named after the practice's configured
+	// review labels.
+	const reportTitles: Record<string, string> = reportConfig
+		? {
+				"reports:first-review": `Check "${reportConfig.firstReviewLabel}" on Reports`,
+				"reports:second-review-needed": `Check "${reportConfig.secondReviewLabel} needed" on Reports`,
+				"reports:second-review-done": `Check "${reportConfig.secondReviewLabel} done" on Reports`,
+			}
+		: {};
+	const titleOf = (entry: PermissionEntry) =>
+		reportTitles[entry.id] ?? entry.title;
 	const [query, setQuery] = useState("");
 	const [manualOpenItems, setManualOpenItems] = useState<string[]>([]);
 	const trimmedQuery = query.trim().toLowerCase();
@@ -178,8 +190,8 @@ export function PermissionsField({
 									(s: PermissionEntry) => s.parent === p.id,
 								);
 								return (
-									titleMatches(p.title) ||
-									subs.some((s: PermissionEntry) => titleMatches(s.title))
+									titleMatches(titleOf(p)) ||
+									subs.some((s: PermissionEntry) => titleMatches(titleOf(s)))
 								);
 							});
 					return {
@@ -318,10 +330,11 @@ export function PermissionsField({
 																		(s: PermissionEntry) => s.parent === p.id,
 																	);
 																	const subs =
-																		showAllInSubgroup || titleMatches(p.title)
+																		showAllInSubgroup ||
+																		titleMatches(titleOf(p))
 																			? allSubs
 																			: allSubs.filter((s: PermissionEntry) =>
-																					titleMatches(s.title),
+																					titleMatches(titleOf(s)),
 																				);
 																	const locked = isPermissionDisabled(p.id);
 																	return (
@@ -372,7 +385,7 @@ export function PermissionsField({
 																					/>
 																				)}
 																				<FormLabel htmlFor={p.id}>
-																					{p.title}
+																					{titleOf(p)}
 																				</FormLabel>
 																				{showOverrides &&
 																					!locked &&
@@ -428,7 +441,7 @@ export function PermissionsField({
 																								className="font-normal"
 																								htmlFor={sub.id}
 																							>
-																								{sub.title}
+																								{titleOf(sub)}
 																							</FormLabel>
 																							{showOverrides &&
 																								!locked &&
