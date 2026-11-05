@@ -26,7 +26,11 @@ import {
 	updatePunchSecondReview,
 } from "~/lib/integrations/google";
 import type { PermissionsObject } from "~/lib/types";
-import { canAccessReportsBeta, hasPermission } from "~/lib/utils";
+import {
+	canAccessReportsBeta,
+	hasPermission,
+	REPORT_FIELD_PERMISSIONS,
+} from "~/lib/utils";
 import {
 	type Context,
 	createTRPCRouter,
@@ -36,6 +40,7 @@ import {
 	appointments,
 	clients,
 	evaluators,
+	pieceworkReportTracking,
 	reportNoteHistory,
 	reports,
 	users,
@@ -80,18 +85,6 @@ function assertReportsPage(user: {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
 			message: "You don't have access to Reports",
-		});
-	}
-}
-
-function assertBillingAccess(perms: PermissionsObject) {
-	if (
-		!hasPermission(perms, "reports:approve") &&
-		!hasPermission(perms, "reports:billing")
-	) {
-		throw new TRPCError({
-			code: "UNAUTHORIZED",
-			message: "You don't have permission to manage report billing",
 		});
 	}
 }
@@ -158,24 +151,31 @@ export const reportsRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			assertReportsPage(ctx.session.user);
 			await reconcileReports(ctx);
-			const isApprover =
-				hasPermission(ctx.session.user.permissions, "reports:approve") ||
-				hasPermission(ctx.session.user.permissions, "reports:billing");
+			const { user } = ctx.session;
+			const viewAll = hasPermission(user.permissions, "reports:view-all");
 
-			// Non-approvers only ever see the active pool list.
-			const tab = isApprover ? input.tab : "active";
-			const kind = isApprover ? input.kind : "pool";
+			// Without view-all, a user only sees their own active reports.
+			const tab = viewAll ? input.tab : "active";
 
 			const where: SQL[] = [
 				tab === "active"
 					? isNull(reports.archivedAt)
 					: isNotNull(reports.archivedAt),
 			];
-			if (kind === "pool") where.push(eq(reports.selfWritten, false));
-			if (kind === "self") where.push(eq(reports.selfWritten, true));
-			// "pending" pool reports (folder not yet in the writing queue) are an
-			// approver-only concern.
-			if (!isApprover) where.push(ne(reports.status, "pending"));
+			if (input.kind === "pool") where.push(eq(reports.selfWritten, false));
+			if (input.kind === "self") where.push(eq(reports.selfWritten, true));
+			if (!viewAll) {
+				// Reports claimed before the user was linked only carry an email.
+				const isOwn = eq(reports.writerUserId, user.id);
+				where.push(
+					(user.email
+						? or(isOwn, eq(reports.writerEmail, user.email))
+						: undefined) ?? isOwn,
+				);
+				// "pending" reports (folder not yet in the writing queue) have no
+				// writer to be theirs.
+				where.push(ne(reports.status, "pending"));
+			}
 
 			// Reports claimed before the user was linked (or written outside the app)
 			// only carry an email; match it back to a user so we can show a name.
@@ -241,6 +241,8 @@ export const reportsRouter = createTRPCRouter({
 					claimedAt: reports.claimedAt,
 					writerCompletedAt: reports.writerCompletedAt,
 					approvedAt: reports.approvedAt,
+					// Date the piecework payment covering this client ran.
+					paidDate: pieceworkReportTracking.trackedDate,
 					billed: reports.billed,
 					firstReviewDone: reports.firstReviewDone,
 					secondReviewNeeded: reports.secondReviewNeeded,
@@ -254,6 +256,10 @@ export const reportsRouter = createTRPCRouter({
 				.leftJoin(users, eq(reports.writerUserId, users.id))
 				.leftJoin(writerByEmail, eq(reports.writerEmail, writerByEmail.email))
 				.leftJoin(evaluators, eq(reports.evaluatorNpi, evaluators.npi))
+				.leftJoin(
+					pieceworkReportTracking,
+					eq(pieceworkReportTracking.clientId, reports.clientId),
+				)
 				.where(and(...where))
 				// Oldest eval first, so the longest-waiting report is at the top.
 				// Rows with no eval date (queue-folder-only) sort last.
@@ -266,8 +272,7 @@ export const reportsRouter = createTRPCRouter({
 			return rows.map(({ writerEmailName, ...r }) => ({
 				...r,
 				writerName: r.writerName ?? writerEmailName,
-				canEditBilling: isApprover,
-				isMine: r.writerUserId === ctx.session.user.id,
+				isMine: r.writerUserId === user.id,
 			}));
 		}),
 
@@ -330,15 +335,12 @@ export const reportsRouter = createTRPCRouter({
 		}),
 
 	// Sets the writer on an unclaimed report, e.g. after confirming the writer
-	// inferred from the client's Drive folder. Approvers only.
+	// inferred from the client's Drive folder. Requires reports:approve.
 	confirmWriter: protectedProcedure
 		.input(z.object({ id: z.number(), writerUserId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertReportsPage(ctx.session.user);
-			if (
-				!hasPermission(ctx.session.user.permissions, "reports:approve") &&
-				!hasPermission(ctx.session.user.permissions, "reports:billing")
-			) {
+			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({ code: "FORBIDDEN" });
 			}
 			const writer = await ctx.db.query.users.findFirst({
@@ -461,7 +463,14 @@ export const reportsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertBillingAccess(ctx.session.user.permissions);
+			assertReportsPage(ctx.session.user);
+			const required = REPORT_FIELD_PERMISSIONS[input.field];
+			if (!hasPermission(ctx.session.user.permissions, required)) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: `You don't have permission to change this (${required})`,
+				});
+			}
 
 			const report = await ctx.db.query.reports.findFirst({
 				where: eq(reports.id, input.id),
@@ -560,7 +569,6 @@ export const reportsRouter = createTRPCRouter({
 	approveAndRelease: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertBillingAccess(ctx.session.user.permissions);
 			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
@@ -654,7 +662,6 @@ export const reportsRouter = createTRPCRouter({
 	unapprove: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertBillingAccess(ctx.session.user.permissions);
 			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
@@ -707,7 +714,6 @@ export const reportsRouter = createTRPCRouter({
 	archive: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertBillingAccess(ctx.session.user.permissions);
 			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({ code: "UNAUTHORIZED" });
 			}
@@ -721,7 +727,6 @@ export const reportsRouter = createTRPCRouter({
 	unarchive: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertBillingAccess(ctx.session.user.permissions);
 			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
 				throw new TRPCError({ code: "UNAUTHORIZED" });
 			}
@@ -755,7 +760,7 @@ export const reportsRouter = createTRPCRouter({
 
 /**
  * Load a report the caller is allowed to edit writing progress on: the report's
- * own writer, or an approver.
+ * own writer, or a user with reports:edit-any.
  */
 async function requireEditableReport(ctx: AuthedContext, id: number) {
 	assertReportsPage(ctx.session.user);
@@ -765,10 +770,11 @@ async function requireEditableReport(ctx: AuthedContext, id: number) {
 	});
 	if (!report) throw new TRPCError({ code: "NOT_FOUND" });
 
-	const isApprover =
-		hasPermission(ctx.session.user.permissions, "reports:approve") ||
-		hasPermission(ctx.session.user.permissions, "reports:billing");
-	if (!isApprover && report.writerUserId !== ctx.session.user.id) {
+	const canEditAny = hasPermission(
+		ctx.session.user.permissions,
+		"reports:edit-any",
+	);
+	if (!canEditAny && report.writerUserId !== ctx.session.user.id) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
 			message: "You can only edit your own reports.",
