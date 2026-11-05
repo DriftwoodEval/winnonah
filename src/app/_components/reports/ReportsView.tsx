@@ -10,13 +10,7 @@ import { api } from "~/trpc/react";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
 
-function TabContent({
-	tab,
-	isApprover,
-}: {
-	tab: "active" | "archived";
-	isApprover: boolean;
-}) {
+function TabContent({ tab }: { tab: "active" | "archived" }) {
 	const { data, isLoading, isError, refetch } = api.reports.list.useQuery({
 		tab,
 	});
@@ -31,13 +25,14 @@ function TabContent({
 
 	const reports = data ?? [];
 
-	return <ReportsTable isApprover={isApprover} reports={reports} tab={tab} />;
+	return <ReportsTable reports={reports} tab={tab} />;
 }
 
 export function ReportsView() {
 	const can = useCheckPermission();
 	const { data: session } = useSession();
-	const isApprover = can("reports:approve") || can("reports:billing");
+	// Archived reports are only listed for users who can see everyone's.
+	const canViewAll = can("reports:view-all");
 	const canApprove = can("reports:approve");
 	// The claim toolbar is only useful to people who actually claim from the pool.
 	const canClaim = (session?.user?.maxClaimedReports ?? 0) !== 0 || canApprove;
@@ -50,7 +45,7 @@ export function ReportsView() {
 
 			{canClaim && <ReportQueue className="w-full" />}
 
-			{canApprove ? (
+			{canViewAll ? (
 				<Tabs
 					onValueChange={(v) => setTab(v as "active" | "archived")}
 					value={tab}
@@ -60,14 +55,14 @@ export function ReportsView() {
 						<TabsTrigger value="archived">Archived</TabsTrigger>
 					</TabsList>
 					<TabsContent value="active">
-						<TabContent isApprover={isApprover} tab="active" />
+						<TabContent tab="active" />
 					</TabsContent>
 					<TabsContent value="archived">
-						<TabContent isApprover={isApprover} tab="archived" />
+						<TabContent tab="archived" />
 					</TabsContent>
 				</Tabs>
 			) : (
-				<TabContent isApprover={isApprover} tab="active" />
+				<TabContent tab="active" />
 			)}
 		</div>
 	);

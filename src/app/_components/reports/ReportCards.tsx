@@ -9,26 +9,23 @@ import { Label } from "@ui/label";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useId } from "react";
-import { useCheckPermission } from "~/hooks/use-check-permission";
 import { getHexFromColor } from "~/lib/colors";
-import { cn, formatCurrency } from "~/lib/utils";
+import { cn, formatCurrency, type ReportField } from "~/lib/utils";
 import { ReportNoteCell } from "./ReportNoteCell";
 import {
 	ClientDriveLink,
 	canApprove,
 	formatReportDate,
 	isBethEvaluator,
+	PaidBadge,
 	type Report,
 	StatusBadge,
 	useReportMutations,
+	useReportPermissions,
 	WriterCell,
 } from "./report-shared";
 
-export type BillingField =
-	| "secondReviewNeeded"
-	| "secondReviewDone"
-	| "billed"
-	| "firstReviewDone";
+export type BillingField = ReportField;
 
 // Same row styling as the Reports table: red for an outstanding balance, bold
 // for Beth's evals.
@@ -38,11 +35,6 @@ function cardClass(r: Report) {
 		r.clientOutstandingBalance > 0 && "border-destructive/30 bg-destructive/15",
 		isBethEvaluator(r.evalEvaluatorName) && "font-bold **:font-bold",
 	);
-}
-
-function useIsApprover() {
-	const can = useCheckPermission();
-	return can("reports:approve") || can("reports:billing");
 }
 
 function ClientHeader({ r }: { r: Report }) {
@@ -92,6 +84,7 @@ function ClientHeader({ r }: { r: Report }) {
 				</Badge>
 			)}
 			<StatusBadge selfWritten={r.selfWritten} status={r.status} />
+			<PaidBadge paidDate={r.paidDate} />
 		</div>
 	);
 }
@@ -123,8 +116,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 	);
 }
 
-// A checkbox that says what it sets. Users who cannot edit billing see a
-// badge when it is checked and nothing otherwise.
+// A checkbox that says what it sets. Users without the permission for that
+// checkbox see a badge when it is checked and nothing otherwise.
 function LabeledCheckbox({
 	report: r,
 	field,
@@ -136,7 +129,8 @@ function LabeledCheckbox({
 }) {
 	const id = useId();
 	const { setBilling } = useReportMutations();
-	if (!r.canEditBilling) {
+	const { fields } = useReportPermissions();
+	if (!fields[field]) {
 		return r[field] ? <Badge variant="secondary">{label}</Badge> : null;
 	}
 	return (
@@ -173,7 +167,7 @@ export function SectionReportCard({
 	className?: string;
 	children?: ReactNode;
 }) {
-	const isApprover = useIsApprover();
+	const perms = useReportPermissions();
 	const { markComplete, approve, archive } = useReportMutations();
 
 	return (
@@ -182,7 +176,7 @@ export function SectionReportCard({
 			<EvalLine r={r} />
 			<div className="mt-2 flex flex-wrap items-center gap-2">
 				{doneField === "writerCompletedAt" ? (
-					(r.isMine || isApprover) && (
+					(r.isMine || perms.editAny) && (
 						<Button
 							onClick={() => markComplete.mutate({ id: r.id, complete: true })}
 							size="xs"
@@ -193,12 +187,12 @@ export function SectionReportCard({
 				) : (
 					<LabeledCheckbox field={doneField} label={doneLabel} report={r} />
 				)}
-				{isApprover && canApprove(r) && (
+				{perms.approve && canApprove(r) && (
 					<Button onClick={() => approve.mutate({ id: r.id })} size="xs">
 						Approve
 					</Button>
 				)}
-				{isApprover && (
+				{perms.approve && (
 					<Button
 						onClick={() => archive.mutate({ id: r.id })}
 						size="xs"
@@ -220,7 +214,6 @@ export function SectionReportCard({
 export function ReportCard({
 	report: r,
 	tab,
-	isApprover,
 	billingFields,
 	selectMode,
 	selected,
@@ -228,7 +221,6 @@ export function ReportCard({
 }: {
 	report: Report;
 	tab: "active" | "archived";
-	isApprover: boolean;
 	billingFields: { key: BillingField; label: string }[];
 	selectMode: boolean;
 	selected: boolean;
@@ -236,7 +228,8 @@ export function ReportCard({
 }) {
 	const { markComplete, approve, unapprove, archive, unarchive } =
 		useReportMutations();
-	const canEditWriting = r.isMine || isApprover;
+	const perms = useReportPermissions();
+	const canEditWriting = r.isMine || perms.editAny;
 	const dim = !r.clientActive && "opacity-50";
 
 	return (
@@ -298,12 +291,12 @@ export function ReportCard({
 						</Button>
 					)
 				)}
-				{isApprover && tab === "active" && canApprove(r) && (
+				{perms.approve && tab === "active" && canApprove(r) && (
 					<Button onClick={() => approve.mutate({ id: r.id })} size="xs">
 						Approve
 					</Button>
 				)}
-				{isApprover && tab === "active" && r.status === "approved" && (
+				{perms.approve && tab === "active" && r.status === "approved" && (
 					<Button
 						onClick={() => unapprove.mutate({ id: r.id })}
 						size="xs"
@@ -324,7 +317,7 @@ export function ReportCard({
 				))}
 			</div>
 			<ReportNoteCell canEdit={canEditWriting} note={r.notes} reportId={r.id} />
-			{isApprover && (
+			{perms.approve && (
 				<div className="flex justify-end">
 					{tab === "archived" ? (
 						<Button
