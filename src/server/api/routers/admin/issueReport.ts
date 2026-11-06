@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { desc, eq, or, sql } from "drizzle-orm";
+import { desc, eq, or, type SQL, sql } from "drizzle-orm";
 import { hasPermission } from "~/lib/utils";
 import {
 	issueReportRecipientsSchema,
@@ -24,6 +24,25 @@ async function loadRecipients(database: typeof db) {
 	});
 	const parsed = issueReportRecipientsSchema.safeParse(record?.data);
 	return parsed.success ? parsed.data : { recipients: [] };
+}
+
+function selectReports(database: typeof db, where?: SQL) {
+	return database
+		.select({
+			id: issueReports.id,
+			type: issueReports.type,
+			subject: issueReports.subject,
+			jiraKey: issueReports.jiraKey,
+			jiraStatus: issueReports.jiraStatus,
+			createdAt: issueReports.createdAt,
+			reporterId: issueReports.reporterUserId,
+			reporterName: users.name,
+			ccEmails: issueReports.ccEmails,
+		})
+		.from(issueReports)
+		.innerJoin(users, eq(users.id, issueReports.reporterUserId))
+		.where(where)
+		.orderBy(desc(issueReports.createdAt));
 }
 
 export const issueReportRouter = createTRPCRouter({
@@ -94,24 +113,21 @@ export const issueReportRouter = createTRPCRouter({
 		const ccedOn = email
 			? sql`JSON_CONTAINS(${issueReports.ccEmails}, JSON_QUOTE(${email.toLowerCase()}))`
 			: sql`false`;
-		const rows = await ctx.db
-			.select({
-				id: issueReports.id,
-				type: issueReports.type,
-				subject: issueReports.subject,
-				jiraKey: issueReports.jiraKey,
-				jiraStatus: issueReports.jiraStatus,
-				createdAt: issueReports.createdAt,
-				reporterId: issueReports.reporterUserId,
-				reporterName: users.name,
-			})
-			.from(issueReports)
-			.innerJoin(users, eq(users.id, issueReports.reporterUserId))
-			.where(or(eq(issueReports.reporterUserId, id), ccedOn))
-			.orderBy(desc(issueReports.createdAt));
-		return rows.map(({ reporterId, ...row }) => ({
+		const rows = await selectReports(
+			ctx.db,
+			or(eq(issueReports.reporterUserId, id), ccedOn),
+		);
+		return rows.map(({ reporterId, ccEmails: _ccEmails, ...row }) => ({
 			...row,
 			sharedWithYou: reporterId !== id,
 		}));
+	}),
+
+	// Every report from every user, for issue report admins.
+	listAll: protectedProcedure.query(({ ctx }) => {
+		if (!hasPermission(ctx.session.user.permissions, EDIT_PERMISSION)) {
+			throw new TRPCError({ code: "FORBIDDEN" });
+		}
+		return selectReports(ctx.db);
 	}),
 });

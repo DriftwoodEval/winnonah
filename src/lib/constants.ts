@@ -256,7 +256,7 @@ export const PERMISSIONS = {
 					},
 					{
 						id: "settings:issue-report:edit",
-						title: "Edit Issue Report Recipients",
+						title: "Issue Report Admin",
 					},
 					{
 						id: "settings:exclusion-check:notifications",

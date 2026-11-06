@@ -3,7 +3,7 @@ import { Guard } from "@components/layout/Guard";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-	title: "My Reports",
+	title: "My Bug Reports",
 };
 
 export default function Page() {

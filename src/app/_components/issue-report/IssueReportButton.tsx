@@ -271,7 +271,7 @@ export function IssueReportButton() {
 					onClick={() => setMenuOpen(false)}
 				>
 					<ListChecks className="size-4" />
-					My reports
+					My bug reports
 				</Link>
 			</HoverCardContent>
 		</HoverCard>

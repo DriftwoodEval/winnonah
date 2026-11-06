@@ -160,7 +160,7 @@ export function IssueReportDialog({
 								: "Describe what you would like. A screenshot is optional."}{" "}
 							Track your reports under{" "}
 							<Link className="underline" href="/issue-reports">
-								My Reports
+								My Bug Reports
 							</Link>
 							.
 						</DialogDescription>

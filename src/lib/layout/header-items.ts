@@ -226,7 +226,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 	},
 	{
 		id: "issue-reports",
-		label: "My Reports",
+		label: "My Bug Reports",
 		icon: Bug,
 		area: "nav",
 		href: "/issue-reports",
