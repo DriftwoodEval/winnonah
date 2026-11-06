@@ -2734,17 +2734,30 @@ export const clientRouter = createTRPCRouter({
 					where: and(
 						eq(clients.driveId, input.driveId),
 						not(eq(clients.driveId, "N/A")),
+						not(eq(clients.id, input.clientId)),
 					),
 				});
 
-				if (existingClient) {
+				// An archived notes-only client has no use for its folder, so
+				// another client can take it over.
+				const canTakeOver =
+					existingClient &&
+					isNotesOnlyClientId(existingClient.id) &&
+					!existingClient.status;
+
+				if (existingClient && !canTakeOver) {
 					throw new TRPCError({
 						code: "BAD_REQUEST",
 						message: `A client already has this folder linked: ${existingClient.fullName} (ID: ${existingClient.id})`,
 					});
-				} else {
-					updateData.driveId = input.driveId;
 				}
+				if (existingClient) {
+					await ctx.db
+						.update(clients)
+						.set({ driveId: null })
+						.where(eq(clients.id, existingClient.id));
+				}
+				updateData.driveId = input.driveId;
 			}
 			if (input.status !== undefined) {
 				updateData.status = input.status;
@@ -3538,6 +3551,13 @@ export const clientRouter = createTRPCRouter({
 					.update(clients)
 					.set({ driveId: fakeClient.driveId })
 					.where(eq(clients.id, clientId));
+
+				// The folder now belongs to the real client; free it so the unique
+				// folder check doesn't block re-linking it later.
+				await ctx.db
+					.update(clients)
+					.set({ driveId: null })
+					.where(eq(clients.id, fakeClientId));
 
 				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
 					try {
