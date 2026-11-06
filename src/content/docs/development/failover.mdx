@@ -26,6 +26,15 @@ Two words for the events:
 - **Failover:** the standby takes over because the primary is down.
 - **Failback:** the primary is fixed and takes its job back.
 
+## Quick start: run failback yourself
+
+1. Make sure you are connected to Tailscale. The primary is only reachable over it.
+2. Connect to the primary: `ssh opti` or `ssh driftwood@opti`, depending on how your computer is set up.
+3. Run `cd winnonah && git pull && failover/failback.sh`
+4. Watch Slack for the progress messages and the final "back to normal" confirmation.
+
+Details on what the script does are in [Putting things back: failback](#putting-things-back-failback).
+
 ## Normal operation
 
 While everything is healthy:
