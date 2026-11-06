@@ -5,11 +5,41 @@ import { Button } from "@ui/button";
 import Image from "next/image";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import { formatInBusinessTime } from "~/lib/utils";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import {
+	formatInBusinessTime,
+	formatShortDate,
+	REPORT_FIELD_PERMISSIONS,
+	type ReportField,
+} from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 
 export type Report = RouterOutputs["reports"]["list"][number];
+
+/**
+ * What the current user may do on the Reports page. The server enforces the
+ * same permissions; this only decides which controls to show.
+ */
+export function useReportPermissions() {
+	const can = useCheckPermission();
+	const fields = {
+		billed: can(REPORT_FIELD_PERMISSIONS.billed),
+		firstReviewDone: can(REPORT_FIELD_PERMISSIONS.firstReviewDone),
+		secondReviewNeeded: can(REPORT_FIELD_PERMISSIONS.secondReviewNeeded),
+		secondReviewDone: can(REPORT_FIELD_PERMISSIONS.secondReviewDone),
+	} satisfies Record<ReportField, boolean>;
+	const approve = can("reports:approve");
+	const editAny = can("reports:edit-any");
+	return {
+		viewAll: can("reports:view-all"),
+		approve,
+		editAny,
+		fields,
+		// Whether any bulk action would apply to at least some reports.
+		canBulk: approve || editAny || Object.values(fields).some(Boolean),
+	};
+}
 
 // Statuses an approver can still approve & release from.
 const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
@@ -21,6 +51,16 @@ export function canApprove(r: Report) {
 		APPROVABLE_STATUSES.includes(
 			r.status as (typeof APPROVABLE_STATUSES)[number],
 		)
+	);
+}
+
+// Shows the date the report's piecework payment ran, if it has been paid.
+export function PaidBadge({ paidDate }: { paidDate: string | null }) {
+	if (!paidDate) return null;
+	return (
+		<Badge className="border-success/40 text-success" variant="outline">
+			Paid {formatShortDate(paidDate)}
+		</Badge>
 	);
 }
 
@@ -149,6 +189,10 @@ export function ReportsLegend() {
 				description="Report approved, writer can take another from the queue"
 				sample={<StatusBadge selfWritten={false} status="approved" />}
 			/>
+			<LegendItem
+				description="Writer paid through piecework on this date"
+				sample={<PaidBadge paidDate="2026-01-01" />}
+			/>
 		</div>
 	);
 }
@@ -207,11 +251,12 @@ export function ClientDriveLink({ report: r }: { report: Report }) {
 // they do.
 export function WriterCell({ report: r }: { report: Report }) {
 	const { confirmWriter } = useReportMutations();
+	const { approve } = useReportPermissions();
 	const writer = writerDisplay(r.writerName, r.writerEmail);
 	const { data: drive } = api.reports.clientDrivePath.useQuery(
 		{ clientId: r.clientId },
 		{
-			enabled: !writer && r.canEditBilling,
+			enabled: !writer && approve,
 			staleTime: Number.POSITIVE_INFINITY,
 		},
 	);

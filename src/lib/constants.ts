@@ -147,7 +147,24 @@ export const PERMISSIONS = {
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
 					{ id: "reports:approve", title: "Approve Reports" },
-					{ id: "reports:billing", title: "Manage Report Billing & Review" },
+					{ id: "reports:view-all", title: "View All Reports" },
+					{
+						id: "reports:edit-any",
+						title: "Edit Any Report's Writer Status & Notes",
+					},
+					{ id: "reports:billed", title: "Check Reports as Billed" },
+					{
+						id: "reports:first-review",
+						title: "Check Reports as First Review Done",
+					},
+					{
+						id: "reports:second-review-needed",
+						title: "Check Reports as Second Review Needed",
+					},
+					{
+						id: "reports:second-review-done",
+						title: "Check Reports as Second Review Done",
+					},
 					{ id: "reports:beta", title: "Access New Reports Page (Beta)" },
 					{
 						id: "reports:notifications",
