@@ -825,8 +825,8 @@ def activate_reactivation_admin_review(
                     "VALUES (%s, %s, %s)",
                     (client_id, review["content"], review["updatedBy"]),
                 )
-            # Prepend the marker, keep the prior review content. An insurance
-            # review is ongoing case history, not session-scoped data.
+            # Prepend the marker, keep the prior review content. An admin review
+            # is an ongoing back-and-forth between staff, not session-scoped data.
             existing_review = (
                 json.loads(review["content"])
                 if review["content"]
@@ -910,8 +910,8 @@ def reset_client_session(
     left in place, since queries scope it by `sessionStartedAt` instead.
 
     The admin review is the exception: its content is kept, with a dated
-    separator prepended, since it is ongoing case history rather than
-    session-scoped data.
+    separator prepended, since it is an ongoing back-and-forth between staff
+    rather than session-scoped data.
     """
     now = now_utc()
     reactivated_on = now_business().date().isoformat()
