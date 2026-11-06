@@ -120,8 +120,14 @@ export function GlobalClientSearch() {
 				);
 			} else if (event.key === "Enter") {
 				event.preventDefault();
-				if (highlightedIndex !== -1 && clients?.[highlightedIndex]) {
-					const client = clients[highlightedIndex];
+				// With no highlight, Enter opens the only result of a name search.
+				// Skip while results are stale placeholder data from a prior query.
+				const onlyResult =
+					queryParams.nameSearch && !isPlaceholderData && clients.length === 1
+						? clients[0]
+						: undefined;
+				const client = clients[highlightedIndex] ?? onlyResult;
+				if (client) {
 					router.push(`/clients/${client.hash}`);
 				}
 			}
@@ -131,7 +137,14 @@ export function GlobalClientSearch() {
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [clients, open, highlightedIndex, router]);
+	}, [
+		clients,
+		open,
+		highlightedIndex,
+		router,
+		queryParams.nameSearch,
+		isPlaceholderData,
+	]);
 
 	useEffect(() => {
 		if (navigator.userAgent.includes("Mac")) {

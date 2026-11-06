@@ -238,8 +238,14 @@ export function ClientsDashboard() {
 				);
 			} else if (event.key === "Enter") {
 				event.preventDefault();
-				if (highlightedIndex !== -1 && clients?.[highlightedIndex]) {
-					const client = clients[highlightedIndex];
+				// With no highlight, Enter opens the only result of a name search.
+				// Skip while results are stale placeholder data from a prior query.
+				const onlyResult =
+					queryParams.nameSearch && !isPlaceholderData && clients.length === 1
+						? clients[0]
+						: undefined;
+				const client = clients[highlightedIndex] ?? onlyResult;
+				if (client) {
 					router.push(`/clients/${client.hash}`);
 				}
 			}
@@ -249,7 +255,13 @@ export function ClientsDashboard() {
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [clients, highlightedIndex, router]);
+	}, [
+		clients,
+		highlightedIndex,
+		router,
+		queryParams.nameSearch,
+		isPlaceholderData,
+	]);
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
 		const params = new URLSearchParams(searchParams);
