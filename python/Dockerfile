@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
