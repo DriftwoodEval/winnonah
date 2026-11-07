@@ -174,6 +174,7 @@ class TestGetCurrentUser:
             "email": "a@example.com",
             "name": "Alice",
             "permissions": {"clients:view": True},
+            "role_id": None,
         }
 
     @pytest.mark.parametrize(("status_code", "body"), [(200, None), (401, None)])
