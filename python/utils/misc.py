@@ -4,9 +4,9 @@ import re
 from datetime import date, datetime
 from typing import Any
 
+import nameparser
 import pandas as pd
 from loguru import logger
-from nameparser import HumanName
 
 NAME_FORMATTING_EXCEPTIONS = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
 
@@ -31,8 +31,7 @@ def capitalize_name_with_exceptions(name: object) -> str:
     initials like "j.d." come out as "J.D." instead of "J.d."."""
     if not isinstance(name, str):
         return ""
-    parsed_name = HumanName(name)
-    parsed_name.capitalize(force=True)
+    parsed_name = nameparser.parse(name).capitalized(force=True)
 
     words = [
         re.sub(r"\.([a-z])", lambda m: "." + m.group(1).upper(), word)
