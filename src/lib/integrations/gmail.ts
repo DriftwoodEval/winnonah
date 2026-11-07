@@ -1,4 +1,3 @@
-
 import { createUserOAuth2Client } from "~/server/auth/google-credentials";
 
 interface EmailAttachment {
@@ -62,10 +61,7 @@ function buildMime(email: OutgoingEmail) {
  * Sends an email from the signed-in user's own Gmail account. Throws a
  * `GmailScopeError` when the user has not yet granted permission to send.
  */
-export async function sendGmailAsUser(
-	userId: string,
-	email: OutgoingEmail,
-) {
+export async function sendGmailAsUser(userId: string, email: OutgoingEmail) {
 	const oauth2Client = createUserOAuth2Client(userId);
 
 	const raw = Buffer.from(buildMime(email), "utf8").toString("base64url");

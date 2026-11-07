@@ -130,20 +130,17 @@ async function sendReportEmail(
 	screenshots: Awaited<ReturnType<typeof loadScreenshots>>,
 ) {
 	const subjectSuffix = report.jiraKey ? ` [${report.jiraKey}]` : "";
-	await sendGmailAsUser(
-		report.reporterUserId,
-		{
-			to: ISSUE_REPORT_EMAIL,
-			cc: report.ccEmails,
-			subject: `${report.subject}${subjectSuffix}`,
-			text: buildReportText(
-				report,
-				screenshots,
-				report.jiraKey ? [`Jira: ${getJiraIssueUrl(report.jiraKey)}`] : [],
-			),
-			attachments: screenshots,
-		},
-	);
+	await sendGmailAsUser(report.reporterUserId, {
+		to: ISSUE_REPORT_EMAIL,
+		cc: report.ccEmails,
+		subject: `${report.subject}${subjectSuffix}`,
+		text: buildReportText(
+			report,
+			screenshots,
+			report.jiraKey ? [`Jira: ${getJiraIssueUrl(report.jiraKey)}`] : [],
+		),
+		attachments: screenshots,
+	});
 }
 
 /** Creates the Jira ticket and sends the tech@ email for each new report. */
