@@ -134,18 +134,40 @@ run = """
 ssh -t driftwood@opti "bash -ic 'cd winnonah && source .env && uvx --with harlequin-mysql harlequin -a mysql -h 127.0.0.1 -u root --password \\"\\$MYSQL_ROOT_PASSWORD\\" -d \\"\\$MYSQL_DATABASE\\"'"
 """
 
-[tasks."db:generate:remote"]
-description = "Generate a Drizzle migration, then apply its SQL to the production database over SSH after confirmation"
-depends = ["db:generate"]
+[tasks."db:generate:local"]
+description = "Generate a Drizzle migration, show its SQL, then apply it to the local database after confirmation"
 shell = "bash -c"
 run = """
+pnpm db:generate
 latest="$(ls -t drizzle/*.sql 2>/dev/null | head -1)"
 [ -z "$latest" ] && { echo "No migration files in drizzle/" >&2; exit 1; }
-read -p "Apply $latest to PRODUCTION? [y/N] " answer
+# Drop the drizzle breakpoint markers so the SQL runs as one script.
+sql="$(sed -e '/^--> statement-breakpoint$/d' -e 's/--> statement-breakpoint//' "$latest")"
+echo "# $latest" >&2
+echo "$sql"
+read -p "Apply to the LOCAL database? [y/N] " answer
 [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted." >&2; exit 1; }
-# Strip the drizzle breakpoint markers (same as db:generate:cat) and stream the SQL into the db container.
-sed -e '/^--> statement-breakpoint$/d' -e 's/--> statement-breakpoint//' "$latest" \\
-    | ssh driftwood@opti 'cd winnonah && source .env && docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" driftwood-db mysql -uroot "$MYSQL_DATABASE"'
+docker compose up -d driftwood-db
+while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do
+    sleep 0.5
+done
+echo "$sql" | docker compose exec -T -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" driftwood-db mysql -uroot "$MYSQL_DATABASE"
+"""
+
+[tasks."db:generate:remote"]
+description = "Generate a Drizzle migration, show its SQL, then apply it to the production database over SSH after confirmation"
+shell = "bash -c"
+run = """
+pnpm db:generate
+latest="$(ls -t drizzle/*.sql 2>/dev/null | head -1)"
+[ -z "$latest" ] && { echo "No migration files in drizzle/" >&2; exit 1; }
+# Drop the drizzle breakpoint markers so the SQL runs as one script.
+sql="$(sed -e '/^--> statement-breakpoint$/d' -e 's/--> statement-breakpoint//' "$latest")"
+echo "# $latest" >&2
+echo "$sql"
+read -p "Apply to PRODUCTION? [y/N] " answer
+[[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted." >&2; exit 1; }
+echo "$sql" | ssh driftwood@opti 'cd winnonah && source .env && docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" driftwood-db mysql -uroot "$MYSQL_DATABASE"'
 """
 
 [tasks."check:pnpm"]
