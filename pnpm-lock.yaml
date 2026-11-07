@@ -237,13 +237,13 @@ importers:
         version: 3.32.2
       '@trpc/client':
         specifier: ^11.18.0
-        version: 11.22.1(@trpc/server@11.22.1(typescript@7.0.2))(typescript@7.0.2)
+        version: 11.24.0(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(typescript@7.0.2)
       '@trpc/react-query':
         specifier: ^11.18.0
-        version: 11.22.1(@tanstack/react-query@5.105.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.22.1(@trpc/server@11.22.1(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.22.1(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
+        version: 11.24.0(@tanstack/react-query@5.105.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.24.0(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
       '@trpc/server':
         specifier: ^11.18.0
-        version: 11.22.1(typescript@7.0.2)
+        version: 11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2972,27 +2972,41 @@ packages:
   '@tiptap/starter-kit@3.32.2':
     resolution: {integrity: sha512-6K+oOMF4orhnOxivgUTKiSpNAEftHyWOcfFIvIEMUP044b34obBUogzMTfM3RjtewZtQXVafO9zmGU30IllC1g==}
 
-  '@trpc/client@11.22.1':
-    resolution: {integrity: sha512-flkAwF8bzzNCVJ5xcTMS+Az6Go/XK30ZIOGT94UJBYAmMq1w2tY7gk7+CIMiRUdvHzOYAVPitX2H+20qcIIomA==}
-    hasBin: true
+  '@trpc/client@11.24.0':
+    resolution: {integrity: sha512-D9zoHnF/LGL5SpVnDaSO3b9ymF0jgfnawxtU7HkDjVbcmXeWiAGnJT6fD2UTfEmP63+i57VE49RQqRO0Ig7WJg==}
     peerDependencies:
-      '@trpc/server': 11.22.1
+      '@trpc/server': 11.24.0
       typescript: '>=5.7.2'
 
-  '@trpc/react-query@11.22.1':
-    resolution: {integrity: sha512-PEd3EzQwiJDSi2qlOm1kkfnh5q4rsQcjVGBdKqcbW9iLl7f6/NH/5NOPDdWu/yiV8cY4QJ1pWHENLuD0A1j9uA==}
+  '@trpc/react-query@11.24.0':
+    resolution: {integrity: sha512-Fv0E18+X9t9dN8vs7LezSp+iRGdvHsTCQiUd2aj5XtitPfxuQGiWqb5ovM3fjFzItpIKfdYGZva8r2i1p2PTNA==}
     peerDependencies:
       '@tanstack/react-query': ^5.80.3
-      '@trpc/client': 11.22.1
-      '@trpc/server': 11.22.1
+      '@trpc/client': 11.24.0
+      '@trpc/server': 11.24.0
       react: '>=18.2.0'
       typescript: '>=5.7.2'
 
-  '@trpc/server@11.22.1':
-    resolution: {integrity: sha512-9SjWTS5iwENHOVPqpTjm0I1Os/CtuT6p8kDlovyEm00pXhpHX55tQM2vszJTEpcQhm/JfUz4ut/7Y9JZZQZo6A==}
-    hasBin: true
+  '@trpc/server@11.24.0':
+    resolution: {integrity: sha512-CxpaiIY58ItaLpGxwYTxHHYx5evRAJ4B2Eq94axvg28nwihDgjQIUiLG8T49DZ/t4R2tPHHdeLkF6t0kyjD5YQ==}
     peerDependencies:
+      '@types/aws-lambda': '*'
+      '@types/express': '*'
+      '@types/ws': '*'
+      fastify: '*'
+      next: '*'
       typescript: '>=5.7.2'
+    peerDependenciesMeta:
+      '@types/aws-lambda':
+        optional: true
+      '@types/express':
+        optional: true
+      '@types/ws':
+        optional: true
+      fastify:
+        optional: true
+      next:
+        optional: true
 
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
@@ -8311,22 +8325,25 @@ snapshots:
       '@tiptap/extensions': 3.32.2(@tiptap/core@3.32.2(@tiptap/pm@3.32.2))(@tiptap/pm@3.32.2)
       '@tiptap/pm': 3.32.2
 
-  '@trpc/client@11.22.1(@trpc/server@11.22.1(typescript@7.0.2))(typescript@7.0.2)':
+  '@trpc/client@11.24.0(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(typescript@7.0.2)':
     dependencies:
-      '@trpc/server': 11.22.1(typescript@7.0.2)
+      '@trpc/server': 11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2)
       typescript: 7.0.2
 
-  '@trpc/react-query@11.22.1(@tanstack/react-query@5.105.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.22.1(@trpc/server@11.22.1(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.22.1(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
+  '@trpc/react-query@11.24.0(@tanstack/react-query@5.105.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.24.0(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
     dependencies:
       '@tanstack/react-query': 5.105.3(@types/react@19.3.0)(react@19.3.1)
-      '@trpc/client': 11.22.1(@trpc/server@11.22.1(typescript@7.0.2))(typescript@7.0.2)
-      '@trpc/server': 11.22.1(typescript@7.0.2)
+      '@trpc/client': 11.24.0(@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2))(typescript@7.0.2)
+      '@trpc/server': 11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2)
       react: 19.3.1
       typescript: 7.0.2
 
-  '@trpc/server@11.22.1(typescript@7.0.2)':
+  '@trpc/server@11.24.0(@types/ws@8.18.2)(next@16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@7.0.2)':
     dependencies:
       typescript: 7.0.2
+    optionalDependencies:
+      '@types/ws': 8.18.2
+      next: 16.4.4(@babel/core@7.29.7)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
 
   '@ts-morph/common@0.27.0':
     dependencies:
