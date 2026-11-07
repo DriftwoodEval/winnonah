@@ -16,6 +16,12 @@
 			"description": "Pinned to the abetlen CPU-wheel index, which Renovate cannot resolve; bump manually alongside wheel availability",
 			"matchDepNames": ["llama-cpp-python"],
 			"enabled": false
+		},
+		{
+			"description": "pymupdf 2.x depends on onnxruntime, which lacks wheels for new Python versions, and we use none of its added features",
+			"matchDepNames": ["pymupdf"],
+			"matchUpdateTypes": ["major"],
+			"enabled": false
 		}
 	]
 }
