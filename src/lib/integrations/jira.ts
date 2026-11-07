@@ -18,7 +18,8 @@ interface Attachment {
 
 const ISSUE_TYPE_NAMES = { bug: "Bug", feature: "Task" } as const;
 
-// Single-line text custom field holding who submitted the report.
+// Labels custom field holding who submitted the report. Labels cannot contain
+// spaces, so the value must be a single word.
 const REPORTER_FIELD = "customfield_10204";
 
 async function jiraFetch(path: string, init: RequestInit = {}) {
@@ -65,7 +66,7 @@ export async function createJiraIssue(issue: NewIssue) {
 				summary: issue.summary,
 				description: toDocument(issue.description),
 				priority: { name: issue.priority },
-				[REPORTER_FIELD]: issue.reporter,
+				[REPORTER_FIELD]: issue.reporter ? [issue.reporter] : undefined,
 			},
 		}),
 	});

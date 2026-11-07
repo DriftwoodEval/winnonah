@@ -58,8 +58,9 @@ async function ensureJiraTicket(
 			summary: report.subject,
 			description: [...pageLines, "", report.body].join("\n"),
 			priority: report.priority,
+			// The Jira field is a label, which cannot contain spaces.
 			reporter:
-				reporter && `${reporter.name ?? reporter.email} (${reporter.email})`,
+				reporter && (reporter.name?.trim().split(/\s+/)[0] || reporter.email),
 		});
 		// Saved before attachments so a retry never creates a second ticket.
 		await db
