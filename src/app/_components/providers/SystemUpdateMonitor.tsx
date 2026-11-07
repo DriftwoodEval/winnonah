@@ -1,17 +1,17 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 
 export function SystemUpdateMonitor() {
-	const { status } = useSession();
+	const { data: session } = authClient.useSession();
 	const serverStartTimeRef = useRef<number | null>(null);
 	const toastShownRef = useRef(false);
 
 	api.system.onSystemUpdate.useSubscription(undefined, {
-		enabled: status === "authenticated",
+		enabled: !!session,
 		onData(event) {
 			if (event.type === "restart") {
 				if (serverStartTimeRef.current === null) {

@@ -13,8 +13,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { chunk } from "es-toolkit/array";
-import { OAuth2Client } from "google-auth-library";
-import type { Session } from "next-auth";
+import type { OAuth2Client } from "google-auth-library";
 import { env } from "~/env";
 import { fetchWithCache } from "~/lib/cache";
 import {
@@ -26,6 +25,11 @@ import {
 import { logger } from "~/lib/logger";
 import type { Client, FullClientInfo } from "~/lib/models";
 import type { Context } from "~/server/api/trpc";
+import {
+	createUserOAuth2Client,
+	hasGoogleCredentials,
+} from "~/server/auth/google-credentials";
+import type { Session } from "~/server/auth/types";
 import { db } from "~/server/db";
 import {
 	appointments,
@@ -54,27 +58,34 @@ async function googleApiCall<T>(
 	}
 }
 
-// Google Drive
-export function getDriveClient(session: Session) {
-	if (!session.user.accessToken || !session.user.refreshToken) {
-		throw new Error("Missing access token for Google Calendar API.");
-	}
+/** The Google credentials a sync runs with when no user is signed in. */
+export interface ServiceSession {
+	serviceOAuthClient: OAuth2Client;
+}
 
-	const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
-	const oauth2Client = new OAuth2Client({
-		clientId: AUTH_GOOGLE_ID,
-		clientSecret: AUTH_GOOGLE_SECRET,
-	});
-	oauth2Client.setCredentials({
-		access_token: session.user.accessToken,
-		refresh_token: session.user.refreshToken,
-	});
+/** Who a Google call acts as: the signed-in user, or the service account. */
+export type GoogleCaller = Session | ServiceSession;
+
+function getOAuth2Client(caller: GoogleCaller): OAuth2Client {
+	if ("serviceOAuthClient" in caller) return caller.serviceOAuthClient;
+	return createUserOAuth2Client(caller.user.id);
+}
+
+/** Whether Google calls made as this caller can succeed. */
+export async function hasGoogleAccess(caller: GoogleCaller): Promise<boolean> {
+	if ("serviceOAuthClient" in caller) return true;
+	return hasGoogleCredentials(caller.user.id);
+}
+
+// Google Drive
+export function getDriveClient(session: GoogleCaller) {
+	const oauth2Client = getOAuth2Client(session);
 
 	return drive({ version: "v3", auth: oauth2Client });
 }
 
 export const renameDriveFolder = async (
-	session: Session,
+	session: GoogleCaller,
 	folderId: string,
 	clientId: string | null,
 	newName?: string,
@@ -127,7 +138,10 @@ export const renameDriveFolder = async (
 
 // Safety stop for the parent walk; real folder trees are far shallower.
 /** A Drive folder's name and its first parent (undefined at the top of the drive). */
-export const getDriveFolder = async (session: Session, folderId: string) => {
+export const getDriveFolder = async (
+	session: GoogleCaller,
+	folderId: string,
+) => {
 	const folder = await googleApiCall(
 		"google-drive",
 		"files.get",
@@ -146,20 +160,8 @@ export const getDriveFolder = async (session: Session, folderId: string) => {
 };
 
 // Google Sheets
-export function getSheetsClient(session: Session) {
-	if (!session.user.accessToken || !session.user.refreshToken) {
-		throw new Error("Missing access token for Google Calendar API.");
-	}
-
-	const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
-	const oauth2Client = new OAuth2Client({
-		clientId: AUTH_GOOGLE_ID,
-		clientSecret: AUTH_GOOGLE_SECRET,
-	});
-	oauth2Client.setCredentials({
-		access_token: session.user.accessToken,
-		refresh_token: session.user.refreshToken,
-	});
+export function getSheetsClient(session: GoogleCaller) {
+	const oauth2Client = getOAuth2Client(session);
 
 	return sheets({ version: "v4", auth: oauth2Client });
 }
@@ -171,7 +173,7 @@ export const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 // small regardless of how large the sheet grows.
 const MAX_IN_CLAUSE_SIZE = 500;
 
-export const getPunchData = async (session: Session) => {
+export const getPunchData = async (session: GoogleCaller) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
@@ -431,7 +433,7 @@ export const getPunchData = async (session: Session) => {
 };
 
 export const updatePunchData = async (
-	session: Session,
+	session: GoogleCaller,
 	clientId: string,
 	updates: {
 		daSent?: boolean;
@@ -659,7 +661,7 @@ const getPunchlistSheetId = async (
  * failures since the DB is the source of truth.
  */
 export const updatePunchReportFields = async (
-	session: Session,
+	session: GoogleCaller,
 	clientId: string,
 	updates: {
 		billed?: boolean;
@@ -764,7 +766,7 @@ export const classifyReviewColor = (
 };
 
 // Client ID -> color of that client's cell in the second-review column.
-const getSecondReviewColors = async (session: Session) => {
+const getSecondReviewColors = async (session: GoogleCaller) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
@@ -814,7 +816,7 @@ const REVIEW_COLOR_NONE = { red: 1, green: 1, blue: 1 };
  * truth.
  */
 export const updatePunchSecondReview = async (
-	session: Session,
+	session: GoogleCaller,
 	clientId: string,
 	state: { needed: boolean; done: boolean },
 ) => {
@@ -902,7 +904,9 @@ const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
 const punchCellIsChecked = (val: string | undefined) =>
 	(val ?? "").trim().toUpperCase() === "TRUE";
 
-export const syncPunchData = async (ctx: Context & { session: Session }) => {
+export const syncPunchData = async (
+	ctx: Context & { session: GoogleCaller },
+) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
 		CACHE_KEY_PUNCHLIST,
@@ -1056,7 +1060,7 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 };
 
 export const pushToPunch = async (
-	session: Session,
+	session: GoogleCaller,
 	client: {
 		id: number;
 		fullName: string;
@@ -1227,7 +1231,7 @@ export const pushToPunch = async (
 
 export const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
 
-export const getMissingFromPunchlistData = async (session: Session) => {
+export const getMissingFromPunchlistData = async (session: GoogleCaller) => {
 	const punchClients = await getPunchData(session);
 	const punchClientIds = new Set(
 		punchClients
@@ -1252,20 +1256,8 @@ export const getMissingFromPunchlistData = async (session: Session) => {
 };
 
 // Google Calendar
-export function getCalendarClient(session: Session) {
-	if (!session.user.accessToken || !session.user.refreshToken) {
-		throw new Error("Missing access token for Google Calendar API.");
-	}
-
-	const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
-	const oauth2Client = new OAuth2Client({
-		clientId: AUTH_GOOGLE_ID,
-		clientSecret: AUTH_GOOGLE_SECRET,
-	});
-	oauth2Client.setCredentials({
-		access_token: session.user.accessToken,
-		refresh_token: session.user.refreshToken,
-	});
+export function getCalendarClient(session: GoogleCaller) {
+	const oauth2Client = getOAuth2Client(session);
 
 	return calendar({ version: "v3", auth: oauth2Client });
 }
@@ -1290,7 +1282,7 @@ interface Event {
 }
 
 export async function createAvailabilityEvent(
-	session: Session,
+	session: GoogleCaller,
 	eventData: AvailabilityEvent,
 ) {
 	const calendar = getCalendarClient(session);
@@ -1518,7 +1510,7 @@ export function classifyAvailabilityEvents(
 }
 
 export async function getAvailabilityEvents(
-	session: Session,
+	session: GoogleCaller,
 	startDate: Date,
 	endDate: Date,
 	calendarId = "primary",
@@ -1555,7 +1547,7 @@ export async function getAvailabilityEvents(
 }
 
 export async function updateAvailabilityEvent(
-	session: Session,
+	session: GoogleCaller,
 	eventId: string,
 	eventData: AvailabilityEvent,
 ) {
@@ -1623,7 +1615,7 @@ export async function updateAvailabilityEvent(
 }
 
 export async function deleteAvailabilityEvent(
-	session: Session,
+	session: GoogleCaller,
 	eventId: string,
 ) {
 	const calendar = getCalendarClient(session);

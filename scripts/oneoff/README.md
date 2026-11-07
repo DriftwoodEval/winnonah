@@ -6,6 +6,7 @@ Run TypeScript scripts from the repo root, for example `pnpm exec tsx scripts/on
 
 - `backfill-appointment-utc.md`: convert appointment times to true UTC (SQL in Markdown).
 - `backfill-user-preferences.md`: move per-user home widgets, header items, and issue list order into `emr_user.preferences` and drop the old columns (SQL in Markdown).
+- `better-auth-migration.sql`: move the auth tables from the NextAuth layout to the Better Auth layout. Run with the app stopped, before `pnpm db:push` (see the header for the full cutover steps).
 - `backfill-reports.ts`: populate `emr_report` from the punch list.
 - `cleanup-backfilled-reports.ts`: delete stale report rows the backfill created.
 - `cleanup-no-link-grabbed-failures.ts`: clean up "no link grabbed" failure records.

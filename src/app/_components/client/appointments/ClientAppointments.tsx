@@ -35,10 +35,10 @@ import {
 	User,
 } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { authClient } from "~/lib/auth-client";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -55,7 +55,7 @@ export function ClientAppointments({
 	const canCheckin = can("clients:appointments:checkin");
 	const canCopyInfo = can("clients:appointments:copyinfo");
 	const checkinDateGate = useCheckinDateGate();
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const [billingOpen, setBillingOpen] = useState(false);
 	const { data: appointments, isLoading } =

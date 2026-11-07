@@ -19,11 +19,11 @@ import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { AlertTriangle, Loader2, MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
+import { authClient } from "~/lib/auth-client";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -58,7 +58,7 @@ function PunchListAccordionItem({
 	description,
 	scheduledClientIds,
 }: PunchListAccordionProps) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 	const dismissals = useListDismissals(
@@ -491,7 +491,7 @@ function PunchListAccordionItem({
 export function Dashboard() {
 	const can = useCheckPermission();
 	const canAdminReview = can("clients:admin:review");
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const utils = api.useUtils();
 
 	const {

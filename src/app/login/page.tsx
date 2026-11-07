@@ -2,23 +2,24 @@
 
 import { Button } from "@ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
 import { Suspense, useEffect } from "react";
+import { authClient } from "~/lib/auth-client";
+import { toSitePath } from "~/lib/site-path";
 
 function LoginPage() {
 	const params = useSearchParams();
 	const router = useRouter();
-	const { status } = useSession();
+	const { data: session } = authClient.useSession();
 	const timedOut = params.get("timeout") === "true";
-	const callbackUrl = params.get("callbackUrl") || "/";
+	const callbackUrl = toSitePath(params.get("callbackUrl"));
 
 	// If we already have a session (e.g. we just finished signing back in),
 	// leave this page instead of sitting on it.
 	useEffect(() => {
-		if (status === "authenticated") {
+		if (session) {
 			router.replace(callbackUrl);
 		}
-	}, [status, callbackUrl, router]);
+	}, [session, callbackUrl, router]);
 
 	return (
 		<main className="flex min-h-screen min-w-screen flex-col items-center justify-center gap-6">
@@ -31,7 +32,12 @@ function LoginPage() {
 				</p>
 			)}
 			<Button
-				onClick={() => signIn("google", { callbackUrl })}
+				onClick={() =>
+					authClient.signIn.social({
+						provider: "google",
+						callbackURL: callbackUrl,
+					})
+				}
 				size="lg"
 				variant="secondary"
 			>

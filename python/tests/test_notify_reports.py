@@ -149,7 +149,7 @@ class TestNewFolderWithClientId:
         users = [
             {
                 "email": "blocked@example.com",
-                "blockedEvaluatorNpis": "[1234567890]",
+                "blockedEvaluatorNpis": [1234567890],
             },
             {"email": "allowed@example.com", "blockedEvaluatorNpis": None},
         ]

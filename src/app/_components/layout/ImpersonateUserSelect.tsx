@@ -8,20 +8,21 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { VenetianMask } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { authClient } from "~/lib/auth-client";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 /**
  * "View as another user" control, gated behind the `settings:impersonate` permission.
- * Sets a cookie the NextAuth session callback reads (see src/server/auth/impersonation.ts)
- * so the homepage, permissions, and every other user-scoped call behave as the selected
- * user, not whoever is actually signed in.
+ * Switches to a temporary session for the selected user (see
+ * src/server/auth/impersonation.ts) so the homepage, permissions, and every
+ * other user-scoped call behave as that user, not whoever is actually signed in.
  */
 export function ImpersonateUserSelect() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const { data: users } = api.users.getAll.useQuery(undefined, {
 		enabled: !!session,
 	});
@@ -44,16 +45,19 @@ export function ImpersonateUserSelect() {
 
 	async function viewAs(userId: string | undefined) {
 		setPending(true);
-		const response = await fetch("/api/impersonate", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: userId ?? null }),
-		});
-		if (!response.ok) {
+		try {
+			if (userId) {
+				const { error } = await authClient.impersonation.start({ userId });
+				if (error) throw new Error(error.message);
+			} else {
+				const { error } = await authClient.impersonation.stop();
+				if (error) throw new Error(error.message);
+			}
+			window.location.reload();
+		} catch (error) {
 			setPending(false);
-			return;
+			toast.error(error instanceof Error ? error.message : "Could not switch.");
 		}
-		window.location.reload();
 	}
 
 	return (

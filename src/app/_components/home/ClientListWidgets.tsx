@@ -9,13 +9,13 @@ import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { authClient } from "~/lib/auth-client";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function RecentClientsWidget() {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const {
 		data: recentClients,
 		isLoading,

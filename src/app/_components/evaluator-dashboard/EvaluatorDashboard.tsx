@@ -6,9 +6,9 @@ import { Button } from "@ui/button";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { authClient } from "~/lib/auth-client";
 import { api } from "~/trpc/react";
 import { EvaluatorDashboardTable } from "./EvaluatorDashboardTable";
 
@@ -47,7 +47,7 @@ function TabContent({
 
 export function EvaluatorDashboard() {
 	const can = useCheckPermission();
-	const { data: session, status } = useSession();
+	const { data: session, isPending } = authClient.useSession();
 	const isAdmin = can("evaluator-dashboard:admin");
 	const isEvaluator = session?.user.hasEvaluatorDashboard ?? false;
 	const [tab, setTab] = useState<"active" | "archived">("active");
@@ -58,7 +58,7 @@ export function EvaluatorDashboard() {
 		{ enabled: isAdmin || isEvaluator },
 	);
 
-	if (status === "loading") return null;
+	if (isPending) return null;
 
 	if (!isAdmin && !isEvaluator) {
 		return <AuthRejection reason="unauthorized" />;

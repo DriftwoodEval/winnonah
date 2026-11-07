@@ -142,8 +142,8 @@ export function ReportsTable({
 
 	// --- Column filters + saved views -------------------------------------
 	const [filters, setFilters] = useState<SavedFilters>(EMPTY_FILTERS);
-	const { data: savedFilters } = api.sessions.getReportsFilters.useQuery();
-	const saveFilters = api.sessions.saveReportsFilters.useMutation();
+	const { data: savedFilters } = api.savedFilters.getReportsFilters.useQuery();
+	const saveFilters = api.savedFilters.saveReportsFilters.useMutation();
 	const views: SavedView[] = useMemo(() => {
 		if (!savedFilters?.reportsFilters) return [];
 		try {

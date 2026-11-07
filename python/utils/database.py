@@ -59,7 +59,6 @@ from utils.constants import (
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_REPORT,
-    TABLE_ROLE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_SPECIAL_ACCOMMODATIONS_NOTICE,
     TABLE_USER,
@@ -73,7 +72,6 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
-from utils.permissions import effective_permissions, has_permission
 
 load_dotenv()
 
@@ -2908,61 +2906,6 @@ def get_npi_to_name_map(
     except Exception:
         logger.exception("Error fetching NPI to Name map")
         return {}
-
-
-@provide_connection
-def get_queue_notify_users(connection: Connection[DictCursor]):
-    """Returns a list of users who have the reports:notifications permission (directly or through their role) and no active claimed report."""
-    users = []
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-                SELECT
-                    u.email, u.name, u.permissions, u.claimedReportFolder,
-                    u.blockedEvaluatorNpis, r.permissions AS role_permissions
-                FROM {TABLE_USER} u
-                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                WHERE u.archived = 0
-            """
-        )
-        rows = cursor.fetchall()
-
-        for row in rows:
-            permissions = effective_permissions(
-                row["permissions"], row["role_permissions"]
-            )
-            if (
-                has_permission(permissions, "reports:notifications")
-                and not row["claimedReportFolder"]
-            ):
-                users.append(row)
-
-    return users
-
-
-@provide_connection
-def get_exclusion_check_notify_users(connection: Connection[DictCursor]):
-    """Returns a list of users who have the settings:exclusion-check:notifications permission (directly or through their role)."""
-    users = []
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-                SELECT u.email, u.name, u.permissions, r.permissions AS role_permissions
-                FROM {TABLE_USER} u
-                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
-                WHERE u.archived = 0
-            """
-        )
-        rows = cursor.fetchall()
-
-        for row in rows:
-            permissions = effective_permissions(
-                row["permissions"], row["role_permissions"]
-            )
-            if has_permission(permissions, "settings:exclusion-check:notifications"):
-                users.append(row)
-
-    return users
 
 
 @provide_connection

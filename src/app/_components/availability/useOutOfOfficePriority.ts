@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { authClient } from "~/lib/auth-client";
 import { IS_DEV } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -13,7 +13,7 @@ export const DEV_OOO_PARAM = "devOoo";
  * availability page as either an in-office or out-of-office evaluator.
  */
 export function useOutOfOfficePriority(enabled = true) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 	const searchParams = useSearchParams();
 
 	const query = api.evaluators.getOutOfOfficePriority.useQuery(undefined, {

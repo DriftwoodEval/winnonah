@@ -10,7 +10,6 @@ import {
 import { logger } from "~/lib/logger";
 import { db } from "~/server/db";
 import {
-	accounts,
 	issueReportScreenshots,
 	issueReports,
 	users,
@@ -130,27 +129,18 @@ async function sendReportEmail(
 	report: IssueReport,
 	screenshots: Awaited<ReturnType<typeof loadScreenshots>>,
 ) {
-	const account = await db.query.accounts.findFirst({
-		where: eq(accounts.userId, report.reporterUserId),
-	});
 	const subjectSuffix = report.jiraKey ? ` [${report.jiraKey}]` : "";
-	await sendGmailAsUser(
-		{
-			accessToken: account?.access_token,
-			refreshToken: account?.refresh_token,
-		},
-		{
-			to: ISSUE_REPORT_EMAIL,
-			cc: report.ccEmails,
-			subject: `${report.subject}${subjectSuffix}`,
-			text: buildReportText(
-				report,
-				screenshots,
-				report.jiraKey ? [`Jira: ${getJiraIssueUrl(report.jiraKey)}`] : [],
-			),
-			attachments: screenshots,
-		},
-	);
+	await sendGmailAsUser(report.reporterUserId, {
+		to: ISSUE_REPORT_EMAIL,
+		cc: report.ccEmails,
+		subject: `${report.subject}${subjectSuffix}`,
+		text: buildReportText(
+			report,
+			screenshots,
+			report.jiraKey ? [`Jira: ${getJiraIssueUrl(report.jiraKey)}`] : [],
+		),
+		attachments: screenshots,
+	});
 }
 
 /** Creates the Jira ticket and sends the tech@ email for each new report. */

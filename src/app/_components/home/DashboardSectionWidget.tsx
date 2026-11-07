@@ -15,7 +15,7 @@ import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { authClient } from "~/lib/auth-client";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -114,7 +114,7 @@ function DashboardClientRow({
 	dismissals: ListDismissals;
 	sectionTitle: string;
 }) {
-	const { data: session } = useSession();
+	const { data: session } = authClient.useSession();
 
 	const full = client as FullClientInfo & DashboardClient;
 	const bare = client as Client & DashboardClient;

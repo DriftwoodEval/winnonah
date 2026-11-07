@@ -6,7 +6,6 @@ import {
 	primaryKey,
 	uniqueIndex,
 } from "drizzle-orm/mysql-core";
-import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import {
@@ -16,6 +15,7 @@ import {
 import type { PinnedList } from "~/lib/pinned-list";
 import type { UserPreferences } from "~/lib/preferences";
 import type { RunSummary } from "~/lib/run-summary";
+import type { SavedFilters } from "~/lib/saved-filters";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -1241,36 +1241,40 @@ export const rolesRelations = relations(roles, ({ many }) => ({
 	invitations: many(invitations),
 }));
 
-export const users = createTable("user", (d) => ({
-	id: d
-		.varchar({ length: 255 })
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	name: d.varchar({ length: 255 }),
-	email: d.varchar({ length: 255 }).notNull(),
-	emailVerified: d
-		.timestamp({
-			mode: "date",
-			fsp: 3,
-		})
-		.default(sql`CURRENT_TIMESTAMP(3)`),
-	image: d.varchar({ length: 255 }),
-	savedPlaces: d.json(),
-	permissions: d.json("permissions").$type<PermissionsObject>(),
-	roleId: d.int().references(() => roles.id),
-	archived: d.boolean("archived").notNull().default(false),
-	claimedReportFolder: d.json().$type<{ name: string; id: string }[]>(),
-	maxClaimedReports: d.tinyint(),
-	phoneNumber: d.varchar({ length: 20 }),
-	recentClients: d.text(),
-	// Per-user display preferences (see ~/lib/preferences).
-	preferences: d.json().$type<UserPreferences>(),
-	lastSeenChangelogMarker: d.text(),
-	blockedEvaluatorNpis: d.json().$type<number[]>(),
-	listFilters: d.json().$type<Record<string, string[]>>(),
-	pinnedList: d.json().$type<PinnedList>(),
-}));
+export const users = createTable(
+	"user",
+	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.varchar({ length: 255 }),
+		email: d.varchar({ length: 255 }).notNull(),
+		emailVerified: d.boolean().notNull().default(false),
+		image: d.varchar({ length: 255 }),
+		savedPlaces: d.json(),
+		permissions: d.json("permissions").$type<PermissionsObject>(),
+		roleId: d.int().references(() => roles.id),
+		archived: d.boolean("archived").notNull().default(false),
+		claimedReportFolder: d.json().$type<{ name: string; id: string }[]>(),
+		maxClaimedReports: d.tinyint(),
+		phoneNumber: d.varchar({ length: 20 }),
+		recentClients: d.text(),
+		// Per-user display preferences (see ~/lib/preferences).
+		preferences: d.json().$type<UserPreferences>(),
+		lastSeenChangelogMarker: d.text(),
+		blockedEvaluatorNpis: d.json().$type<number[]>(),
+		listFilters: d.json().$type<Record<string, string[]>>(),
+		pinnedList: d.json().$type<PinnedList>(),
+		// Last-used table filters (see ~/lib/saved-filters).
+		savedFilters: d.json().$type<SavedFilters>(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
+	}),
+	// Better Auth looks users up by email and assumes there is only one.
+	(t) => [uniqueIndex("user_email_idx").on(t.email)],
+);
 
 export const usersRelations = relations(users, ({ many, one }) => ({
 	accounts: many(accounts),
@@ -1286,28 +1290,33 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	}),
 }));
 
+/** Better Auth account rows: one per linked sign-in provider, holding its OAuth tokens. */
 export const accounts = createTable(
 	"account",
 	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
 		userId: d
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		type: d.varchar({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
-		provider: d.varchar({ length: 255 }).notNull(),
-		providerAccountId: d.varchar({ length: 255 }).notNull(),
-		refresh_token: d.text(),
-		access_token: d.text(),
-		expires_at: d.int(),
-		token_type: d.varchar({ length: 255 }),
+		providerId: d.varchar({ length: 255 }).notNull(),
+		accountId: d.varchar({ length: 255 }).notNull(),
+		refreshToken: d.text(),
+		accessToken: d.text(),
+		accessTokenExpiresAt: d.timestamp(),
+		refreshTokenExpiresAt: d.timestamp(),
 		scope: d.text(),
-		id_token: d.text(),
-		session_state: d.varchar({ length: 255 }),
+		idToken: d.text(),
+		password: d.text(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
 	(t) => [
-		primaryKey({
-			columns: [t.provider, t.providerAccountId],
-		}),
+		uniqueIndex("account_provider_account_idx").on(t.providerId, t.accountId),
 		index("account_user_id_idx").on(t.userId),
 	],
 );
@@ -1337,35 +1346,54 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 	}),
 }));
 
+/** Better Auth session rows. */
 export const sessions = createTable(
 	"session",
 	(d) => ({
-		sessionToken: d.varchar({ length: 255 }).notNull().primaryKey(),
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		token: d.varchar({ length: 255 }).notNull(),
 		userId: d
 			.varchar({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		expires: d.timestamp({ mode: "date" }).notNull(),
-		clientFilters: d.text(),
-		schedulingFilters: d.text(),
-		directoryFilters: d.text(),
-		reportsFilters: d.text(),
+		expiresAt: d.timestamp({ mode: "date" }).notNull(),
+		ipAddress: d.varchar({ length: 255 }),
+		userAgent: d.text(),
+		/** Set on a "view as another user" session: the id of the real signed-in user. */
+		impersonatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
-	(t) => [index("session_user_id_idx").on(t.userId)],
+	(t) => [
+		uniqueIndex("session_token_idx").on(t.token),
+		index("session_user_id_idx").on(t.userId),
+	],
 );
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
-export const verificationTokens = createTable(
-	"verification_token",
+/** Short-lived Better Auth state, such as the OAuth state for a sign-in in progress. */
+export const verifications = createTable(
+	"verification",
 	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
 		identifier: d.varchar({ length: 255 }).notNull(),
-		token: d.varchar({ length: 255 }).notNull(),
-		expires: d.timestamp({ mode: "date" }).notNull(),
+		value: d.text().notNull(),
+		expiresAt: d.timestamp().notNull(),
+		createdAt: d.timestamp().defaultNow().notNull(),
+		updatedAt: d.timestamp().defaultNow().onUpdateNow().notNull(),
 	}),
-	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
+	(t) => [index("verification_identifier_idx").on(t.identifier)],
 );
 
 export const schedulingClients = createTable(
