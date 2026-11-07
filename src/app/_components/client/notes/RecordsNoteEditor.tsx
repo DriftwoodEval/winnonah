@@ -233,6 +233,10 @@ export function RecordsNoteEditor({
 
 	const setRecordRequestHoldUntilMutation =
 		api.externalRecords.setRecordRequestHoldUntil.useMutation({
+			onSuccess: () => {
+				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
+				utils.clients.getOne.invalidate({ value: clientId.toString() });
+			},
 			onError: (error) => handleError(error, "save hold until date"),
 		});
 
