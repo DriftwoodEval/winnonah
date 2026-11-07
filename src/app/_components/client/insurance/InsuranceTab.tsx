@@ -113,6 +113,7 @@ type MedicaidEligibility = {
 	qualCategory: string | null;
 	paymentCategory: string | null;
 	medicaidOrganization: string | null;
+	medicaidProviderId: string | null;
 	organizationInsurance: string | null;
 	medicaidCarrier1: string | null;
 	medicaidCarrier2: string | null;
@@ -345,6 +346,10 @@ function PolicyCard({
 								}
 							/>
 							<InfoRow
+								label="Provider ID"
+								value={medicaidEligibility.medicaidProviderId}
+							/>
+							<InfoRow
 								label="Carrier 1"
 								value={medicaidEligibility.medicaidCarrier1}
 							/>
@@ -401,6 +406,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				qualCategory: client.qualCategory ?? null,
 				paymentCategory: client.paymentCategory ?? null,
 				medicaidOrganization: client.medicaidOrganization ?? null,
+				medicaidProviderId: client.medicaidProviderId ?? null,
 				organizationInsurance: data?.organizationInsurance ?? null,
 				medicaidCarrier1: client.medicaidCarrier1 ?? null,
 				medicaidCarrier2: client.medicaidCarrier2 ?? null,

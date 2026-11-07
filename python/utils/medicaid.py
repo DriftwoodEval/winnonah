@@ -286,8 +286,11 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
     organization = driver.find_elements(
         By.XPATH, "//td[normalize-space()='Organization:']/following-sibling::td[1]"
     )
+    # The page has a second, unrelated "Provider ID:" row outside the response
+    # table (our own requesting provider), so scope to the response table.
     provider_id = driver.find_elements(
-        By.XPATH, "//td[normalize-space()='Provider ID:']/following-sibling::td[1]"
+        By.XPATH,
+        "//table[@id='rspTbl']//td[normalize-space()='Provider ID:']/following-sibling::td[1]",
     )
     carriers = driver.find_elements(
         By.XPATH,
@@ -366,5 +369,12 @@ def preview_medicaid_lookup(client: str) -> None:
         for row in driver.find_elements(By.XPATH, "//tr[count(td)=2]"):
             cells = row.find_elements(By.XPATH, "./td")
             logger.info(f"  {cells[0].text!r}: {cells[1].text!r}")
+        logger.info("Every 'Provider ID:' match, with its enclosing table id:")
+        for cell in driver.find_elements(
+            By.XPATH, "//td[normalize-space()='Provider ID:']/following-sibling::td[1]"
+        ):
+            table = cell.find_elements(By.XPATH, "./ancestor::table[1]")
+            table_id = table[0].get_attribute("id") if table else None
+            logger.info(f"  table={table_id!r}: {cell.text!r}")
     finally:
         logout_medicaid(driver)

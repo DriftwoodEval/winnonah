@@ -13,6 +13,7 @@ Never auto-edit a doc as part of this skill. Report findings; let a human (or a 
 The docs audience is non-technical staff operating the app. "Drift" means the page describes something the user does or sees that the code no longer matches, a renamed button, a changed rule, a removed step. An internal rename that never surfaces to the user is not drift. Don't flag prose for being too plain.
 
 Two exceptions to the non-technical framing:
+
 - Pages under `development/` are for software engineers. Judge them on accuracy the same way, but don't file clarity gaps for assuming engineering knowledge, that's the intended audience.
 - Elsewhere, a technical aside is fine when it's clearly fenced off from the main flow: its own heading (e.g. `## Technical detail`, `## For developers`) or a callout (`> [!NOTE]` / `> [!TIP]` / `> [!IMPORTANT]` / `> [!WARNING]` / `> [!CAUTION]`, rendered by `src/app/docs/_components/Callout.tsx`). Don't flag a well-marked aside as a clarity problem; do flag technical detail that's mixed into the main instructions unmarked. A page with warnings or "only applies if" notes buried in body prose that should be callouts is a clarity gap worth noting.
 

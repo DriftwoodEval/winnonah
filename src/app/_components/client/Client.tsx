@@ -159,6 +159,10 @@ export function Client({
 	// was compared, since the match is an exact string lookup against
 	// insurances/insuranceAliases with no normalization.
 	const insuranceMatchDebug = allInsurances && {
+		providerId: resolveInsuranceShortName(
+			client?.medicaidProviderId ?? null,
+			allInsurances,
+		),
 		org: resolveInsuranceShortName(
 			client?.medicaidOrganization ?? null,
 			allInsurances,
@@ -171,6 +175,11 @@ export function Client({
 			resolveInsuranceShortName(s, allInsurances),
 		),
 	};
+	// The portal Provider ID decides the match when it resolves to an
+	// insurance; otherwise the Organization does.
+	const insuranceMatchPortal = insuranceMatchDebug?.providerId.resolved
+		? insuranceMatchDebug.providerId
+		: insuranceMatchDebug?.org;
 	// Primary and secondary insurance names are resolved through aliases to the
 	// short name ("SH" is Select Health).
 	const hasSelectHealth = getInsuranceShortNamesList(
@@ -473,12 +482,17 @@ export function Client({
 													<PopoverTitle>Insurance match details</PopoverTitle>
 												</PopoverHeader>
 												<p className="text-xs text-muted-foreground">
-													We take the Medicaid portal's organization and the
-													client's insurance on file, resolve each to a known
-													insurance below, then check whether the organization's
-													insurance is one of the on-file insurances.
+													We take the Medicaid portal's provider ID (or its
+													organization) and the client's insurance on file,
+													resolve each to a known insurance below, then check
+													whether the portal's insurance is one of the on-file
+													insurances.
 												</p>
 												<div className="space-y-2 text-xs">
+													<InsuranceMatchDebugRow
+														entry={insuranceMatchDebug.providerId}
+														label="Medicaid portal says provider ID is"
+													/>
 													<InsuranceMatchDebugRow
 														entry={insuranceMatchDebug.org}
 														label="Medicaid portal says organization is"
@@ -500,13 +514,13 @@ export function Client({
 													))}
 												</div>
 												<p className="border-t pt-2 text-xs">
-													{insuranceMatchDebug.org.shortName &&
-													!insuranceMatchDebug.org.resolved ? (
+													{insuranceMatchPortal?.shortName &&
+													!insuranceMatchPortal?.resolved ? (
 														<>
 															<span className="font-medium">Can't check:</span>{" "}
 															no insurance record or alias matches the Medicaid
-															organization string above. Add it as an alias on
-															the right insurance to fix this.
+															provider ID or organization above. Add it as an
+															alias on the right insurance to fix this.
 														</>
 													) : (
 														<>
@@ -514,7 +528,7 @@ export function Client({
 																Doesn't match:
 															</span>{" "}
 															<span className="font-mono">
-																{insuranceMatchDebug.org.shortName}
+																{insuranceMatchPortal?.shortName}
 															</span>{" "}
 															isn't one of the insurances on file above. Either
 															the client's insurance on file is wrong, or these

@@ -42,6 +42,7 @@ This applies to the Python suite (`uv run pytest` under `python/`) and any TS un
 ## Home Page Widgets
 
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
+
 1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/layout/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
 2. Build the component (no props, fetches its own data via tRPC) in `src/app/_components/home/`. For compact list/table widgets with day-navigation, reuse `WidgetShell`, `DayNav`, `useSelectedDate`, `todayStr` exported from `DayAheadWidgets.tsx`.
 3. Add a dispatch branch in `HomePageContent.tsx`'s `w.id === "..."` chain.
@@ -70,6 +71,7 @@ Columns defined with `d.date({ mode: "string" })` (e.g. `dob`, `precertExpires`,
 ### True-instant (timestamp) columns and business timezone
 
 Columns defined with `d.timestamp()` (e.g. `startTime`, `endTime`, `confirmedAt`, `sentAt`, `createdAt`) are genuine UTC instants, both in the DB and as read via `mysql2` (pool configured with `timezone: "Z"` in `src/server/db/index.ts`). The practice's timezone is `BUSINESS_TIMEZONE` in `src/lib/constants.ts` ("America/New_York"), also defined once for Python in the shared `driftwood-common` package (`python/common`), which both this repo and `questionnaires` import, and exposed to the `questionnaires` repo via the `business_timezone` field on the shared config (`py-config` API). Never hardcode a timezone string, and never treat these columns as if they were already business-local: convert explicitly.
+
 - Display: `formatInBusinessTime(date, pattern)` (wraps `date-fns-tz`'s `formatInTimeZone`) or `formatShortInstantDate`/`getLocalDayFromUTCDate`.
 - Calendar/grid math needing numeric hour/day getters: `toBusinessZonedTime(date)`, whose local getters (`.getHours()`, `.getDate()`, etc.) reflect business time regardless of the server/browser's own timezone.
 - Constructing a UTC instant from business-local wall-clock input (e.g. a day-boundary query): `date-fns-tz`'s `fromZonedTime(dateString, BUSINESS_TIMEZONE)` (see `getDayAhead` in `src/server/api/routers/scheduling/appointments.ts`).
