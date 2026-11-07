@@ -4,6 +4,7 @@ import { sendGmailAsUser } from "~/lib/integrations/gmail";
 import {
 	addJiraAttachments,
 	createJiraIssue,
+	getJiraIssueUrl,
 	getJiraStatus,
 } from "~/lib/integrations/jira";
 import { logger } from "~/lib/logger";
@@ -38,6 +39,48 @@ async function loadScreenshots(reportId: number) {
 	}));
 }
 
+// Checked in order: Edge and Opera also contain "Chrome", and Chrome also contains "Safari".
+const BROWSER_PATTERNS = [
+	{ name: "Edge", pattern: /Edg(?:e|A|iOS)?\/(\d+)/ },
+	{ name: "Opera", pattern: /OPR\/(\d+)/ },
+	{ name: "Firefox", pattern: /(?:Firefox|FxiOS)\/(\d+)/ },
+	{ name: "Chrome", pattern: /(?:Chrome|CriOS)\/(\d+)/ },
+	{ name: "Safari", pattern: /Version\/(\d+).*Safari/ },
+];
+
+/** Reduces a user agent string to e.g. "Chrome 155", or the raw string if unrecognized. */
+function describeBrowser(userAgent: string) {
+	for (const { name, pattern } of BROWSER_PATTERNS) {
+		const version = pattern.exec(userAgent)?.[1];
+		if (version) return `${name} ${version}`;
+	}
+	return userAgent;
+}
+
+/**
+ * The text shared by the Jira description and the email: what the user wrote,
+ * then diagnostics. `leadingLines` go right after the description.
+ */
+function buildReportText(
+	report: IssueReport,
+	screenshots: Awaited<ReturnType<typeof loadScreenshots>>,
+	leadingLines: string[] = [],
+) {
+	return [
+		report.body,
+		"",
+		...leadingLines,
+		...(report.pageUrl ? [`Page: ${report.pageUrl}`] : []),
+		...(report.userAgent
+			? [`Browser: ${describeBrowser(report.userAgent)}`]
+			: []),
+		...screenshots.map(
+			(screenshot, index) => `Screenshot ${index + 1}: ${screenshot.pageUrl}`,
+		),
+		...(report.recentErrors ? ["", "Recent errors:", report.recentErrors] : []),
+	].join("\n");
+}
+
 /** Creates the Jira ticket if needed. Returns false when it should be retried later. */
 async function ensureJiraTicket(
 	report: IssueReport,
@@ -48,15 +91,11 @@ async function ensureJiraTicket(
 	const reporter = await db.query.users.findFirst({
 		where: eq(users.id, report.reporterUserId),
 	});
-	const pageLines = [
-		report.pageUrl && `Page: ${report.pageUrl}`,
-		report.userAgent && `Browser: ${report.userAgent}`,
-	].filter(Boolean);
 	try {
 		const key = await createJiraIssue({
 			type: report.type,
 			summary: report.subject,
-			description: [...pageLines, "", report.body].join("\n"),
+			description: buildReportText(report, screenshots),
 			priority: report.priority,
 			// The Jira field is a label, which cannot contain spaces.
 			reporter:
@@ -95,9 +134,6 @@ async function sendReportEmail(
 		where: eq(accounts.userId, report.reporterUserId),
 	});
 	const subjectSuffix = report.jiraKey ? ` [${report.jiraKey}]` : "";
-	const pageLines = screenshots.map(
-		(screenshot, index) => `Screenshot ${index + 1}: ${screenshot.pageUrl}`,
-	);
 	await sendGmailAsUser(
 		{
 			accessToken: account?.access_token,
@@ -107,12 +143,11 @@ async function sendReportEmail(
 			to: ISSUE_REPORT_EMAIL,
 			cc: report.ccEmails,
 			subject: `${report.subject}${subjectSuffix}`,
-			text: [
-				...(report.pageUrl ? [`Page: ${report.pageUrl}`] : []),
-				...pageLines,
-				"",
-				report.body,
-			].join("\n"),
+			text: buildReportText(
+				report,
+				screenshots,
+				report.jiraKey ? [`Jira: ${getJiraIssueUrl(report.jiraKey)}`] : [],
+			),
 			attachments: screenshots,
 		},
 	);

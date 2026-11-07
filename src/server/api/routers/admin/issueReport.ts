@@ -91,6 +91,7 @@ export const issueReportRouter = createTRPCRouter({
 					priority: input.priority,
 					pageUrl: input.pageUrl,
 					userAgent: input.userAgent,
+					recentErrors: input.recentErrors,
 					ccEmails: ccEmails.map((email) => email.toLowerCase()),
 				});
 				if (input.screenshots.length > 0) {

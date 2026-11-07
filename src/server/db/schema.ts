@@ -2102,6 +2102,7 @@ export const issueReports = createTable(
 			.default("Medium"),
 		pageUrl: d.varchar({ length: 2000 }),
 		userAgent: d.varchar({ length: 500 }),
+		recentErrors: d.text(),
 		ccEmails: d.json().$type<string[]>().notNull(),
 		jiraKey: d.varchar({ length: 32 }),
 		jiraStatus: d.varchar({ length: 100 }),

@@ -25,6 +25,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { getRecentErrors } from "~/lib/client-error-log";
 import { cn } from "~/lib/utils";
 import {
 	ISSUE_REPORT_PRIORITIES,
@@ -125,6 +126,7 @@ export function IssueReportDialog({
 				priority: form.priority,
 				pageUrl: images[0]?.pageUrl ?? window.location.href,
 				userAgent: navigator.userAgent.slice(0, 500),
+				recentErrors: getRecentErrors(),
 				subject: form.subject,
 				body: form.body,
 				ccEmails: form.ccEmails,

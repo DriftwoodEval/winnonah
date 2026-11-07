@@ -265,6 +265,7 @@ export const issueReportSubmissionSchema = z
 		priority: z.enum(ISSUE_REPORT_PRIORITIES),
 		pageUrl: z.string().max(2000).optional(),
 		userAgent: z.string().max(500).optional(),
+		recentErrors: z.string().max(5000).optional(),
 		ccEmails: z.array(z.string()).max(50),
 		screenshots: z
 			.array(

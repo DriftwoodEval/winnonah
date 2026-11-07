@@ -54,6 +54,11 @@ function toDocument(text: string) {
 	};
 }
 
+/** The browser URL of an issue, given its key (e.g. "WIN-123"). */
+export function getJiraIssueUrl(key: string) {
+	return `${env.JIRA_BASE_URL}/browse/${key}`;
+}
+
 /** Creates an issue and returns its key (e.g. "WIN-123"). */
 export async function createJiraIssue(issue: NewIssue) {
 	const response = await jiraFetch("/issue", {

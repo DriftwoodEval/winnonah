@@ -9,9 +9,10 @@ import {
 } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SuperJSON from "superjson";
 
+import { installClientErrorLog } from "~/lib/client-error-log";
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
 
@@ -46,13 +47,23 @@ export type RouterOutputs = inferRouterOutputs<AppRouter>;
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
 	const queryClient = getQueryClient();
 
+	useEffect(installClientErrorLog, []);
+
 	const [trpcClient] = useState(() =>
 		api.createClient({
 			links: [
+				// Failed calls go through console.error, where the issue report's
+				// error log picks them up.
 				loggerLink({
 					enabled: (op) =>
-						process.env.NODE_ENV === "development" ||
-						(op.direction === "down" && op.result instanceof Error),
+						op.direction === "down" && op.result instanceof Error,
+					logger: (op) => {
+						if (op.direction === "down" && op.result instanceof Error) {
+							console.error(
+								`tRPC ${op.type} ${op.path} failed: ${op.result.message}`,
+							);
+						}
+					},
 				}),
 				splitLink({
 					condition: (op) => op.type === "subscription",
