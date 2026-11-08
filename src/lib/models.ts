@@ -21,6 +21,7 @@ export interface ClientWithIssueInfo extends Client {
 	additionalInfo?: string;
 	ddsRequestId?: number;
 	ddsFileId?: string | null;
+	ddsCoverNote?: string | null;
 	initialFailureDate?: Date;
 	referralMessageSentAt?: Date | null;
 }

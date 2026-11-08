@@ -57,6 +57,14 @@ SIGNATURE_SIZE = (100, 27)
 SIGNATURE_DROP = 6
 SIGNATURE_OFFSET_X = 15
 
+# A staff-written note, for requests sent as the cover page alone, sits in a box
+# this far in from the left and right page edges and above the page bottom.
+NOTE_FONT_SIZE = 11
+NOTE_LEFT_MARGIN = 65
+NOTE_RIGHT_MARGIN = 40
+NOTE_BOTTOM_MARGIN = 12
+NOTE_HEIGHT = 90
+
 # The incoming fax is usually a scanned image with no text layer, so labels
 # are found by OCR on a render of the page at this zoom (72 dpi * zoom).
 OCR_ZOOM = 3
@@ -111,10 +119,12 @@ def find_label(page: pymupdf.Page, label: str) -> pymupdf.Rect:
     raise ValueError(f'Could not find "{label}" on the DDS fax')
 
 
-def fill_dds_form(fax_pdf: bytes, signature_png: bytes) -> pymupdf.Document:
-    """Page 2 of the DDS fax alone, with payee name and address filled in and
-    the signature placed. Raises ValueError if the fax has no page 2 or a label
-    is not found."""
+def fill_dds_form(
+    fax_pdf: bytes, signature_png: bytes, note: str | None = None
+) -> pymupdf.Document:
+    """Page 2 of the DDS fax alone, with payee name and address filled in, the
+    signature placed and the note (if any) at the page bottom. Raises ValueError
+    if the fax has no page 2, a label is not found or the note does not fit."""
     doc = pymupdf.open(stream=fax_pdf, filetype="pdf")
     if len(doc) <= FORM_PAGE_INDEX:
         raise ValueError("The DDS fax has no page 2")
@@ -145,23 +155,42 @@ def fill_dds_form(fax_pdf: bytes, signature_png: bytes) -> pymupdf.Document:
         stream=signature_png,
         keep_proportion=True,
     )
+
+    if note:
+        leftover = page.insert_textbox(
+            pymupdf.Rect(
+                NOTE_LEFT_MARGIN,
+                page.rect.height - NOTE_BOTTOM_MARGIN - NOTE_HEIGHT,
+                page.rect.width - NOTE_RIGHT_MARGIN,
+                page.rect.height - NOTE_BOTTOM_MARGIN,
+            ),
+            note,
+            fontsize=NOTE_FONT_SIZE,
+        )
+        if leftover < 0:
+            raise ValueError("The note is too long to fit on the cover page")
     return doc
 
 
 def build_dds_fax_pdf(
-    fax_pdf: bytes, signature_png: bytes, evaluation_pdf: bytes
+    fax_pdf: bytes,
+    signature_png: bytes,
+    evaluation_pdf: bytes | None = None,
+    note: str | None = None,
 ) -> bytes:
-    """Completed page 2 of the DDS fax as page one, followed by the evaluation PDF."""
-    doc = fill_dds_form(fax_pdf, signature_png)
-    with pymupdf.open(stream=evaluation_pdf, filetype="pdf") as evaluation:
-        doc.insert_pdf(evaluation)
+    """Completed page 2 of the DDS fax as page one, with the note (if any) at
+    its bottom, followed by the evaluation PDF (if any)."""
+    doc = fill_dds_form(fax_pdf, signature_png, note)
+    if evaluation_pdf:
+        with pymupdf.open(stream=evaluation_pdf, filetype="pdf") as evaluation:
+            doc.insert_pdf(evaluation)
     pdf_bytes = doc.tobytes()
     doc.close()
     return pdf_bytes
 
 
 _REQUEST_SELECT = f"""
-    SELECT r.id, r.clientId, r.selectedFileId, f.driveFileId AS faxFileId,
+    SELECT r.id, r.clientId, r.selectedFileId, r.coverNote, f.driveFileId AS faxFileId,
            c.firstName, c.lastName
     FROM {TABLE_DDS_FAX_REQUEST} r
     JOIN {TABLE_FAX_CATEGORIZATION} f ON f.id = r.faxCategorizationId
@@ -183,7 +212,8 @@ def get_approved_dds_requests() -> list[dict]:
         cursor.execute(
             f"""
             {_REQUEST_SELECT}
-            WHERE r.status = 'approved' AND r.selectedFileId IS NOT NULL
+            WHERE r.status = 'approved'
+              AND (r.selectedFileId IS NOT NULL OR r.coverNote IS NOT NULL)
             ORDER BY r.decidedAt
             """
         )
@@ -191,12 +221,15 @@ def get_approved_dds_requests() -> list[dict]:
 
 
 def build_request_fax_pdf(request: dict) -> bytes:
-    """The completed fax for a request: the filled form page, then the selected
-    evaluation. This is exactly what gets sent to DDS."""
+    """The completed fax for a request: the filled form page (with the cover
+    note, if any), then the selected evaluation. A request with no selected
+    evaluation is the cover page alone. This is exactly what gets sent to DDS."""
+    evaluation_id = request["selectedFileId"]
     return build_dds_fax_pdf(
         get_file_as_bytes(get_file_by_id(request["faxFileId"])),
         SIGNATURE_PATH.read_bytes(),
-        get_file_as_bytes(get_file_by_id(request["selectedFileId"])),
+        get_file_as_bytes(get_file_by_id(evaluation_id)) if evaluation_id else None,
+        request["coverNote"],
     )
 
 

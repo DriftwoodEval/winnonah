@@ -902,8 +902,12 @@ def preview_dds_request(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     dds_request = get_dds_request(request_id)
-    if not dds_request or not dds_request["selectedFileId"]:
-        raise HTTPException(status_code=404, detail="No PDF selected for this request")
+    if not dds_request or not (
+        dds_request["selectedFileId"] or dds_request["coverNote"]
+    ):
+        raise HTTPException(
+            status_code=404, detail="No PDF or cover note for this request"
+        )
 
     try:
         pdf_bytes = build_request_fax_pdf(dds_request)

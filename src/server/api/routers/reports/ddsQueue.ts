@@ -62,7 +62,26 @@ export const ddsQueueRouter = createTRPCRouter({
 			assertPermission(ctx.session.user, "issues:dds-requests");
 			await ctx.db
 				.update(ddsFaxRequests)
-				.set({ selectedFileId: input.fileId, selectedFileName: input.fileName })
+				.set({
+					selectedFileId: input.fileId,
+					selectedFileName: input.fileName,
+					coverNote: null,
+				})
+				.where(eq(ddsFaxRequests.id, input.id));
+		}),
+
+	/** Sends the cover page alone with this note at its bottom, instead of a PDF. */
+	setCoverNote: protectedProcedure
+		.input(z.object({ id: z.number(), note: z.string().trim().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:dds-requests");
+			await ctx.db
+				.update(ddsFaxRequests)
+				.set({
+					selectedFileId: null,
+					selectedFileName: null,
+					coverNote: input.note,
+				})
 				.where(eq(ddsFaxRequests.id, input.id));
 		}),
 });

@@ -303,7 +303,8 @@ export async function getDdsRequestsList(
 			...getTableColumns(clients),
 			ddsRequestId: ddsFaxRequests.id,
 			ddsFileId: ddsFaxRequests.selectedFileId,
-			additionalInfo: sql<string>`COALESCE(${ddsFaxRequests.selectedFileName}, 'No psychological evaluation found')`,
+			ddsCoverNote: ddsFaxRequests.coverNote,
+			additionalInfo: sql<string>`COALESCE(${ddsFaxRequests.selectedFileName}, IF(${ddsFaxRequests.coverNote} IS NULL, 'No psychological evaluation found', 'Cover page only'))`,
 		})
 		.from(ddsFaxRequests)
 		.innerJoin(clients, eq(clients.id, ddsFaxRequests.clientId))

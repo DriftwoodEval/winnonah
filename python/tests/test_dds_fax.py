@@ -75,3 +75,18 @@ def test_labels_are_found_by_ocr_on_a_scanned_page():
 
     assert rect.x0 == pytest.approx(72, abs=10)
     assert rect.y1 == pytest.approx(100, abs=10)
+
+
+def test_cover_page_alone_with_note():
+    result = pymupdf.open(
+        stream=build_dds_fax_pdf(FAX, _png(), note="No evaluation on file"),
+        filetype="pdf",
+    )
+
+    assert len(result) == 1
+    assert result[0].search_for("No evaluation on file")
+
+
+def test_overlong_note_raises():
+    with pytest.raises(ValueError, match="too long"):
+        build_dds_fax_pdf(FAX, _png(), note="word " * 2000)

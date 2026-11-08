@@ -712,6 +712,8 @@ export const ddsFaxRequests = createTable(
 		clientId: d.int().notNull(),
 		selectedFileId: d.varchar({ length: 255 }),
 		selectedFileName: d.varchar({ length: 255 }),
+		// Staff-written text for a request sent as the cover page alone (no PDF).
+		coverNote: d.text(),
 		status: d.mysqlEnum(DDS_REQUEST_STATUSES).notNull().default("pending"),
 		decidedAt: d.timestamp(),
 		decidedBy: d.varchar({ length: 255 }),
