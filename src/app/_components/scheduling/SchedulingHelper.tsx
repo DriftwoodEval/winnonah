@@ -636,8 +636,6 @@ function SchedulingHelperGrid({
 			};
 		}
 
-		if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
-
 		const availableEvents = dayEvents.filter(
 			(e) =>
 				!e.isUnavailability &&
@@ -656,6 +654,10 @@ function SchedulingHelperGrid({
 			];
 			return { kind: "available", officeLabels };
 		}
+
+		// Partial-day OOO leaves availability behind, so only a day with
+		// nothing left over reads as OOO.
+		if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
 
 		return { kind: "empty" };
 	}
@@ -1273,7 +1275,12 @@ function SchedulingHelperGrid({
 		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
 			eventCoversDay(e, day),
 		);
-		if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
+		const hasAvailability = dayEvents.some(
+			(e) => !e.isUnavailability && !e.isPlanned,
+		);
+		if (!hasAvailability && dayEvents.some((e) => e.isUnavailability)) {
+			return { kind: "ooo" };
+		}
 		const planned = dayEvents.find((e) => e.isPlanned);
 		// A booked day names the offices actually booked; otherwise the planned one.
 		const bookedKeys = [
