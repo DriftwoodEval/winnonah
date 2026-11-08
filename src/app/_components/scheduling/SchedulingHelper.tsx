@@ -208,6 +208,15 @@ function isVirtualOffice(key: string | null | undefined): boolean {
 	return key?.toUpperCase() === "VIRTUAL";
 }
 
+// A day with both kinds of booking leads with the in-person office. The sort
+// is stable, so the original order holds within each kind.
+function nonVirtualFirst<T>(items: T[], keyOf: (item: T) => string | null) {
+	return items.toSorted(
+		(a, b) =>
+			Number(isVirtualOffice(keyOf(a))) - Number(isVirtualOffice(keyOf(b))),
+	);
+}
+
 function eventCoversDay(event: CalendarEvent, day: string): boolean {
 	const dayStart = fromZonedTime(
 		`${day}T00:00:00`,
@@ -601,8 +610,9 @@ function SchedulingHelperGrid({
 	}
 
 	function baseCellStatus(npi: number, day: string): CellKind {
-		const dayBooked = (appointmentsByNpi?.[npi] ?? []).filter(
-			(a) => a.date === day,
+		const dayBooked = nonVirtualFirst(
+			(appointmentsByNpi?.[npi] ?? []).filter((a) => a.date === day),
+			(a) => a.locationKey,
 		);
 		const booked = dayBooked[0];
 		if (booked) {
@@ -613,7 +623,7 @@ function SchedulingHelperGrid({
 					booked.officeName ??
 					officeKeyToLabel.get(booked.locationKey ?? "") ??
 					booked.locationKey ??
-					"Virtual",
+					"Unknown office",
 				locationKey: booked.locationKey,
 				placeholder: booked.placeholder,
 				id: booked.id,
@@ -1001,9 +1011,12 @@ function SchedulingHelperGrid({
 	// Offices the selected evaluator is already booked at that day.
 	const bookedOfficeLabels = useMemo(() => {
 		if (!selectedCell) return [];
-		const keys = (appointmentsByNpi?.[selectedCell.npi] ?? [])
-			.filter((a) => a.date === selectedCell.date)
-			.flatMap((a) => (a.locationKey ? [a.locationKey] : []));
+		const keys = nonVirtualFirst(
+			(appointmentsByNpi?.[selectedCell.npi] ?? []).filter(
+				(a) => a.date === selectedCell.date,
+			),
+			(a) => a.locationKey,
+		).flatMap((a) => (a.locationKey ? [a.locationKey] : []));
 		return [...new Set(keys)].map((k) => officeKeyToLabel.get(k) ?? k);
 	}, [selectedCell, appointmentsByNpi, officeKeyToLabel]);
 
@@ -1285,9 +1298,12 @@ function SchedulingHelperGrid({
 		// A booked day names the offices actually booked; otherwise the planned one.
 		const bookedKeys = [
 			...new Set(
-				(appointmentsByNpi?.[npi] ?? [])
-					.filter((a) => a.date === day && a.locationKey)
-					.map((a) => a.locationKey as string),
+				nonVirtualFirst(
+					(appointmentsByNpi?.[npi] ?? []).filter(
+						(a) => a.date === day && a.locationKey,
+					),
+					(a) => a.locationKey,
+				).map((a) => a.locationKey as string),
 			),
 		];
 		if (bookedKeys.length > 0) {

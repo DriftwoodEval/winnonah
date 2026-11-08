@@ -1451,9 +1451,9 @@ export function classifyAvailabilityEvents(
 	allOffices: { prettyName: string; key: string }[],
 ): CalendarEvent[] {
 	const nameToKeyMap = new Map(
-		allOffices.map((office) => [office.prettyName, office.key]),
+		allOffices.map((office) => [office.prettyName.toLowerCase(), office.key]),
 	);
-	nameToKeyMap.set("Virtual", "VIRTUAL");
+	nameToKeyMap.set("virtual", "VIRTUAL");
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
 	const plannedRegex = new RegExp(`^${PLANNED_OFFICE_TITLE_PREFIX}(.*)`, "i");
@@ -1496,7 +1496,7 @@ export function classifyAvailabilityEvents(
 				if (match?.[1]) {
 					const officeNames = match[1].split(",").map((s) => s.trim());
 					extractedOfficeKeys = officeNames
-						.map((name) => nameToKeyMap.get(name))
+						.map((name) => nameToKeyMap.get(name.toLowerCase()))
 						.filter((key): key is string => key !== undefined);
 				}
 			}

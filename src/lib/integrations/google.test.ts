@@ -26,3 +26,21 @@ describe("classifyReviewColor", () => {
 		expect(classifyReviewColor(null)).toBeNull();
 	});
 });
+
+describe("classifyAvailabilityEvents", () => {
+	const offices = [{ prettyName: "Greenville", key: "greenville" }];
+	const event = (summary: string) => ({
+		id: "e1",
+		summary,
+		start: { dateTime: "2026-11-09T14:00:00Z" },
+		end: { dateTime: "2026-11-09T18:00:00Z" },
+	});
+
+	it("maps Virtual availability to the VIRTUAL key regardless of case", async () => {
+		const { classifyAvailabilityEvents } = await import("./google");
+		for (const title of ["Available - Virtual", "Available - virtual"]) {
+			const [classified] = classifyAvailabilityEvents([event(title)], offices);
+			expect(classified?.officeKeys).toEqual(["VIRTUAL"]);
+		}
+	});
+});
