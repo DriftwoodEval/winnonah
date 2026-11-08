@@ -77,6 +77,8 @@ class TaskHandle:
     def progress(
         self, current: int, total: int | None = None, detail: str | None = None
     ) -> None:
+        self._connection.ping(reconnect=True)
+        self._connection.ping(reconnect=True)
         with self._connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -91,6 +93,7 @@ class TaskHandle:
     def set_summary(self, summary: dict) -> None:
         """Records domain-specific counts (sent, imported, errors by reason,
         etc.) for the run summary shown in the app."""
+        self._connection.ping(reconnect=True)
         with self._connection.cursor() as cursor:
             cursor.execute(
                 f"UPDATE {TABLE_TASK} SET summary = %s WHERE id = %s",
@@ -166,6 +169,7 @@ def track_task(
         try:
             yield TaskHandle(connection, task_id)
         except Exception as e:
+            connection.ping(reconnect=True)
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"""
@@ -178,6 +182,7 @@ def track_task(
             connection.commit()
             raise
         else:
+            connection.ping(reconnect=True)
             with connection.cursor() as cursor:
                 cursor.execute(
                     f"""
@@ -190,6 +195,7 @@ def track_task(
             connection.commit()
     finally:
         if exclusive:
+            connection.ping(reconnect=True)
             with connection.cursor() as cursor:
                 cursor.execute("SELECT RELEASE_LOCK(%s)", (lock_name,))
         connection.close()
