@@ -20,6 +20,9 @@ const log = logger.child({ module: "issue-report-worker" });
 
 // After this many failed Jira attempts the email goes out without a ticket key.
 const MAX_JIRA_ATTEMPTS = 5;
+
+// Shown as the report's status once its Jira ticket has been deleted in Jira.
+const JIRA_DELETED_STATUS = "Deleted";
 // Reports older than this are assumed settled and no longer polled for status.
 const STATUS_SYNC_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -198,9 +201,10 @@ async function syncStatuses() {
 		);
 
 	for (const report of tracked) {
-		if (!report.jiraKey) continue;
+		if (!report.jiraKey || report.jiraStatus === JIRA_DELETED_STATUS) continue;
 		try {
-			const status = await getJiraStatus(report.jiraKey);
+			const status =
+				(await getJiraStatus(report.jiraKey)) ?? JIRA_DELETED_STATUS;
 			if (status !== report.jiraStatus) {
 				await db
 					.update(issueReports)

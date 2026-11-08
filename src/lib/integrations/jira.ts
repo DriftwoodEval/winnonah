@@ -22,7 +22,10 @@ const ISSUE_TYPE_NAMES = { bug: "Bug", feature: "Task" } as const;
 // spaces, so the value must be a single word.
 const REPORTER_FIELD = "customfield_10204";
 
-async function jiraFetch(path: string, init: RequestInit = {}) {
+async function jiraFetch(
+	path: string,
+	{ allowNotFound, ...init }: RequestInit & { allowNotFound?: boolean } = {},
+) {
 	const credentials = Buffer.from(
 		`${env.JIRA_EMAIL}:${env.JIRA_API_TOKEN}`,
 	).toString("base64");
@@ -34,7 +37,7 @@ async function jiraFetch(path: string, init: RequestInit = {}) {
 			...init.headers,
 		},
 	});
-	if (!response.ok) {
+	if (!response.ok && !(allowNotFound && response.status === 404)) {
 		// Jira's error body names the offending field (bad issue type, priority, project).
 		const detail = (await response.text().catch(() => "")).slice(0, 500);
 		throw new Error(`Jira ${path} failed with ${response.status}: ${detail}`);
@@ -99,8 +102,12 @@ export async function addJiraAttachments(
 	});
 }
 
+/** The issue's status name, or null if the issue no longer exists in Jira. */
 export async function getJiraStatus(key: string) {
-	const response = await jiraFetch(`/issue/${key}?fields=status`);
+	const response = await jiraFetch(`/issue/${key}?fields=status`, {
+		allowNotFound: true,
+	});
+	if (response.status === 404) return null;
 	const issue = (await response.json()) as {
 		fields: { status: { name: string } };
 	};
