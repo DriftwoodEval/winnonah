@@ -1,6 +1,7 @@
 "use client";
 
 import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@ui/button";
 import {
 	Select,
@@ -13,6 +14,24 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
+
+/**
+ * The completed fax PDF for a request, cached per selected file so the review
+ * dialog opens instantly once the row has prefetched it. A failed build throws
+ * the service's error message.
+ */
+const ddsPreviewQuery = (
+	requestId: number,
+	fileId: string | null | undefined,
+) => ({
+	queryKey: ["dds-preview", requestId, fileId],
+	staleTime: 10 * 60 * 1000,
+	queryFn: async () => {
+		const res = await fetch(`/api/dds-preview/${requestId}`);
+		if (!res.ok) throw new Error(await res.text());
+		return res.blob();
+	},
+});
 
 export const DDS_REQUESTS_DESCRIPTION =
 	"Disability Determination Services faxes asking for a psychological evaluation. Each row shows the PDF found in the client's Drive folder. Change it if it is the wrong file, then approve or deny.";
@@ -80,16 +99,17 @@ function ChangePdfDialog({
 
 function ApproveDialog({
 	requestId,
+	fileId,
 	onClose,
 	onChangePdf,
 }: {
 	requestId: number;
+	fileId: string | null | undefined;
 	onClose: () => void;
 	onChangePdf: () => void;
 }) {
 	const utils = api.useUtils();
-	const [previewError, setPreviewError] = useState<string>();
-	const [src] = useState(`/api/dds-preview/${requestId}?t=${Date.now()}`);
+	const preview = useQuery(ddsPreviewQuery(requestId, fileId));
 	const approve = api.ddsQueue.decide.useMutation({
 		onSuccess: async () => {
 			await utils.clients.getDdsRequests.invalidate();
@@ -98,22 +118,15 @@ function ApproveDialog({
 		onError: (error) => toast.error(error.message),
 	});
 
-	// A failed fetch would render the error body inside the iframe, so the
-	// response is checked first and the PDF is only embedded when it is good.
+	// A failed build would render the error body inside the iframe, so the PDF
+	// is only embedded once the query has a good blob.
 	const [pdfUrl, setPdfUrl] = useState<string>();
 	useEffect(() => {
-		let objectUrl: string | undefined;
-		fetch(src)
-			.then(async (res) => {
-				if (!res.ok) throw new Error(await res.text());
-				objectUrl = URL.createObjectURL(await res.blob());
-				setPdfUrl(objectUrl);
-			})
-			.catch((error: Error) => setPreviewError(error.message));
-		return () => {
-			if (objectUrl) URL.revokeObjectURL(objectUrl);
-		};
-	}, [src]);
+		if (!preview.data) return;
+		const objectUrl = URL.createObjectURL(preview.data);
+		setPdfUrl(objectUrl);
+		return () => URL.revokeObjectURL(objectUrl);
+	}, [preview.data]);
 
 	return (
 		<ResponsiveDialog
@@ -123,9 +136,9 @@ function ApproveDialog({
 			title="Review the fax before sending"
 		>
 			<div className="flex flex-col gap-3">
-				{previewError ? (
+				{preview.error ? (
 					<div className="flex flex-col items-start gap-2">
-						<p className="text-sm text-destructive">{previewError}</p>
+						<p className="text-sm text-destructive">{preview.error.message}</p>
 						<Button onClick={onChangePdf} size="sm" variant="outline">
 							Choose a PDF
 						</Button>
@@ -166,6 +179,15 @@ export const DdsRequestActions = ({
 	const [changing, setChanging] = useState(false);
 	const [reviewing, setReviewing] = useState(false);
 	const requestId = client.ddsRequestId;
+	const fileId = client.ddsFileId;
+	const queryClient = useQueryClient();
+	// Build the fax in the background once a file is selected so the review
+	// dialog doesn't wait on the sidecar.
+	useEffect(() => {
+		if (requestId !== undefined && fileId) {
+			void queryClient.prefetchQuery(ddsPreviewQuery(requestId, fileId));
+		}
+	}, [queryClient, requestId, fileId]);
 	const decide = api.ddsQueue.decide.useMutation({
 		onSuccess: () => utils.clients.getDdsRequests.invalidate(),
 		onError: (error) => toast.error(error.message),
@@ -190,6 +212,7 @@ export const DdsRequestActions = ({
 			</Button>
 			{reviewing && (
 				<ApproveDialog
+					fileId={fileId}
 					onChangePdf={() => {
 						setReviewing(false);
 						setChanging(true);

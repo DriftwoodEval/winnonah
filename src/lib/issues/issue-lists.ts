@@ -302,6 +302,7 @@ export async function getDdsRequestsList(
 		.select({
 			...getTableColumns(clients),
 			ddsRequestId: ddsFaxRequests.id,
+			ddsFileId: ddsFaxRequests.selectedFileId,
 			additionalInfo: sql<string>`COALESCE(${ddsFaxRequests.selectedFileName}, 'No psychological evaluation found')`,
 		})
 		.from(ddsFaxRequests)
