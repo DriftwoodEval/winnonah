@@ -24,6 +24,7 @@ import {
 	mapInsuranceToShortNames,
 	normalizePhoneNumber,
 	parseDateOnly,
+	reportPaidDate,
 	sanitizeFailureReason,
 	toBusinessZonedTime,
 	toTitleCase,
@@ -83,6 +84,41 @@ describe("hasPermission", () => {
 		expect(
 			hasPermission({ "clients:admin:all": true }, "reports:approve"),
 		).toBe(true);
+	});
+});
+
+describe("reportPaidDate", () => {
+	it.each([
+		[
+			"paid after the writer finished",
+			"2026-11-05",
+			"2026-11-03T15:00:00Z",
+			"2026-11-05",
+		],
+		[
+			"paid the day the writer finished",
+			"2026-11-03",
+			"2026-11-03T15:00:00Z",
+			"2026-11-03",
+		],
+		[
+			"paid before a later report was finished",
+			"2026-10-01",
+			"2026-11-03T15:00:00Z",
+			null,
+		],
+		["writer not finished", "2026-11-05", null, null],
+		["never paid", null, "2026-11-03T15:00:00Z", null],
+		[
+			"finished late evening, business-local day",
+			"2026-11-03",
+			"2026-11-04T02:00:00Z",
+			"2026-11-03",
+		],
+	])("%s", (_name, tracked, completed, expected) => {
+		expect(
+			reportPaidDate(tracked, completed ? new Date(completed) : null),
+		).toBe(expected);
 	});
 });
 

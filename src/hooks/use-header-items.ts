@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { HEADER_ITEM_DEFS, type HeaderItemId } from "~/lib/layout/header-items";
 import type { PermissionId } from "~/lib/types";
+import { canAccessReportsBeta } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
@@ -29,11 +30,7 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 		can("evaluator-dashboard:admin");
 	const canSeeClaimReports =
 		session?.user.maxClaimedReports !== 0 || can("reports:approve");
-	const canSeeReports =
-		(session?.user.maxClaimedReports !== 0 ||
-			can("reports:approve") ||
-			can("reports:billing")) &&
-		can("reports:beta");
+	const canSeeReports = !!session?.user && canAccessReportsBeta(session.user);
 	const { data: canSeeLogins = false } = api.logins.hasAccess.useQuery(
 		undefined,
 		{ enabled: !!session },

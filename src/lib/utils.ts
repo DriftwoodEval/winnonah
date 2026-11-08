@@ -83,8 +83,21 @@ export function hasPermissionOrBabyNetLimited(
 }
 
 /**
+ * The checkbox columns on the Reports page, each guarded by its own permission.
+ */
+export const REPORT_FIELD_PERMISSIONS = {
+	billed: "reports:billed",
+	firstReviewDone: "reports:first-review",
+	secondReviewNeeded: "reports:second-review-needed",
+	secondReviewDone: "reports:second-review-done",
+} as const satisfies Record<string, PermissionId>;
+
+export type ReportField = keyof typeof REPORT_FIELD_PERMISSIONS;
+
+/**
  * Whether a user can see the Reports page: report writers (maxClaimedReports not
- * explicitly zeroed) plus anyone who approves reports or manages report billing.
+ * explicitly zeroed) plus anyone who approves reports or can see everyone's.
+ * Writers only see their own reports; "reports:view-all" lifts that.
  */
 export function canAccessReports(user: {
 	permissions: PermissionsObject;
@@ -93,7 +106,7 @@ export function canAccessReports(user: {
 	return (
 		user.maxClaimedReports !== 0 ||
 		hasPermission(user.permissions, "reports:approve") ||
-		hasPermission(user.permissions, "reports:billing")
+		hasPermission(user.permissions, "reports:view-all")
 	);
 }
 
@@ -110,6 +123,20 @@ export function canAccessReportsBeta(user: {
 	return (
 		canAccessReports(user) && hasPermission(user.permissions, "reports:beta")
 	);
+}
+
+/**
+ * The piecework date that paid this report, or null. Piecework tracking is
+ * recorded per client, so a payment only counts for a report the writer had
+ * finished by that date; a later report for the same client is not paid by it.
+ */
+export function reportPaidDate(
+	trackedDate: string | null,
+	writerCompletedAt: Date | null,
+): string | null {
+	if (!trackedDate || !writerCompletedAt) return null;
+	const completedOn = formatInBusinessTime(writerCompletedAt, "yyyy-MM-dd");
+	return compareDateOnly(completedOn, trackedDate) <= 0 ? trackedDate : null;
 }
 
 /**

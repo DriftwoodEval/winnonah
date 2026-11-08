@@ -41,11 +41,13 @@ import {
 	canApprove,
 	formatReportDate,
 	isBethEvaluator,
+	PaidBadge,
 	type Report,
 	ReportsLegend,
 	StatusBadge,
 	statusLabel,
 	useReportMutations,
+	useReportPermissions,
 	WriterCell,
 	writerDisplay,
 } from "./report-shared";
@@ -60,6 +62,7 @@ interface SavedFilters {
 	secondReview: string[];
 	billed: string[];
 	firstReviewDone: string[];
+	paid: string[];
 }
 
 type FilterKey = keyof SavedFilters;
@@ -78,6 +81,7 @@ const EMPTY_FILTERS: SavedFilters = {
 	secondReview: [],
 	billed: [],
 	firstReviewDone: [],
+	paid: [],
 };
 const FILTER_KEYS = Object.keys(EMPTY_FILTERS) as FilterKey[];
 
@@ -105,6 +109,8 @@ function filterValue(r: Report, key: FilterKey) {
 			return r.secondReviewNeeded ? "Needed" : "Not needed";
 		case "writerDone":
 			return r.writerCompletedAt ? "Yes" : "No";
+		case "paid":
+			return r.paidDate ? "Paid" : "Not paid";
 		default:
 			return r[key] ? "Yes" : "No";
 	}
@@ -113,12 +119,11 @@ function filterValue(r: Report, key: FilterKey) {
 export function ReportsTable({
 	reports,
 	tab,
-	isApprover,
 }: {
 	reports: Report[];
 	tab: "active" | "archived";
-	isApprover: boolean;
 }) {
+	const perms = useReportPermissions();
 	const { data: config } = api.reportQueue.getConfig.useQuery();
 	const secondReview = config?.secondReviewLabel ?? "Second review";
 	// Order matters here: it drives both the header row and each row's cells.
@@ -269,11 +274,20 @@ export function ReportsTable({
 		});
 	}
 
-	const bulkCheckboxFields = [
-		{ field: "writerCompletedAt" as const, label: "Writer done" },
-		...billingFields.map((f) => ({ field: f.key, label: f.label })),
+	const allBulkCheckboxFields = [
+		{
+			field: "writerCompletedAt" as const,
+			label: "Writer done",
+			allowed: perms.editAny,
+		},
+		...billingFields.map((f) => ({
+			field: f.key,
+			label: f.label,
+			allowed: perms.fields[f.key],
+		})),
 	];
-	type BulkCheckboxField = (typeof bulkCheckboxFields)[number]["field"];
+	const bulkCheckboxFields = allBulkCheckboxFields.filter((f) => f.allowed);
+	type BulkCheckboxField = (typeof allBulkCheckboxFields)[number]["field"];
 	type BulkAction =
 		| "approve"
 		| "archive"
@@ -326,7 +340,7 @@ export function ReportsTable({
 						Source
 						{filterButton("source", "Source")}
 					</span>
-					{isApprover && (
+					{perms.canBulk && (
 						<Button
 							onClick={toggleSelectMode}
 							size="sm"
@@ -396,7 +410,7 @@ export function ReportsTable({
 				</div>
 			</div>
 
-			{isApprover && selectMode && (
+			{perms.canBulk && selectMode && (
 				<div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 p-2">
 					<span className="text-sm">
 						{selectedIds.size > 0
@@ -412,53 +426,59 @@ export function ReportsTable({
 					</Button>
 					{someSelected && (
 						<>
-							<Button onClick={() => applyBulkAction("approve")} size="sm">
-								Approve
-							</Button>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button size="sm" variant="outline">
-										Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start" className="w-[26rem] p-2">
-									{bulkCheckboxFields.map((f) => (
-										<div
-											className="flex items-center justify-between gap-4 px-2 py-1.5"
-											key={f.field}
-										>
-											<span className="flex-1 text-sm">{f.label}</span>
-											<div className="flex shrink-0 gap-2">
-												<Button
-													onClick={() =>
-														applyBulkAction({ field: f.field, value: true })
-													}
-													size="sm"
-													variant="outline"
-												>
-													Check
-												</Button>
-												<Button
-													onClick={() =>
-														applyBulkAction({ field: f.field, value: false })
-													}
-													size="sm"
-													variant="ghost"
-												>
-													Uncheck
-												</Button>
+							{perms.approve && (
+								<Button onClick={() => applyBulkAction("approve")} size="sm">
+									Approve
+								</Button>
+							)}
+							{bulkCheckboxFields.length > 0 && (
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button size="sm" variant="outline">
+											Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="w-[26rem] p-2">
+										{bulkCheckboxFields.map((f) => (
+											<div
+												className="flex items-center justify-between gap-4 px-2 py-1.5"
+												key={f.field}
+											>
+												<span className="flex-1 text-sm">{f.label}</span>
+												<div className="flex shrink-0 gap-2">
+													<Button
+														onClick={() =>
+															applyBulkAction({ field: f.field, value: true })
+														}
+														size="sm"
+														variant="outline"
+													>
+														Check
+													</Button>
+													<Button
+														onClick={() =>
+															applyBulkAction({ field: f.field, value: false })
+														}
+														size="sm"
+														variant="ghost"
+													>
+														Uncheck
+													</Button>
+												</div>
 											</div>
-										</div>
-									))}
-								</DropdownMenuContent>
-							</DropdownMenu>
-							<Button
-								onClick={() => applyBulkAction("archive")}
-								size="sm"
-								variant="destructive"
-							>
-								Archive
-							</Button>
+										))}
+									</DropdownMenuContent>
+								</DropdownMenu>
+							)}
+							{perms.approve && (
+								<Button
+									onClick={() => applyBulkAction("archive")}
+									size="sm"
+									variant="destructive"
+								>
+									Archive
+								</Button>
+							)}
 							<Button
 								onClick={() => setSelectedIds(new Set())}
 								size="sm"
@@ -483,6 +503,7 @@ export function ReportsTable({
 						{ key: "status" as const, label: "Status" },
 						{ key: "secondReview" as const, label: secondReview },
 						...otherBillingFields,
+						{ key: "paid" as const, label: "Paid" },
 					].map(({ key, label }) => (
 						<span
 							className="flex items-center gap-0.5 text-xs text-muted-foreground"
@@ -500,7 +521,6 @@ export function ReportsTable({
 					{filteredReports.map((r) => (
 						<ReportCard
 							billingFields={billingFields}
-							isApprover={isApprover}
 							key={r.id}
 							onToggleSelect={() => toggleOne(r.id)}
 							report={r}
@@ -537,13 +557,14 @@ export function ReportsTable({
 								</TableHead>
 								{filterHead("secondReview", secondReview)}
 								{otherBillingFields.map((f) => filterHead(f.key, f.label))}
+								{filterHead("paid", "Paid")}
 								<TableHead className={HEAD_CLASS}>Notes</TableHead>
-								{isApprover && <TableHead className={HEAD_CLASS} />}
+								{perms.approve && <TableHead className={HEAD_CLASS} />}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{filteredReports.map((r) => {
-								const canEditWriting = r.isMine || isApprover;
+								const canEditWriting = r.isMine || perms.editAny;
 								return (
 									<TableRow
 										className={cn(
@@ -649,7 +670,7 @@ export function ReportsTable({
 													selfWritten={r.selfWritten}
 													status={r.status}
 												/>
-												{isApprover && tab === "active" && (
+												{perms.approve && tab === "active" && (
 													<>
 														{canApprove(r) && (
 															<Button
@@ -676,7 +697,7 @@ export function ReportsTable({
 											<div className="flex flex-col gap-1">
 												{secondReviewFields.map((f) => (
 													<div className="flex items-center gap-2" key={f.key}>
-														{r.canEditBilling ? (
+														{perms.fields[f.key] ? (
 															<Checkbox
 																checked={r[f.key]}
 																onCheckedChange={(v) =>
@@ -705,7 +726,7 @@ export function ReportsTable({
 										</TableCell>
 										{otherBillingFields.map((f) => (
 											<TableCell key={f.key}>
-												{r.canEditBilling ? (
+												{perms.fields[f.key] ? (
 													<Checkbox
 														checked={r[f.key]}
 														onCheckedChange={(v) =>
@@ -725,6 +746,13 @@ export function ReportsTable({
 												)}
 											</TableCell>
 										))}
+										<TableCell className="whitespace-nowrap">
+											{r.paidDate ? (
+												<PaidBadge paidDate={r.paidDate} />
+											) : (
+												<span className="text-xs text-muted-foreground">-</span>
+											)}
+										</TableCell>
 										<TableCell>
 											<ReportNoteCell
 												canEdit={canEditWriting}
@@ -732,7 +760,7 @@ export function ReportsTable({
 												reportId={r.id}
 											/>
 										</TableCell>
-										{isApprover && (
+										{perms.approve && (
 											<TableCell className="whitespace-nowrap">
 												{tab === "archived" ? (
 													<Button
