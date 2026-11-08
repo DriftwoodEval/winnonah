@@ -371,6 +371,8 @@ export const schedulingHelperRouter = createTRPCRouter({
 					startTime: appointments.startTime,
 					endTime: appointments.endTime,
 					locationKey: appointments.locationKey,
+					daEval: appointments.daEval,
+					asdAdhd: appointments.asdAdhd,
 					officeName: offices.prettyName,
 					placeholder: appointments.placeholder,
 					clientName: clients.fullName,
@@ -398,6 +400,8 @@ export const schedulingHelperRouter = createTRPCRouter({
 					startTime: Date;
 					endTime: Date;
 					locationKey: string | null;
+					daEval: string | null;
+					asdAdhd: string | null;
 					officeName: string | null;
 					placeholder: boolean;
 					clientName: string | null;
@@ -413,6 +417,8 @@ export const schedulingHelperRouter = createTRPCRouter({
 					startTime: row.startTime,
 					endTime: row.endTime,
 					locationKey: row.locationKey,
+					daEval: row.daEval,
+					asdAdhd: row.asdAdhd,
 					officeName: row.officeName,
 					placeholder: row.placeholder,
 					clientName: row.clientName,

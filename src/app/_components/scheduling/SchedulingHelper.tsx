@@ -2347,7 +2347,13 @@ function SlotPanelFrame({
 				align="start"
 				className="max-h-[calc(100dvh-2rem)] w-96 gap-3 overflow-y-auto p-3"
 				collisionPadding={8}
-				onInteractOutside={(e) => e.preventDefault()}
+				onInteractOutside={(e) => {
+					// Interacting with the calendar grid closes this popover so the
+					// clicked day or slot can open its own. Anything else outside it
+					// (select menus, dialogs) leaves it open.
+					const target = e.target as Element | null;
+					if (!target?.closest("[data-head], [data-col]")) e.preventDefault();
+				}}
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				side="right"
 			>

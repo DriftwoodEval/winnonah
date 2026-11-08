@@ -23,7 +23,6 @@ import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,17 +31,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
-import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
-	type AvailabilityWindow,
 	buildColorMap,
 	CalendarDayView,
 	CalendarMultiDayView,
-	DAY_END,
-	DAY_START,
-	type DateAvailabilityWindow,
 	formatTime,
 } from "./CalendarGrid";
 import { CheckInOutControl } from "./CheckInOutControl";
@@ -59,42 +53,6 @@ import {
 	type RecentMessagesMap,
 } from "./DayAheadShared";
 import { EvaluatorCheckInOutControl } from "./EvaluatorCheckInOutControl";
-
-// ─── Availability backdrop + click-to-schedule helpers ────────────────────────
-
-type RawAvailabilityEvent = {
-	start: Date;
-	end: Date;
-	isUnavailability: boolean;
-	isPlanned: boolean;
-	isAllDay: boolean;
-};
-
-function eventCoversDate(
-	event: RawAvailabilityEvent,
-	dateStr: string,
-): boolean {
-	const dayStart = fromZonedTime(
-		`${dateStr}T00:00:00`,
-		BUSINESS_TIMEZONE,
-	).getTime();
-	const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-	return (
-		new Date(event.start).getTime() < dayEnd &&
-		new Date(event.end).getTime() > dayStart
-	);
-}
-
-function allDayWindowFor(dateStr: string): { start: Date; end: Date } {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return {
-		start: fromZonedTime(
-			`${dateStr}T${pad(DAY_START)}:00:00`,
-			BUSINESS_TIMEZONE,
-		),
-		end: fromZonedTime(`${dateStr}T${pad(DAY_END)}:00:00`, BUSINESS_TIMEZONE),
-	};
-}
 
 type ViewMode = "list" | "day" | "3day" | "week";
 
@@ -488,88 +446,6 @@ export function DayAheadContent() {
 
 	const canSchedule = can("pages:scheduling");
 
-	const evaluatorNpis = useMemo(
-		() => [...new Set((calData ?? []).map((a) => a.evaluatorNpi))],
-		[calData],
-	);
-
-	const { data: availabilityByNpi } =
-		api.schedulingHelper.getAvailability.useQuery(
-			{
-				evaluatorNpis,
-				start: new Date(`${dateRange[0] ?? todayStr}T00:00:00`),
-				end: new Date(`${dateRange.at(-1) ?? todayStr}T23:59:59`),
-			},
-			{
-				enabled: canSchedule && viewMode !== "list" && evaluatorNpis.length > 0,
-			},
-		);
-
-	// Per-evaluator windows for the single-day view (one column per evaluator).
-	const dayAvailability: AvailabilityWindow[] = useMemo(() => {
-		if (viewMode !== "day" || !availabilityByNpi) return [];
-		const windows: AvailabilityWindow[] = [];
-		for (const [npiStr, events] of Object.entries(availabilityByNpi)) {
-			const npi = Number(npiStr);
-			for (const event of events) {
-				if (event.isUnavailability || event.isPlanned) continue;
-				if (!eventCoversDate(event, selectedDate)) continue;
-				const { start, end } = event.isAllDay
-					? allDayWindowFor(selectedDate)
-					: { start: new Date(event.start), end: new Date(event.end) };
-				windows.push({
-					evaluatorNpi: npi,
-					start,
-					end,
-				});
-			}
-		}
-		return windows;
-	}, [viewMode, availabilityByNpi, selectedDate]);
-
-	// Evaluator-merged, per-date windows for the 3-day/week views, which mix
-	// evaluators into shared lanes and can't place one person's slot precisely.
-	const multiDayAvailability: DateAvailabilityWindow[] = useMemo(() => {
-		if (viewMode !== "3day" && viewMode !== "week") return [];
-		if (!availabilityByNpi) return [];
-		const rangesByDate = new Map<string, { start: number; end: number }[]>();
-		for (const events of Object.values(availabilityByNpi)) {
-			for (const event of events) {
-				if (event.isUnavailability || event.isPlanned) continue;
-				for (const d of dateRange) {
-					if (!eventCoversDate(event, d)) continue;
-					const { start, end } = event.isAllDay
-						? allDayWindowFor(d)
-						: { start: new Date(event.start), end: new Date(event.end) };
-					const list = rangesByDate.get(d) ?? [];
-					list.push({ start: start.getTime(), end: end.getTime() });
-					rangesByDate.set(d, list);
-				}
-			}
-		}
-		const result: DateAvailabilityWindow[] = [];
-		for (const [d, ranges] of rangesByDate) {
-			ranges.sort((a, b) => a.start - b.start);
-			const merged: { start: number; end: number }[] = [];
-			for (const range of ranges) {
-				const last = merged.at(-1);
-				if (last && range.start <= last.end) {
-					last.end = Math.max(last.end, range.end);
-				} else {
-					merged.push({ ...range });
-				}
-			}
-			for (const m of merged) {
-				result.push({
-					date: d,
-					start: new Date(m.start),
-					end: new Date(m.end),
-				});
-			}
-		}
-		return result;
-	}, [viewMode, availabilityByNpi, dateRange]);
-
 	function handleDaySlotClick(npi: number, minutesFromMidnight: number) {
 		const time = minutesToTimeString(minutesFromMidnight);
 		router.push(
@@ -696,8 +572,6 @@ export function DayAheadContent() {
 					viewMode === "day" ? (
 						<CalendarDayView
 							appointments={calData}
-							availability={canSchedule ? dayAvailability : undefined}
-							availabilityIntensity="light"
 							canCheckin={canCheckin}
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
@@ -713,7 +587,6 @@ export function DayAheadContent() {
 					) : (
 						<CalendarMultiDayView
 							appointments={calData}
-							availability={canSchedule ? multiDayAvailability : undefined}
 							canCheckin={canCheckin}
 							colorMap={colorMap}
 							dates={dateRange}

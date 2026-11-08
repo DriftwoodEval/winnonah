@@ -1230,7 +1230,6 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             evaluator_npi = None
             gcal_location = None
             gcal_daeval = None
-            promoted_placeholder = False
 
             if gcal_calendar_id:
                 evaluator_npi = npi_cache.get(gcal_calendar_id)
@@ -1259,7 +1258,6 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         )
                     ):
                         gcal_event_title = real_title
-                        promoted_placeholder = True
 
                 gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
                     gcal_event_title
@@ -1367,10 +1365,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
 
             # Drop the placeholder this appointment replaces: the promoted hold's
             # own row, or the closest same-type hold when a real event matched.
+            # Runs on every sync, not just for new rows, so a hold left behind by
+            # an earlier failed cleanup is removed on the next run.
             if (
                 not cancelled
                 and gcal_daeval
-                and (was_new_appointment or promoted_placeholder)
                 and not _is_placeholder_title(gcal_event_title or "")
             ):
                 try:

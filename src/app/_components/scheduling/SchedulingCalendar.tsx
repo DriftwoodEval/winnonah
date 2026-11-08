@@ -352,15 +352,6 @@ export function SchedulingCalendar({
 		});
 	}
 
-	function selectBooked(
-		e: React.PointerEvent<HTMLElement>,
-		npi: number,
-		day: string,
-	) {
-		e.stopPropagation();
-		onSelect(npi, day);
-	}
-
 	const chosenColors = useEvaluatorColors();
 	const colorByNpi = assignColors(
 		evaluators.map((ev) => ev.npi),
@@ -594,7 +585,7 @@ export function SchedulingCalendar({
 													onPointerDown={(e) =>
 														isPlaceholder
 															? startBlockDrag(e, appt, ev.npi, day)
-															: selectBooked(e, ev.npi, day)
+															: e.stopPropagation()
 													}
 													style={{ top: blockTop(appt.startTime), height }}
 												>
@@ -619,6 +610,17 @@ export function SchedulingCalendar({
 													{height >= 36 && (
 														<div className="truncate text-[10px] text-muted-foreground tabular-nums">
 															{timeRangeLabel(appt.startTime, appt.endTime)}
+														</div>
+													)}
+													{height >= 48 && (
+														<div className="truncate text-[10px] text-muted-foreground">
+															{[
+																appt.officeName ?? appt.locationKey,
+																appt.daEval,
+																appt.asdAdhd,
+															]
+																.filter(Boolean)
+																.join(" · ")}
 														</div>
 													)}
 													{isPlaceholder && (

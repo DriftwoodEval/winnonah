@@ -10,6 +10,7 @@ uv run python -m oneoff.remediate_noop_audit_log --apply
 ```
 
 - `remediate_admin_review_rename.py`: rewrite stored permission IDs and list filter keys after the Insurance Review to Admin Review rename.
+- `remediate_duplicate_placeholders.py`: remove placeholder appointments (and their Google Calendar holds) left behind after the real appointment was scheduled.
 - `remediate_noop_audit_log.py`: delete or trim audit log entries whose diff recorded no real change.
 - `remediate_wrong_session_resets.py`: restore clients who were wrongly given a fresh session when reactivated within 12 months.
 - `migrate_drive.py`: copy Shared Drive files owned by an external user into the Shared Drive and replace shortcuts with the real files.
