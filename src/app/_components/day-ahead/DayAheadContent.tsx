@@ -6,11 +6,13 @@ import { Redact } from "@components/redaction/Redact";
 import { EmptyState } from "@components/shared/EmptyState";
 import { ErrorState } from "@components/shared/ErrorState";
 import { Button } from "@ui/button";
+import { Calendar } from "@ui/calendar";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -31,7 +33,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
-import { IS_DEV, minutesToTimeString } from "~/lib/utils";
+import {
+	dateOnlyToLocalDate,
+	IS_DEV,
+	localDateToDateOnly,
+	minutesToTimeString,
+} from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
 	buildColorMap,
@@ -476,6 +483,8 @@ export function DayAheadContent() {
 			{ enabled: phoneNumbers.length > 0 },
 		);
 
+	const [pickerOpen, setPickerOpen] = useState(false);
+
 	function navigate(dir: -1 | 1) {
 		const anchor = new Date(`${selectedDate}T12:00:00`);
 		setSelectedDate(
@@ -502,9 +511,24 @@ export function DayAheadContent() {
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</Button>
-						<h1 className="min-w-44 text-center text-lg font-semibold">
-							{displayDate}
-						</h1>
+						<Popover onOpenChange={setPickerOpen} open={pickerOpen}>
+							<PopoverTrigger asChild>
+								<Button className="w-60 text-lg font-semibold" variant="ghost">
+									<h1>{displayDate}</h1>
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent align="center" className="w-auto p-0">
+								<Calendar
+									mode="single"
+									onSelect={(d) => {
+										if (!d) return;
+										setSelectedDate(localDateToDateOnly(d) ?? selectedDate);
+										setPickerOpen(false);
+									}}
+									selected={dateOnlyToLocalDate(selectedDate)}
+								/>
+							</PopoverContent>
+						</Popover>
 						<Button
 							className="h-7 w-7 max-md:size-10"
 							onClick={() => navigate(1)}
