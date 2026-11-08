@@ -1347,6 +1347,9 @@ function SchedulingHelperGrid({
 		start: Date,
 		end: Date,
 	) {
+		// A placeholder needs a client, so without one an empty-space click does
+		// nothing. The day header still opens the panel for planning an office.
+		if (!effectiveClient) return;
 		if (overlapsBooking(npi, start, end)) {
 			toast.error("Overlaps an existing appointment");
 			return;

@@ -1,11 +1,21 @@
 "use client";
 
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
+import { Button } from "@ui/button";
+import { Input } from "@ui/input";
+import { Popover, PopoverAnchor, PopoverContent } from "@ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { Star, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
 	assignColors,
 	blockHeight,
@@ -163,6 +173,7 @@ export function SchedulingCalendar({
 	onDelete: (appointmentId: string) => void;
 }) {
 	const dragRef = useRef<Drag | null>(null);
+	const [detailId, setDetailId] = useState<string | null>(null);
 	const [, rerender] = useReducer((n: number) => n + 1, 0);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -274,7 +285,7 @@ export function SchedulingCalendar({
 
 			if (!d.appt) return;
 			if (!d.moved) {
-				onSelect(d.npi, d.day);
+				setDetailId(d.appt.id);
 				return;
 			}
 			onMove(
@@ -572,69 +583,96 @@ export function SchedulingCalendar({
 												pendingMove?.appointmentId === appt.id;
 											const height = blockHeight(appt.startTime, appt.endTime);
 											return (
-												<div
-													className={cn(
-														"group absolute inset-x-0.5 overflow-hidden rounded-sm border px-1 py-0.5 text-[11px] leading-tight shadow-sm",
-														isPlaceholder
-															? "cursor-grab border-2 border-dashed border-warning bg-warning/15 active:cursor-grabbing dark:bg-warning/25"
-															: `border-l-4 ${colorByNpi.get(ev.npi) ?? ""}`,
-														beingDragged && "pointer-events-none opacity-40",
-													)}
-													data-block
+												<Popover
 													key={appt.id}
-													onPointerDown={(e) =>
-														isPlaceholder
-															? startBlockDrag(e, appt, ev.npi, day)
-															: e.stopPropagation()
-													}
-													style={{ top: blockTop(appt.startTime), height }}
+													onOpenChange={(open) => !open && setDetailId(null)}
+													open={detailId === appt.id}
 												>
-													<div className="truncate font-medium">
-														{appt.clientHash ? (
-															<Link
-																className="hover:underline"
-																href={`/clients/${appt.clientHash}`}
-																onPointerDown={(e) => e.stopPropagation()}
-																target="_blank"
-															>
-																<ClientHoverCard clientHash={appt.clientHash}>
-																	<Redact>{appt.clientName}</Redact>
-																</ClientHoverCard>
-															</Link>
-														) : (
-															<Redact>
-																{appt.clientName ?? "Appointment"}
-															</Redact>
-														)}
-													</div>
-													{height >= 36 && (
-														<div className="truncate text-[10px] text-muted-foreground tabular-nums">
-															{timeRangeLabel(appt.startTime, appt.endTime)}
-														</div>
-													)}
-													{height >= 48 && (
-														<div className="truncate text-[10px] text-muted-foreground">
-															{[
-																appt.officeName ?? appt.locationKey,
-																appt.daEval,
-																appt.asdAdhd,
-															]
-																.filter(Boolean)
-																.join(" · ")}
-														</div>
-													)}
-													{isPlaceholder && (
-														<button
-															aria-label="Delete placeholder"
-															className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-destructive"
-															onClick={() => onDelete(appt.id)}
-															onPointerDown={(e) => e.stopPropagation()}
-															type="button"
+													<PopoverAnchor asChild>
+														<div
+															className={cn(
+																"group absolute inset-x-0.5 overflow-hidden rounded-sm border px-1 py-0.5 text-[11px] leading-tight shadow-sm",
+																isPlaceholder
+																	? "cursor-grab border-2 border-dashed border-warning bg-warning/15 active:cursor-grabbing dark:bg-warning/25"
+																	: `border-l-4 ${colorByNpi.get(ev.npi) ?? ""}`,
+																beingDragged &&
+																	"pointer-events-none opacity-40",
+															)}
+															data-block
+															onPointerDown={(e) =>
+																isPlaceholder
+																	? startBlockDrag(e, appt, ev.npi, day)
+																	: e.stopPropagation()
+															}
+															onPointerUp={() =>
+																!isPlaceholder && setDetailId(appt.id)
+															}
+															style={{ top: blockTop(appt.startTime), height }}
 														>
-															<X className="h-3 w-3" />
-														</button>
-													)}
-												</div>
+															<div className="truncate font-medium">
+																{appt.clientHash ? (
+																	<Link
+																		className="hover:underline"
+																		href={`/clients/${appt.clientHash}`}
+																		onClick={(e) => e.stopPropagation()}
+																		onPointerDown={(e) => e.stopPropagation()}
+																		target="_blank"
+																	>
+																		<ClientHoverCard
+																			clientHash={appt.clientHash}
+																		>
+																			<Redact>{appt.clientName}</Redact>
+																		</ClientHoverCard>
+																	</Link>
+																) : (
+																	<Redact>
+																		{appt.clientName ?? "Appointment"}
+																	</Redact>
+																)}
+															</div>
+															{height >= 36 && (
+																<div className="truncate text-[10px] text-muted-foreground tabular-nums">
+																	{timeRangeLabel(appt.startTime, appt.endTime)}
+																</div>
+															)}
+															{height >= 48 && (
+																<div className="truncate text-[10px] text-muted-foreground">
+																	{[
+																		appt.officeName ?? appt.locationKey,
+																		appt.daEval,
+																		appt.asdAdhd,
+																	]
+																		.filter(Boolean)
+																		.join(" · ")}
+																</div>
+															)}
+															{isPlaceholder && (
+																<button
+																	aria-label="Delete placeholder"
+																	className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-destructive"
+																	onClick={() => onDelete(appt.id)}
+																	onPointerDown={(e) => e.stopPropagation()}
+																	type="button"
+																>
+																	<X className="h-3 w-3" />
+																</button>
+															)}
+														</div>
+													</PopoverAnchor>
+													<PopoverContent
+														onPointerDown={(e) => e.stopPropagation()}
+													>
+														<AppointmentDetails
+															appt={appt}
+															evaluators={evaluators}
+															npi={ev.npi}
+															onSave={(npi, start, end) => {
+																setDetailId(null);
+																onMove(appt, npi, day, start, end);
+															}}
+														/>
+													</PopoverContent>
+												</Popover>
 											);
 										})}
 										{showPreview && preview && (
@@ -712,4 +750,108 @@ function initialsOf(name: string) {
 	const first = preferred ?? words[0] ?? "";
 	const last = words.length > 1 ? (words.at(-1) ?? "") : "";
 	return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+}
+
+// Details for one block. Booked appointments are read only; a placeholder's
+// date, start time and evaluator can be changed, keeping its length. Saving
+// hands the change to onSave, which stages it behind the usual move confirm.
+function AppointmentDetails({
+	appt,
+	evaluators,
+	npi,
+	onSave,
+}: {
+	appt: CalendarBooking;
+	evaluators: { npi: number; providerName: string }[];
+	npi: number;
+	onSave: (npi: number, start: Date, end: Date) => void;
+}) {
+	const [date, setDate] = useState(appt.date);
+	const [time, setTime] = useState(
+		formatInBusinessTime(appt.startTime, "HH:mm"),
+	);
+	const [evaluatorNpi, setEvaluatorNpi] = useState(npi);
+	const evaluatorName =
+		evaluators.find((e) => e.npi === npi)?.providerName ?? "Unknown";
+	const type = [appt.daEval, appt.asdAdhd].filter(Boolean).join(" · ");
+
+	function save() {
+		const [hh = 0, mm = 0] = time.split(":").map(Number);
+		const start = instantAt(date, hh * 60 + mm);
+		const length = appt.endTime.getTime() - appt.startTime.getTime();
+		onSave(evaluatorNpi, start, new Date(start.getTime() + length));
+	}
+
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="font-medium">
+				<Redact>{appt.clientName ?? "Appointment"}</Redact>
+				{appt.placeholder && (
+					<span className="ml-1.5 text-xs text-warning">Placeholder</span>
+				)}
+			</div>
+			{appt.placeholder ? (
+				<>
+					<div className="flex flex-col gap-1 text-xs">
+						Date
+						<Input
+							aria-label="Date"
+							onChange={(e) => setDate(e.target.value)}
+							type="date"
+							value={date}
+						/>
+					</div>
+					<div className="flex flex-col gap-1 text-xs">
+						Start time
+						<Input
+							aria-label="Start time"
+							onChange={(e) => setTime(e.target.value)}
+							step={900}
+							type="time"
+							value={time}
+						/>
+					</div>
+					<div className="flex flex-col gap-1 text-xs">
+						Evaluator
+						<Select
+							onValueChange={(v) => setEvaluatorNpi(Number(v))}
+							value={String(evaluatorNpi)}
+						>
+							<SelectTrigger aria-label="Evaluator">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{evaluators.map((e) => (
+									<SelectItem key={e.npi} value={String(e.npi)}>
+										{e.providerName}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+				</>
+			) : (
+				<>
+					<div className="text-xs text-muted-foreground">
+						{formatInBusinessTime(appt.startTime, "EEE, MMM d")}
+					</div>
+					<div className="text-xs text-muted-foreground">{evaluatorName}</div>
+				</>
+			)}
+			<div className="text-xs text-muted-foreground tabular-nums">
+				{timeRangeLabel(appt.startTime, appt.endTime)}
+			</div>
+			{(appt.officeName ?? appt.locationKey) && (
+				<div className="text-xs text-muted-foreground">
+					{appt.officeName ?? appt.locationKey}
+				</div>
+			)}
+			{type && <div className="text-xs text-muted-foreground">{type}</div>}
+			{appt.placeholder && (
+				<Button onClick={save} size="sm">
+					Save
+				</Button>
+			)}
+		</div>
+	);
 }
