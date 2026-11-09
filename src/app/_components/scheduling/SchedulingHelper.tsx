@@ -741,7 +741,9 @@ function SchedulingHelperGrid({
 	// for this evaluator that day, and shouldn't have your filter silently
 	// switched to match an unrelated appointment (e.g. their existing Virtual
 	// visit shouldn't flip your in-person office filter to Virtual).
+	// A Virtual filter is an explicit choice, so it is never replaced.
 	function resolveOfficeForCell(npi: number, day: string): string | null {
+		if (isVirtualOffice(officeFilter)) return null;
 		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
 			eventCoversDay(e, day),
 		);
