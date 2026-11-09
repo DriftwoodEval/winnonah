@@ -85,7 +85,7 @@ import {
 	slotStarts,
 	type TimeRange,
 } from "~/lib/scheduling-slots";
-import { cn, formatInBusinessTime, IS_DEV } from "~/lib/utils";
+import { cn, formatInBusinessTime, IS_DEV, parseDateOnly } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -149,34 +149,72 @@ function startOfToday(): Date {
 
 type DurationSource =
 	| { kind: "app-default" }
-	| { kind: "evaluator-setting"; key: string };
+	| { kind: "evaluator-setting"; key: string }
+	| { kind: "practice-default"; key: string };
 
-// Looks up an evaluator's configured duration for an appointment type (exact
-// type key, then the first diagnosis-scoped key like "EVAL/ASD/young"), and
-// reports which setting (if any) supplied the value, for display in the UI.
-function durationForTypeWithSource(
+// What decides which duration row applies to a client, same as the work summary.
+type DurationProfile = { dob: string | null; asdAdhd: string | null };
+
+// Duration rows split clients into under 7 ("young") and 7+ ("older"), by age
+// on the appointment day. Both arguments are "YYYY-MM-DD". Unknown dob counts
+// as older.
+function ageGroupOn(dob: string | null, day: string): "young" | "older" {
+	const birth = parseDateOnly(dob);
+	const on = parseDateOnly(day);
+	if (!birth || !on) return "older";
+	const hadBirthday =
+		on.month > birth.month || (on.month === birth.month && on.day >= birth.day);
+	const age = on.year - birth.year - (hadBirthday ? 0 : 1);
+	return age < 7 ? "young" : "older";
+}
+
+// Finds the duration for an appointment type in one settings map. Most specific
+// row wins: diagnosis + age, age only, diagnosis only, type only, then the
+// "default" rows. DA has no age or diagnosis rows.
+function findDuration(
 	durations: Record<string, number> | null | undefined,
 	type: AppointmentType,
+	profile: DurationProfile,
+	day: string,
+): { minutes: number; key: string } | null {
+	if (!durations) return null;
+	const isDA = type === "DA";
+	const diag = profile.asdAdhd === "ASD+ADHD" ? "ASD" : profile.asdAdhd;
+	const age = isDA ? "" : `/${ageGroupOn(profile.dob, day)}`;
+	const base = !isDA && diag ? `${type}/${diag}` : type;
+	const candidates = [
+		...(age ? [`${base}${age}`, `${type}${age}`] : []),
+		base,
+		type,
+		...(age ? [`default${age}`] : []),
+		"default",
+	];
+	const key = candidates.find((k) => typeof durations[k] === "number");
+	return key ? { minutes: durations[key] as number, key } : null;
+}
+
+// Looks up the duration for an appointment type: the evaluator's own setting,
+// then the practice-wide default, then DEFAULT_DURATION_MINUTES. Reports which
+// one supplied the value, for display in the UI.
+function durationForTypeWithSource(
+	durations: Record<string, number> | null | undefined,
+	practiceDefaults: Record<string, number> | null | undefined,
+	type: AppointmentType,
+	profile: DurationProfile,
+	day: string,
 ): { minutes: number; source: DurationSource } {
-	if (!durations) {
+	const own = findDuration(durations, type, profile, day);
+	if (own) {
 		return {
-			minutes: DEFAULT_DURATION_MINUTES,
-			source: { kind: "app-default" },
+			minutes: own.minutes,
+			source: { kind: "evaluator-setting", key: own.key },
 		};
 	}
-	if (typeof durations[type] === "number") {
+	const practice = findDuration(practiceDefaults, type, profile, day);
+	if (practice) {
 		return {
-			minutes: durations[type],
-			source: { kind: "evaluator-setting", key: type },
-		};
-	}
-	const diagnosisKey = Object.keys(durations).find((key) =>
-		key.startsWith(`${type}/`),
-	);
-	if (diagnosisKey && typeof durations[diagnosisKey] === "number") {
-		return {
-			minutes: durations[diagnosisKey],
-			source: { kind: "evaluator-setting", key: diagnosisKey },
+			minutes: practice.minutes,
+			source: { kind: "practice-default", key: practice.key },
 		};
 	}
 	return { minutes: DEFAULT_DURATION_MINUTES, source: { kind: "app-default" } };
@@ -371,6 +409,8 @@ function SchedulingHelperGrid({
 	});
 	const { data: evaluators, isLoading: isLoadingEvaluators } =
 		api.evaluators.getAll.useQuery();
+	const { data: practiceDurations } =
+		api.schedulingHelper.getDurationDefaults.useQuery();
 	const [pendingClient, setPendingClient] = useState<SortedClient | null>(null);
 	const effectiveClient = lockedClient ?? pendingClient;
 	const { data: queueInfo } =
@@ -378,6 +418,12 @@ function SchedulingHelperGrid({
 			{ clientId: effectiveClient?.id ?? 0 },
 			{ enabled: !!effectiveClient },
 		);
+	const dob = queueInfo?.dob ?? null;
+	const asdAdhd = queueInfo?.asdAdhd ?? null;
+	const durationProfile = useMemo<DurationProfile>(
+		() => ({ dob, asdAdhd }),
+		[dob, asdAdhd],
+	);
 
 	const [officeFilter, setOfficeFilter] = useState<string | null>(
 		prefill?.office ?? null,
@@ -570,11 +616,18 @@ function SchedulingHelperGrid({
 		);
 	}
 
-	function durationMsFor(evaluator: Evaluator, type: AppointmentType) {
+	function durationMsFor(
+		evaluator: Evaluator,
+		type: AppointmentType,
+		day: string,
+	) {
 		return (
 			durationForTypeWithSource(
 				evaluator.appointmentDurations as Record<string, number>,
+				practiceDurations,
 				type,
+				durationProfile,
+				day,
 			).minutes * MINUTE_MS
 		);
 	}
@@ -601,7 +654,7 @@ function SchedulingHelperGrid({
 					type,
 					count: countOpenSlots(
 						free,
-						evaluator ? durationMsFor(evaluator, type) : 0,
+						evaluator ? durationMsFor(evaluator, type, day) : 0,
 					),
 				}))
 			: [];
@@ -712,9 +765,18 @@ function SchedulingHelperGrid({
 			durationForTypeWithSource(
 				(selectedEvaluator?.appointmentDurations as Record<string, number>) ??
 					null,
+				practiceDurations,
 				appointmentType,
+				durationProfile,
+				selectedCell?.date ?? "",
 			),
-		[selectedEvaluator, appointmentType],
+		[
+			selectedEvaluator,
+			practiceDurations,
+			appointmentType,
+			durationProfile,
+			selectedCell?.date,
+		],
 	);
 
 	const [durationOverride, setDurationOverride] = useState<number | null>(null);
@@ -798,7 +860,7 @@ function SchedulingHelperGrid({
 		if (!free) return [];
 		return slotStarts(
 			free,
-			durationMsFor(evaluator, appointmentType),
+			durationMsFor(evaluator, appointmentType, day),
 			SLOT_STEP_MINUTES * MINUTE_MS,
 			Date.now(),
 		);
@@ -844,7 +906,8 @@ function SchedulingHelperGrid({
 		setManualTime(formatInBusinessTime(startDate, "HH:mm"));
 		setSelectedSlot({
 			start: startDate,
-			durationMinutes: durationMsFor(evaluator, appointmentType) / MINUTE_MS,
+			durationMinutes:
+				durationMsFor(evaluator, appointmentType, day) / MINUTE_MS,
 		});
 	}
 
@@ -1258,10 +1321,10 @@ function SchedulingHelperGrid({
 		});
 	}
 
-	function defaultDurationMinutesFor(npi: number) {
+	function defaultDurationMinutesFor(npi: number, day: string) {
 		const evaluator = evaluatorByNpi.get(npi);
 		return evaluator
-			? durationMsFor(evaluator, appointmentType) / MINUTE_MS
+			? durationMsFor(evaluator, appointmentType, day) / MINUTE_MS
 			: DEFAULT_DURATION_MINUTES;
 	}
 
@@ -1497,6 +1560,10 @@ function SchedulingHelperGrid({
 					const value = Number(e.target.value);
 					if (Number.isFinite(value) && value > 0) {
 						setDurationOverride(value);
+						// A slot already picked keeps its own copy of the duration.
+						setSelectedSlot((slot) =>
+							slot ? { ...slot, durationMinutes: value } : slot,
+						);
 					}
 				}}
 				step={5}
@@ -1514,7 +1581,9 @@ function SchedulingHelperGrid({
 							? "Manually overridden for this booking."
 							: defaultDuration.source.kind === "evaluator-setting"
 								? `From ${selectedEvaluator?.providerName ?? "this evaluator"}'s "${defaultDuration.source.key}" appointment duration setting.`
-								: `App default - ${selectedEvaluator?.providerName ?? "this evaluator"} has no duration setting for ${appointmentType}.`}
+								: defaultDuration.source.kind === "practice-default"
+									? `From the practice-wide "${defaultDuration.source.key}" duration default.`
+									: `App default - ${selectedEvaluator?.providerName ?? "this evaluator"} has no duration setting for ${appointmentType}.`}
 					</TooltipContent>
 				</Tooltip>
 			</TooltipProvider>

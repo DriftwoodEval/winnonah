@@ -160,7 +160,7 @@ export function SchedulingCalendar({
 		end: Date;
 	} | null;
 	/** Length of a block made by a plain click instead of a drag. */
-	defaultDurationMinutes: (npi: number) => number;
+	defaultDurationMinutes: (npi: number, day: string) => number;
 	onCreate: (npi: number, day: string, start: Date, end: Date) => void;
 	onMove: (
 		appt: CalendarBooking,
@@ -327,7 +327,7 @@ export function SchedulingCalendar({
 			npi,
 			day,
 			startMin: floorSnap(anchorMin),
-			endMin: floorSnap(anchorMin) + defaultDurationMinutes(npi),
+			endMin: floorSnap(anchorMin) + defaultDurationMinutes(npi, day),
 			anchorMin,
 			originX: e.clientX,
 			originY: e.clientY,

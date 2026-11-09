@@ -42,8 +42,14 @@ export const schedulingHelperRouter = createTRPCRouter({
 				where: eq(schedulingClients.clientId, input.clientId),
 				columns: { office: true, evaluator: true, code: true },
 			});
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { dob: true, asdAdhd: true },
+			});
 
 			return {
+				dob: client?.dob ?? null,
+				asdAdhd: client?.asdAdhd ?? null,
 				office: row?.office ?? null,
 				evaluatorNpi: row?.evaluator ?? null,
 				code: row?.code ?? null,
@@ -228,6 +234,14 @@ export const schedulingHelperRouter = createTRPCRouter({
 
 			return rows.map((r) => ({ ...r, isCurrentUser: false }));
 		}),
+
+	// Practice-wide appointment durations (minutes), used when an evaluator has
+	// no duration of their own for a type.
+	getDurationDefaults: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+		const row = await ctx.db.query.workSummaryConfig.findFirst();
+		return (row?.appointmentDurationDefaults ?? {}) as Record<string, number>;
+	}),
 
 	createPlaceholder: protectedProcedure
 		.input(
