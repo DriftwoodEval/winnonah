@@ -225,6 +225,16 @@ def _matches_template(
         return has_prior_sent and not appt.get("confirmedAt")
 
     if template.get("isConfirmedFollowUp"):
+        # An N-day-ahead reminder ("appointment tomorrow") is about calendar days,
+        # not elapsed hours: the appointment must fall at least N business-local
+        # days after today. Otherwise a client who confirms mid-day, with the
+        # appointment inside the 24h window but still today, gets "TOMORROW".
+        # Offsets under 24h (e.g. "today" reminders) have N = 0 and always pass.
+        start = appt.get("startTime")
+        days_ahead = template.get("sendOffsetHours", 0) // 24
+        if days_ahead and start:
+            gap = utc_to_business(start).date() - now_business().date()
+            return gap.days >= days_ahead
         return True
 
     # Standard: only for unconfirmed appointments

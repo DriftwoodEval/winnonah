@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 import pytest
-from driftwood_common.timezone import now_business
+from driftwood_common.timezone import business_to_utc, now_business
 
 from api.appointment_reminders import (
     _compute_age_years,
@@ -218,6 +218,23 @@ class TestMatchesTemplate:
             _matches_template(make_appt(confirmedAt=datetime(2026, 3, 5)), template)
             is True
         )
+
+    def test_day_ahead_follow_up_counts_calendar_days(self):
+        noon = now_business().replace(tzinfo=None, hour=12, minute=0)
+
+        def appt_in_days(days):
+            start = business_to_utc(noon + timedelta(days=days)).replace(tzinfo=None)
+            return make_appt(startTime=start)
+
+        today_tpl = make_template(isConfirmedFollowUp=True, sendOffsetHours=2)
+        tomorrow_tpl = make_template(isConfirmedFollowUp=True, sendOffsetHours=24)
+        two_day_tpl = make_template(isConfirmedFollowUp=True, sendOffsetHours=48)
+
+        assert _matches_template(appt_in_days(0), today_tpl) is True
+        assert _matches_template(appt_in_days(0), tomorrow_tpl) is False
+        assert _matches_template(appt_in_days(1), tomorrow_tpl) is True
+        assert _matches_template(appt_in_days(1), two_day_tpl) is False
+        assert _matches_template(appt_in_days(2), two_day_tpl) is True
 
     def test_standard_template_excludes_confirmed_appointments(self):
         template = make_template(triggerKeyword="Eval")
