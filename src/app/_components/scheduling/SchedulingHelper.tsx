@@ -85,7 +85,13 @@ import {
 	slotStarts,
 	type TimeRange,
 } from "~/lib/scheduling-slots";
-import { cn, formatInBusinessTime, IS_DEV, parseDateOnly } from "~/lib/utils";
+import {
+	cn,
+	formatInBusinessTime,
+	IS_DEV,
+	localDateToDateOnly,
+	parseDateOnly,
+} from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -134,6 +140,7 @@ function addDays(date: Date, days: number): Date {
 }
 
 const HIDDEN_NPIS_KEY = "scheduling-helper-hidden-npis";
+const WEEK_START_KEY = "scheduling-helper-week-start";
 
 // The Sunday on or before today: the grid always shows Sunday-to-Saturday weeks.
 function startOfWeek(): Date {
@@ -450,6 +457,35 @@ function SchedulingHelperGrid({
 	const [view, setView] = useState<"calendar" | "evaluator" | "date">(
 		"calendar",
 	);
+
+	// The visible week is remembered across visits (as its start date, since
+	// offsets shift every week). A deep-linked date wins over the saved week.
+	const [weekRestored, setWeekRestored] = useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: restore once on mount
+	useEffect(() => {
+		try {
+			const saved = localStorage.getItem(WEEK_START_KEY);
+			if (saved && !prefill?.date) {
+				setWeekOffset(Math.max(0, weekOffsetForDate(saved)));
+			}
+		} catch {
+			// Storage unavailable: start on the current week.
+		}
+		setWeekRestored(true);
+	}, []);
+	useEffect(() => {
+		if (!weekRestored) return;
+		try {
+			localStorage.setItem(
+				WEEK_START_KEY,
+				localDateToDateOnly(
+					addDays(startOfWeek(), weekOffset * VISIBLE_DAYS),
+				) ?? "",
+			);
+		} catch {
+			// Storage unavailable: the week just won't persist.
+		}
+	}, [weekOffset, weekRestored]);
 
 	// Evaluators hidden in the calendar view, remembered across visits.
 	const [hiddenNpis, setHiddenNpis] = useState<Set<number>>(new Set());
@@ -2110,6 +2146,7 @@ function SchedulingHelperGrid({
 													<SelectValue placeholder="Choose office" />
 												</SelectTrigger>
 												<SelectContent>
+													<SelectItem value="Virtual">Virtual</SelectItem>
 													{offices
 														?.filter((o) => !o.archived)
 														.map((o) => (
