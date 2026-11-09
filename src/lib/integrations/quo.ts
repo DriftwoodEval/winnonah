@@ -16,6 +16,19 @@ function retryDelayMs(response: Response, attempt: number): number {
 	return 500 * 2 ** attempt + Math.random() * 250;
 }
 
+// Quo allows about 10 requests per second per API key. Request starts are
+// spaced this far apart so bursts (e.g. many day-ahead clients at once) queue
+// instead of hitting 429s. The spacing is per server process.
+const MIN_REQUEST_SPACING_MS = 120;
+let nextSlot = 0;
+
+async function waitForSlot(): Promise<void> {
+	const now = Date.now();
+	const slot = Math.max(now, nextSlot);
+	nextSlot = slot + MIN_REQUEST_SPACING_MS;
+	if (slot > now) await sleep(slot - now);
+}
+
 async function timedFetch(
 	url: string,
 	message: string,
@@ -25,6 +38,7 @@ async function timedFetch(
 	const endpoint = new URL(url).pathname;
 	try {
 		for (let attempt = 0; ; attempt++) {
+			await waitForSlot();
 			const response = await fetch(url, options);
 			if (response.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) {
 				return response;
