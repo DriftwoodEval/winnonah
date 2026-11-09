@@ -2294,78 +2294,6 @@ function SchedulingHelperGrid({
 							</Card>
 						)}
 
-						<AlertDialog
-							onOpenChange={(open) => !open && setPendingMove(null)}
-							open={!!pendingMove}
-						>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>Move this placeholder?</AlertDialogTitle>
-									<AlertDialogDescription>
-										{pendingMove && (
-											<>
-												Move{" "}
-												{pendingMove.clientName ? (
-													<>
-														<Redact>{pendingMove.clientName}</Redact>'s
-														placeholder
-													</>
-												) : (
-													"this placeholder"
-												)}{" "}
-												for {pendingMove.evaluatorName} from{" "}
-												{formatInBusinessTime(
-													pendingMove.oldStart,
-													"MMM d, h:mm a",
-												)}{" "}
-												to{" "}
-												{formatInBusinessTime(
-													pendingMove.newStart,
-													"MMM d, h:mm a",
-												)}
-												–{formatInBusinessTime(pendingMove.newEnd, "h:mm a")}?
-											</>
-										)}
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>Cancel</AlertDialogCancel>
-									<AlertDialogAction onClick={handleConfirmMove}>
-										Move
-									</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-
-						<AlertDialog
-							onOpenChange={(open) => !open && setPendingDeleteId(null)}
-							open={!!pendingDeleteId}
-						>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>Delete this placeholder?</AlertDialogTitle>
-									<AlertDialogDescription>
-										This removes the hold and its calendar event. This can't be
-										undone.
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>Cancel</AlertDialogCancel>
-									<AlertDialogAction
-										onClick={() =>
-											pendingDeleteId &&
-											deletePlaceholder.mutate({
-												appointmentId: pendingDeleteId,
-											})
-										}
-										variant="destructive"
-									>
-										Delete
-									</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-
 						{IS_DEV && (
 							<Collapsible onOpenChange={setShowDebug} open={showDebug}>
 								<CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
@@ -2400,6 +2328,76 @@ function SchedulingHelperGrid({
 						)}
 					</div>
 				)}
+				<AlertDialog
+					onOpenChange={(open) => !open && setPendingMove(null)}
+					open={!!pendingMove}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Move this placeholder?</AlertDialogTitle>
+							<AlertDialogDescription>
+								{pendingMove && (
+									<>
+										Move{" "}
+										{pendingMove.clientName ? (
+											<>
+												<Redact>{pendingMove.clientName}</Redact>'s placeholder
+											</>
+										) : (
+											"this placeholder"
+										)}{" "}
+										for {pendingMove.evaluatorName} from{" "}
+										{formatInBusinessTime(
+											pendingMove.oldStart,
+											"MMM d, h:mm a",
+										)}{" "}
+										to{" "}
+										{formatInBusinessTime(
+											pendingMove.newStart,
+											"MMM d, h:mm a",
+										)}
+										–{formatInBusinessTime(pendingMove.newEnd, "h:mm a")}?
+									</>
+								)}
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogAction onClick={handleConfirmMove}>
+								Move
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+
+				<AlertDialog
+					onOpenChange={(open) => !open && setPendingDeleteId(null)}
+					open={!!pendingDeleteId}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Delete this placeholder?</AlertDialogTitle>
+							<AlertDialogDescription>
+								This removes the hold and its calendar event. This can't be
+								undone.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogAction
+								onClick={() =>
+									pendingDeleteId &&
+									deletePlaceholder.mutate({
+										appointmentId: pendingDeleteId,
+									})
+								}
+								variant="destructive"
+							>
+								Delete
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
 			</div>
 		</div>
 	);
