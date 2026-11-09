@@ -22,35 +22,58 @@ const BLANK_IMAGE =
  * Runs `capture` with every scrolled inner container (such as the scheduling
  * calendar) reset to its top and its children translated by the same amount.
  * The renderer clones nodes without their scroll position, so without this a
- * scrolled container would be captured from its top. The page looks identical
- * while this runs, and the scroll positions are restored afterwards.
+ * scrolled container would be captured from its top. Sticky elements would be
+ * pushed out of view by that shift, so each one is moved back to where it was
+ * on screen. The page looks identical while this runs, and the scroll
+ * positions and inline transforms are restored afterwards.
  */
 async function withScrollFlattened<T>(capture: () => Promise<T>): Promise<T> {
-	const restores: Array<() => void> = [];
-	for (const el of document.body.querySelectorAll<HTMLElement>("*")) {
-		const { scrollTop, scrollLeft } = el;
-		if (scrollTop === 0 && scrollLeft === 0) continue;
-		const children = Array.from(el.children).filter(
-			(child): child is HTMLElement => child instanceof HTMLElement,
-		);
-		const previousTransforms = children.map((child) => child.style.transform);
-		for (const child of children) {
-			child.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px) ${child.style.transform}`;
+	const all = Array.from(document.body.querySelectorAll<HTMLElement>("*"));
+	const scrolled = all.filter(
+		(el) => el.scrollTop !== 0 || el.scrollLeft !== 0,
+	);
+	if (scrolled.length === 0) return capture();
+
+	const sticky = all.filter((el) => getComputedStyle(el).position === "sticky");
+	const stickyRects = sticky.map((el) => el.getBoundingClientRect());
+
+	const originalTransforms = new Map<HTMLElement, string>();
+	const shift = (el: HTMLElement, dx: number, dy: number) => {
+		if (!originalTransforms.has(el)) {
+			originalTransforms.set(el, el.style.transform);
+		}
+		el.style.transform = `translate(${dx}px, ${dy}px) ${el.style.transform}`;
+	};
+	const originalScrolls = scrolled.map((el) => ({
+		el,
+		top: el.scrollTop,
+		left: el.scrollLeft,
+	}));
+
+	for (const { el, top, left } of originalScrolls) {
+		for (const child of Array.from(el.children)) {
+			if (child instanceof HTMLElement) shift(child, -left, -top);
 		}
 		el.scrollTop = 0;
 		el.scrollLeft = 0;
-		restores.push(() => {
-			children.forEach((child, i) => {
-				child.style.transform = previousTransforms[i] ?? "";
-			});
-			el.scrollTop = scrollTop;
-			el.scrollLeft = scrollLeft;
-		});
 	}
+	sticky.forEach((el, i) => {
+		const before = stickyRects[i];
+		if (!before) return;
+		const after = el.getBoundingClientRect();
+		shift(el, before.left - after.left, before.top - after.top);
+	});
+
 	try {
 		return await capture();
 	} finally {
-		for (const restore of restores) restore();
+		for (const [el, transform] of originalTransforms) {
+			el.style.transform = transform;
+		}
+		for (const { el, top, left } of originalScrolls) {
+			el.scrollTop = top;
+			el.scrollLeft = left;
+		}
 	}
 }
 
