@@ -19,6 +19,42 @@ const BLANK_IMAGE =
 	"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 /**
+ * Runs `capture` with every scrolled inner container (such as the scheduling
+ * calendar) reset to its top and its children translated by the same amount.
+ * The renderer clones nodes without their scroll position, so without this a
+ * scrolled container would be captured from its top. The page looks identical
+ * while this runs, and the scroll positions are restored afterwards.
+ */
+async function withScrollFlattened<T>(capture: () => Promise<T>): Promise<T> {
+	const restores: Array<() => void> = [];
+	for (const el of document.body.querySelectorAll<HTMLElement>("*")) {
+		const { scrollTop, scrollLeft } = el;
+		if (scrollTop === 0 && scrollLeft === 0) continue;
+		const children = Array.from(el.children).filter(
+			(child): child is HTMLElement => child instanceof HTMLElement,
+		);
+		const previousTransforms = children.map((child) => child.style.transform);
+		for (const child of children) {
+			child.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px) ${child.style.transform}`;
+		}
+		el.scrollTop = 0;
+		el.scrollLeft = 0;
+		restores.push(() => {
+			children.forEach((child, i) => {
+				child.style.transform = previousTransforms[i] ?? "";
+			});
+			el.scrollTop = scrollTop;
+			el.scrollLeft = scrollLeft;
+		});
+	}
+	try {
+		return await capture();
+	} finally {
+		for (const restore of restores) restore();
+	}
+}
+
+/**
  * Renders the current page to a PNG data URL, or null if it cannot be captured.
  * A failed first attempt is retried without web fonts and with a placeholder for
  * images that fail to load, which are the usual causes of a failed render.
@@ -51,7 +87,7 @@ async function capturePage(): Promise<string | null> {
 	];
 	for (const attempt of attempts) {
 		try {
-			return await toPng(document.body, attempt);
+			return await withScrollFlattened(() => toPng(document.body, attempt));
 		} catch (error) {
 			console.error("Issue report screenshot failed", error);
 		}
