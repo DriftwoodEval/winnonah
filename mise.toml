@@ -135,10 +135,19 @@ ssh -t driftwood@opti "bash -ic 'cd winnonah && source .env && uvx --with harleq
 """
 
 [tasks."db:generate:local"]
-description = "Generate a Drizzle migration, show its SQL, then apply it to the local database after confirmation"
+description = "Generate a Drizzle migration, then apply it to the local database after confirmation"
+run = "pnpm db:generate"
+depends_post = ["db:apply:local"]
+
+[tasks."db:generate:remote"]
+description = "Generate a Drizzle migration, then apply it to the production database after confirmation"
+run = "pnpm db:generate"
+depends_post = ["db:apply:remote"]
+
+[tasks."db:apply:local"]
+description = "Show the newest Drizzle migration, then apply it to the local database after confirmation"
 shell = "bash -c"
 run = """
-pnpm db:generate
 latest="$(ls -t drizzle/*.sql 2>/dev/null | head -1)"
 [ -z "$latest" ] && { echo "No migration files in drizzle/" >&2; exit 1; }
 # Drop the drizzle breakpoint markers so the SQL runs as one script.
@@ -154,11 +163,10 @@ done
 echo "$sql" | docker compose exec -T -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" driftwood-db mysql -uroot "$MYSQL_DATABASE"
 """
 
-[tasks."db:generate:remote"]
-description = "Generate a Drizzle migration, show its SQL, then apply it to the production database over SSH after confirmation"
+[tasks."db:apply:remote"]
+description = "Show the newest Drizzle migration, then apply it to the production database over SSH after confirmation"
 shell = "bash -c"
 run = """
-pnpm db:generate
 latest="$(ls -t drizzle/*.sql 2>/dev/null | head -1)"
 [ -z "$latest" ] && { echo "No migration files in drizzle/" >&2; exit 1; }
 # Drop the drizzle breakpoint markers so the SQL runs as one script.
