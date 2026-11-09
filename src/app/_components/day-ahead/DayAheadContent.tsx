@@ -198,7 +198,7 @@ function EvaluatorRow({
 	isToday: boolean;
 	asDate: string;
 }) {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(true);
 
 	const first = evaluator.appointments[0];
 	const last = evaluator.appointments.at(-1);
@@ -669,42 +669,44 @@ function ListContent({
 
 	return (
 		<>
-			<section>
-				<div className="mb-3 flex items-center gap-3">
-					<h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-						Your Day
-					</h2>
-					{myTimeRange && (
-						<span className="text-xs text-muted-foreground tabular-nums">
-							{myTimeRange}
-						</span>
-					)}
-				</div>
-				<GreeterLine greeter={myGreeter} />
-				{!data.hasEvaluatorAccount ? (
-					<EmptyState
-						compact
-						title="Your account is not linked to an evaluator profile"
-					/>
-				) : data.myAppointments.length === 0 ? (
-					<EmptyState compact title="No appointments scheduled for this day" />
-				) : (
-					<div className="divide-y divide-border">
-						{data.myAppointments.map((appt) => (
-							<AppointmentRow
-								appt={appt}
-								canCheckin={canCheckin}
-								isToday={isToday}
-								key={appt.id}
-								messages={messages}
-								messagesLoading={messagesLoading}
+			{data.hasEvaluatorAccount && (
+				<>
+					<section>
+						<div className="mb-3 flex items-center gap-3">
+							<h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+								Your Day
+							</h2>
+							{myTimeRange && (
+								<span className="text-xs text-muted-foreground tabular-nums">
+									{myTimeRange}
+								</span>
+							)}
+						</div>
+						<GreeterLine greeter={myGreeter} />
+						{data.myAppointments.length === 0 ? (
+							<EmptyState
+								compact
+								title="No appointments scheduled for this day"
 							/>
-						))}
-					</div>
-				)}
-			</section>
+						) : (
+							<div className="divide-y divide-border">
+								{data.myAppointments.map((appt) => (
+									<AppointmentRow
+										appt={appt}
+										canCheckin={canCheckin}
+										isToday={isToday}
+										key={appt.id}
+										messages={messages}
+										messagesLoading={messagesLoading}
+									/>
+								))}
+							</div>
+						)}
+					</section>
 
-			<Separator />
+					<Separator />
+				</>
+			)}
 
 			<section>
 				<h2 className="mb-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase">

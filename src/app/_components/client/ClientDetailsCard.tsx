@@ -193,7 +193,7 @@ export function ClientDetailsCard({
 			)}
 
 			{!truncated && client.contacts.length > 0 && (
-				<div className="w-full">
+				<div>
 					<p className="font-bold">
 						{client.contacts.length === 1 ? "Contact" : "Contacts"}
 					</p>
