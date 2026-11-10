@@ -1,6 +1,7 @@
 // Prints the client IDs on the "Insurance Doesn't Match" issue list as one
 // comma-separated line (IDs only, no names), ready to pass to the Medicaid
-// recheck:
+// recheck. An optional first argument limits the list to mismatches whose
+// Organization resolves to that insurance, e.g. "Blue Choice of SC (Medicaid)".
 //   cd python && uv run python -m cron.main --medicaid --client "$(cd .. && pnpm exec tsx scripts/oneoff/list-insurance-mismatch-ids.ts)"
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
@@ -12,7 +13,11 @@ async function run() {
 	const connection = await mysql.createConnection(env.DATABASE_URL);
 	const db = drizzle(connection, { schema, mode: "default" });
 
-	const mismatches = await getInsuranceMismatchList(db as never);
+	const organization = process.argv[2];
+	const mismatches = (await getInsuranceMismatchList(db as never)).filter(
+		(c) =>
+			!organization || c.additionalInfo === `(Organization: ${organization})`,
+	);
 	console.log(mismatches.map((c) => c.id).join(","));
 
 	await connection.end();
