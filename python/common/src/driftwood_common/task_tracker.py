@@ -78,7 +78,6 @@ class TaskHandle:
         self, current: int, total: int | None = None, detail: str | None = None
     ) -> None:
         self._connection.ping(reconnect=True)
-        self._connection.ping(reconnect=True)
         with self._connection.cursor() as cursor:
             cursor.execute(
                 f"""

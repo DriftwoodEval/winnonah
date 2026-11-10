@@ -38,10 +38,14 @@ class FakeConnection:
         self.next_task_id = next_task_id
         self.executed = []
         self.commits = 0
+        self.pings = []
         self.closed = False
 
     def cursor(self):
         return FakeCursor(self)
+
+    def ping(self, reconnect=False):
+        self.pings.append(reconnect)
 
     def commit(self):
         self.commits += 1
