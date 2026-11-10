@@ -324,6 +324,8 @@ export const schedulingHelperRouter = createTRPCRouter({
 				startTime: z.string(),
 				endTime: z.string(),
 				locationKey: z.string(),
+				// Omitted keeps the placeholder's current type.
+				daEval: z.enum(["EVAL", "DA", "DAEVAL"]).optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -343,6 +345,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 						start_time: input.startTime,
 						end_time: input.endTime,
 						location_key: input.locationKey,
+						da_eval: input.daEval,
 					}),
 				},
 			);
@@ -356,6 +359,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				evaluatorNpi: number;
 				startTime: string;
 				endTime: string;
+				daEval: "EVAL" | "DA" | "DAEVAL";
 				locationKey: string;
 				calendarEventId: string;
 				calendarEventTitle: string;

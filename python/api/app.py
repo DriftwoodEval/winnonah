@@ -168,6 +168,8 @@ class MovePlaceholderAppointmentRequest(BaseModel):
     start_time: datetime
     end_time: datetime
     location_key: str
+    # Keeps the placeholder's current type when omitted.
+    da_eval: DAEvalType | None = None
 
 
 class PlanOfficeRequest(BaseModel):
@@ -1124,9 +1126,8 @@ async def move_placeholder_appointment(
     start_time = business_to_utc(start_time_business)
     end_time = business_to_utc(end_time_business)
 
-    title = build_placeholder_title(
-        client_name, appointment["daEval"], request.location_key
-    )
+    da_eval = request.da_eval or appointment["daEval"]
+    title = build_placeholder_title(client_name, da_eval, request.location_key)
     description = build_placeholder_description(
         appointment["clientId"],
         client_dob,
@@ -1149,7 +1150,7 @@ async def move_placeholder_appointment(
         cpt="",
         start_time=start_time,
         end_time=end_time,
-        da_eval=appointment["daEval"],
+        da_eval=da_eval,
         location=request.location_key,
         gcal_event_id=calendar_event_id,
         gcal_event_title=title,
@@ -1162,6 +1163,7 @@ async def move_placeholder_appointment(
         "evaluatorNpi": request.evaluator_npi,
         "startTime": start_time,
         "endTime": end_time,
+        "daEval": da_eval,
         "locationKey": request.location_key,
         "calendarEventId": calendar_event_id,
         "calendarEventTitle": title,

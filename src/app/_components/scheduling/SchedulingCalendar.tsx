@@ -38,6 +38,12 @@ import type { RouterOutputs } from "~/trpc/react";
 export type CalendarBooking =
 	RouterOutputs["schedulingHelper"]["getEvaluatorAppointmentsInRange"][number][number];
 
+/** Office and type edits made from the details popover, alongside the new time and evaluator. */
+export type PlaceholderChanges = {
+	locationKey: string;
+	daEval: "DA" | "EVAL" | "DAEVAL";
+};
+
 export type CalendarNote = { kind: "ooo" } | { kind: "planned"; label: string };
 /** Marked availability for one evaluator-day, labeled with the office worked. */ export type CalendarWindow =
 	TimeRange & { label: string | null };
@@ -136,6 +142,7 @@ export function SchedulingCalendar({
 	onMove,
 	onSelect,
 	onDelete,
+	offices,
 }: {
 	days: string[];
 	evaluators: { npi: number; providerName: string }[];
@@ -168,9 +175,12 @@ export function SchedulingCalendar({
 		day: string,
 		start: Date,
 		end: Date,
+		changes?: PlaceholderChanges,
 	) => void;
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
+	/** Offices a placeholder can be moved to, besides Virtual. */
+	offices: { key: string; prettyName: string }[];
 }) {
 	const dragRef = useRef<Drag | null>(null);
 	const [detailId, setDetailId] = useState<string | null>(null);
@@ -666,9 +676,10 @@ export function SchedulingCalendar({
 															appt={appt}
 															evaluators={evaluators}
 															npi={ev.npi}
-															onSave={(npi, start, end) => {
+															offices={offices}
+															onSave={(npi, start, end, changes) => {
 																setDetailId(null);
-																onMove(appt, npi, day, start, end);
+																onMove(appt, npi, day, start, end, changes);
 															}}
 														/>
 													</PopoverContent>
@@ -752,34 +763,73 @@ function initialsOf(name: string) {
 	return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
 }
 
+const PLACEHOLDER_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
+
+function minutesOfTime(time: string) {
+	const [hh = 0, mm = 0] = time.split(":").map(Number);
+	return hh * 60 + mm;
+}
+
+function timeFromMinutes(total: number) {
+	const hh = String(Math.floor(total / 60)).padStart(2, "0");
+	const mm = String(total % 60).padStart(2, "0");
+	return `${hh}:${mm}`;
+}
+
 // Details for one block. Booked appointments are read only; a placeholder's
-// date, start time and evaluator can be changed, keeping its length. Saving
-// hands the change to onSave, which stages it behind the usual move confirm.
+// date, times, evaluator, office and type can be changed. Saving hands the
+// change to onSave, which stages it behind the usual move confirm.
 function AppointmentDetails({
 	appt,
 	evaluators,
+	offices,
 	npi,
 	onSave,
 }: {
 	appt: CalendarBooking;
 	evaluators: { npi: number; providerName: string }[];
+	offices: { key: string; prettyName: string }[];
 	npi: number;
-	onSave: (npi: number, start: Date, end: Date) => void;
+	onSave: (
+		npi: number,
+		start: Date,
+		end: Date,
+		changes: PlaceholderChanges,
+	) => void;
 }) {
 	const [date, setDate] = useState(appt.date);
 	const [time, setTime] = useState(
 		formatInBusinessTime(appt.startTime, "HH:mm"),
 	);
+	const [endTime, setEndTime] = useState(
+		formatInBusinessTime(appt.endTime, "HH:mm"),
+	);
 	const [evaluatorNpi, setEvaluatorNpi] = useState(npi);
+	const [locationKey, setLocationKey] = useState(appt.locationKey ?? "");
+	const [daEval, setDaEval] = useState<PlaceholderChanges["daEval"]>(
+		(appt.daEval as PlaceholderChanges["daEval"] | null) ?? "DA",
+	);
 	const evaluatorName =
 		evaluators.find((e) => e.npi === npi)?.providerName ?? "Unknown";
 	const type = [appt.daEval, appt.asdAdhd].filter(Boolean).join(" · ");
 
+	const durationMinutes = minutesOfTime(endTime) - minutesOfTime(time);
+	const isVirtual = locationKey === "Virtual";
+
+	function changeLocation(value: string) {
+		setLocationKey(value);
+		// Virtual visits are always a DA.
+		if (value === "Virtual") setDaEval("DA");
+	}
+
+	function changeDuration(minutes: number) {
+		setEndTime(timeFromMinutes(minutesOfTime(time) + minutes));
+	}
+
 	function save() {
-		const [hh = 0, mm = 0] = time.split(":").map(Number);
-		const start = instantAt(date, hh * 60 + mm);
-		const length = appt.endTime.getTime() - appt.startTime.getTime();
-		onSave(evaluatorNpi, start, new Date(start.getTime() + length));
+		const start = instantAt(date, minutesOfTime(time));
+		const end = instantAt(date, minutesOfTime(endTime));
+		onSave(evaluatorNpi, start, end, { locationKey, daEval });
 	}
 
 	return (
@@ -801,15 +851,47 @@ function AppointmentDetails({
 							value={date}
 						/>
 					</div>
-					<div className="flex flex-col gap-1 text-xs">
-						Start time
-						<Input
-							aria-label="Start time"
-							onChange={(e) => setTime(e.target.value)}
-							step={900}
-							type="time"
-							value={time}
-						/>
+					<div className="grid grid-cols-3 gap-2 text-xs">
+						<div className="flex flex-col gap-1">
+							Start
+							<Input
+								aria-label="Start time"
+								onChange={(e) => {
+									// Moving the start carries the end along, keeping the length.
+									const start = e.target.value;
+									setTime(start);
+									if (start && durationMinutes > 0) {
+										setEndTime(
+											timeFromMinutes(minutesOfTime(start) + durationMinutes),
+										);
+									}
+								}}
+								step={900}
+								type="time"
+								value={time}
+							/>
+						</div>
+						<div className="flex flex-col gap-1">
+							End
+							<Input
+								aria-label="End time"
+								onChange={(e) => setEndTime(e.target.value)}
+								step={900}
+								type="time"
+								value={endTime}
+							/>
+						</div>
+						<div className="flex flex-col gap-1">
+							Minutes
+							<Input
+								aria-label="Duration in minutes"
+								min={5}
+								onChange={(e) => changeDuration(Number(e.target.value))}
+								step={5}
+								type="number"
+								value={durationMinutes}
+							/>
+						</div>
 					</div>
 					<div className="flex flex-col gap-1 text-xs">
 						Evaluator
@@ -829,6 +911,43 @@ function AppointmentDetails({
 							</SelectContent>
 						</Select>
 					</div>
+					<div className="flex flex-col gap-1 text-xs">
+						Office
+						<Select onValueChange={changeLocation} value={locationKey}>
+							<SelectTrigger aria-label="Office">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="Virtual">Virtual</SelectItem>
+								{offices.map((o) => (
+									<SelectItem key={o.key} value={o.key}>
+										{o.prettyName}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="flex flex-col gap-1 text-xs">
+						Type
+						<Select
+							disabled={isVirtual}
+							onValueChange={(v) =>
+								setDaEval(v as PlaceholderChanges["daEval"])
+							}
+							value={daEval}
+						>
+							<SelectTrigger aria-label="Appointment type">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{PLACEHOLDER_TYPES.map((t) => (
+									<SelectItem key={t} value={t}>
+										{t}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 				</>
 			) : (
 				<>
@@ -836,19 +955,19 @@ function AppointmentDetails({
 						{formatInBusinessTime(appt.startTime, "EEE, MMM d")}
 					</div>
 					<div className="text-xs text-muted-foreground">{evaluatorName}</div>
+					<div className="text-xs text-muted-foreground tabular-nums">
+						{timeRangeLabel(appt.startTime, appt.endTime)}
+					</div>
+					{(appt.officeName ?? appt.locationKey) && (
+						<div className="text-xs text-muted-foreground">
+							{appt.officeName ?? appt.locationKey}
+						</div>
+					)}
+					{type && <div className="text-xs text-muted-foreground">{type}</div>}
 				</>
 			)}
-			<div className="text-xs text-muted-foreground tabular-nums">
-				{timeRangeLabel(appt.startTime, appt.endTime)}
-			</div>
-			{(appt.officeName ?? appt.locationKey) && (
-				<div className="text-xs text-muted-foreground">
-					{appt.officeName ?? appt.locationKey}
-				</div>
-			)}
-			{type && <div className="text-xs text-muted-foreground">{type}</div>}
 			{appt.placeholder && (
-				<Button onClick={save} size="sm">
+				<Button disabled={durationMinutes <= 0} onClick={save} size="sm">
 					Save
 				</Button>
 			)}

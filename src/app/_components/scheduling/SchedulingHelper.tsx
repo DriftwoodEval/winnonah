@@ -73,6 +73,7 @@ import {
 	type CalendarBooking,
 	type CalendarNote,
 	type CalendarWindow,
+	type PlaceholderChanges,
 	SchedulingCalendar,
 } from "~/app/_components/scheduling/SchedulingCalendar";
 import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
@@ -1233,6 +1234,8 @@ function SchedulingHelperGrid({
 		evaluatorName: string;
 		evaluatorNpi: number;
 		locationKey: string;
+		// Set by the details popover, which can also change the type.
+		daEval?: AppointmentType;
 		oldStart: Date;
 		newStart: Date;
 		newEnd: Date;
@@ -1487,10 +1490,13 @@ function SchedulingHelperGrid({
 		_day: string,
 		newStart: Date,
 		newEnd: Date,
+		changes?: PlaceholderChanges,
 	) {
 		const unchanged =
 			appt.startTime.getTime() === newStart.getTime() &&
 			appt.endTime.getTime() === newEnd.getTime() &&
+			(changes?.locationKey ?? appt.locationKey) === appt.locationKey &&
+			(changes?.daEval ?? appt.daEval) === appt.daEval &&
 			appointmentsByNpi?.[npi]?.some((a) => a.id === appt.id);
 		if (unchanged) return;
 		if (overlapsBooking(npi, newStart, newEnd, appt.id)) {
@@ -1502,7 +1508,8 @@ function SchedulingHelperGrid({
 			clientName: appt.clientName,
 			evaluatorName: evaluatorByNpi.get(npi)?.providerName ?? "this evaluator",
 			evaluatorNpi: npi,
-			locationKey: appt.locationKey ?? office ?? "",
+			locationKey: changes?.locationKey ?? appt.locationKey ?? office ?? "",
+			daEval: changes?.daEval,
 			oldStart: appt.startTime,
 			newStart,
 			newEnd,
@@ -1517,6 +1524,7 @@ function SchedulingHelperGrid({
 			startTime: toBusinessWallClockString(pendingMove.newStart),
 			endTime: toBusinessWallClockString(pendingMove.newEnd),
 			locationKey: pendingMove.locationKey,
+			daEval: pendingMove.daEval,
 		});
 	}
 
@@ -1901,6 +1909,7 @@ function SchedulingHelperGrid({
 									evaluators={[...eligibleList, ...ineligibleList]}
 									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
+									offices={(offices ?? []).filter((o) => !o.archived)}
 									onChangeWeek={(delta) =>
 										setWeekOffset((w) => Math.max(0, w + delta))
 									}
@@ -2395,7 +2404,17 @@ function SchedulingHelperGrid({
 											pendingMove.newStart,
 											"MMM d, h:mm a",
 										)}
-										–{formatInBusinessTime(pendingMove.newEnd, "h:mm a")}?
+										–{formatInBusinessTime(pendingMove.newEnd, "h:mm a")}
+										{pendingMove.daEval && (
+											<>
+												{" "}
+												(
+												{officeKeyToLabel.get(pendingMove.locationKey) ??
+													pendingMove.locationKey}
+												, {pendingMove.daEval})
+											</>
+										)}
+										?
 									</>
 								)}
 							</AlertDialogDescription>
