@@ -455,6 +455,10 @@ def download_csvs():
     to download; previous copies in temp/input are left in place either way.
     """
     logger.debug("Downloading CSVs from TherapyAppointment")
+    # Only the scratch per-therapist download directory is cleared. temp/input
+    # is left alone so a failed download doesn't wipe out the last successful
+    # files, which are still served for manual download from the admin UI.
+    shutil.rmtree(DOWNLOAD_DIR, ignore_errors=True)
     driver, actions = w.initialize_selenium()
     check_and_login_ta(driver, actions, first_time=True)
     _open_profile(driver)

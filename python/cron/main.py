@@ -1,5 +1,4 @@
 import os
-import shutil
 from collections.abc import Callable
 from datetime import date
 from typing import Annotated, cast
@@ -555,16 +554,6 @@ def main(
     if medicaid_preview:
         utils.medicaid.preview_medicaid_lookup(medicaid_preview)
         return
-
-    trigger_args = [quo, download_only]
-
-    if (any(trigger_args) or not dev_mode) and not import_only:
-        # Only the scratch per-therapist download directory is cleared here.
-        # temp/input is left alone so a failed download doesn't wipe out the
-        # last successfully downloaded files, which are still served for
-        # manual download from the admin UI.
-        logger.debug("Removing temp downloads directory")
-        shutil.rmtree("temp/downloads", ignore_errors=True)
 
     if download_only:
         logger.info("Running download only")
