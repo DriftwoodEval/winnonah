@@ -200,6 +200,11 @@ def _run_medicaid_eligibility_lookup(
                 medicaid_id = client["insuranceNumber"]
                 try:
                     eligibility = search_single_client(driver, medicaid_id)
+                except MedicaidIdMismatchError:
+                    logger.error(
+                        f"Results page for client {client['id']} does not show the searched Medicaid ID, skipping"
+                    )
+                    continue
                 except (NoSuchElementException, TimeoutException):
                     logger.warning(
                         f"Error searching client {medicaid_id}, verifying login and retrying"
@@ -207,6 +212,11 @@ def _run_medicaid_eligibility_lookup(
                     _ensure_logged_in(driver)
                     try:
                         eligibility = search_single_client(driver, medicaid_id)
+                    except MedicaidIdMismatchError:
+                        logger.error(
+                            f"Results page for client {client['id']} does not show the searched Medicaid ID, skipping"
+                        )
+                        continue
                     except (NoSuchElementException, TimeoutException):
                         logger.warning(
                             f"Client {medicaid_id} not found after re-login, marking as checked"
@@ -258,17 +268,33 @@ def _open_query_form(driver: WebDriver, max_attempts: int = 3) -> WebElement:
     return w.find_element(driver, By.NAME, "MedicaidID")
 
 
+class MedicaidIdMismatchError(Exception):
+    """The results page does not show the Medicaid ID that was searched."""
+
+
+def page_shows_medicaid_id(driver: WebDriver, medicaid_id: str) -> bool:
+    """Whether the Medicaid ID appears in the text of the results page."""
+    return medicaid_id in driver.find_element(By.TAG_NAME, "body").text
+
+
 def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | None]:
     """Search for a single client in SC Medicaid Portal and return the scraped fields.
 
     The portal only searches by digits, so any letters in the policy number are dropped.
+    Raises MedicaidIdMismatchError if the results page does not show the ID that
+    was searched, so another beneficiary's data is never stored for this client.
     """
     digits = re.sub(r"\D", "", client_id)
     logger.info(f"Searching for client {digits}")
     _open_query_form(driver).send_keys(digits)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
-    return read_eligibility(driver)
+    eligibility = read_eligibility(driver)
+    if not page_shows_medicaid_id(driver, digits):
+        raise MedicaidIdMismatchError(
+            "Results page does not show the Medicaid ID that was searched"
+        )
+    return eligibility
 
 
 def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
