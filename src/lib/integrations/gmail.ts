@@ -30,8 +30,28 @@ function wrapBase64(base64: string) {
 	return base64.replace(/(.{76})/g, "$1\r\n");
 }
 
+/** Escapes text for use inside an HTML body. */
+function escapeHtml(text: string) {
+	return text
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;");
+}
+
+/** One base64-encoded UTF-8 MIME part. */
+function textPart(boundary: string, subtype: "plain" | "html", body: string) {
+	return [
+		`--${boundary}`,
+		`Content-Type: text/${subtype}; charset="UTF-8"`,
+		"Content-Transfer-Encoding: base64",
+		"",
+		wrapBase64(Buffer.from(body, "utf8").toString("base64")),
+	].join("\r\n");
+}
+
 function buildMime(email: OutgoingEmail) {
 	const boundary = `boundary-${crypto.randomUUID()}`;
+	const altBoundary = `alt-${crypto.randomUUID()}`;
 	const headers = [
 		`To: ${email.to}`,
 		...(email.cc.length > 0 ? [`Cc: ${email.cc.join(", ")}`] : []),
@@ -39,13 +59,18 @@ function buildMime(email: OutgoingEmail) {
 		"MIME-Version: 1.0",
 		`Content-Type: multipart/mixed; boundary="${boundary}"`,
 	];
+	// Gmail re-wraps plain text at about 70 characters, which breaks paragraphs
+	// mid-sentence. The HTML version keeps the lines as written and lets the
+	// reader's window wrap them.
+	const html = `<div style="white-space: pre-wrap">${escapeHtml(email.text)}</div>`;
 	const parts = [
 		[
 			`--${boundary}`,
-			'Content-Type: text/plain; charset="UTF-8"',
-			"Content-Transfer-Encoding: base64",
+			`Content-Type: multipart/alternative; boundary="${altBoundary}"`,
 			"",
-			wrapBase64(Buffer.from(email.text, "utf8").toString("base64")),
+			textPart(altBoundary, "plain", email.text),
+			textPart(altBoundary, "html", html),
+			`--${altBoundary}--`,
 		].join("\r\n"),
 	];
 	for (const { filename, contentType, base64 } of email.attachments ?? []) {

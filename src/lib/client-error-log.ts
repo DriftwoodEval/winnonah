@@ -25,6 +25,10 @@ export function installClientErrorLog() {
 	installed = true;
 
 	window.addEventListener("error", (event) => {
+		// Browsers fire this harmless warning when a resize callback changes
+		// layout again in the same frame (e.g. an animating row in a virtualized
+		// list). It isn't a real failure, so keep it out of issue reports.
+		if (event.message.startsWith("ResizeObserver loop")) return;
 		record(`${event.message} (${event.filename}:${event.lineno})`);
 	});
 	window.addEventListener("unhandledrejection", (event) => {
