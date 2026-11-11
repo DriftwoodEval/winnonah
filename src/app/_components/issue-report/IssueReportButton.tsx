@@ -94,10 +94,15 @@ async function capturePage(): Promise<string | null> {
 		canvasHeight: Math.round(height * (canvasWidth / width)),
 		pixelRatio: 1,
 		backgroundColor: getComputedStyle(document.body).backgroundColor,
-		// The whole body is rendered from its top, so shift it up by the scroll
-		// position to capture what the user currently sees.
+		// The whole body is rendered from its top, so offset it by the scroll
+		// position to capture what the user currently sees. A relative offset is
+		// used instead of a transform because a transform would make the body the
+		// containing block of fixed elements, and open dialogs and their overlays
+		// would be positioned against the page instead of the viewport.
 		style: {
-			transform: `translate(${-window.scrollX}px, ${-window.scrollY}px)`,
+			position: "relative",
+			top: `${-window.scrollY}px`,
+			left: `${-window.scrollX}px`,
 		},
 		// The draft bar is not part of the page being reported.
 		filter: (node: HTMLElement) =>
@@ -149,6 +154,19 @@ function useIsPageBlocked() {
 	}, []);
 
 	return blocked;
+}
+
+/**
+ * Stops pointer presses on the report button from reaching the document, where
+ * an open dialog or popover would treat them as an outside click and close
+ * before the screenshot is taken. The listener sits on the button itself so it
+ * runs before any document-level listener.
+ */
+function keepOverlaysOpen(button: HTMLElement | null) {
+	if (!button) return;
+	const stop = (event: Event) => event.stopPropagation();
+	button.addEventListener("pointerdown", stop);
+	return () => button.removeEventListener("pointerdown", stop);
 }
 
 function readAsDataUrl(file: File) {
@@ -283,8 +301,8 @@ export function IssueReportButton() {
 
 	// Pressing the button must not dismiss an open menu, popover, or dialog, so
 	// the screenshot can include it. Stopping the pointer event keeps Radix from
-	// seeing an outside click, and preventing the mouse down keeps focus where
-	// it was.
+	// seeing an outside click (see keepOverlaysOpen), and preventing the mouse
+	// down keeps focus where it was.
 	//
 	// Hovering the icon also opens a menu of the other report types. The menu is
 	// left out of screenshots and sits above any modal overlay like the button.
@@ -303,7 +321,7 @@ export function IssueReportButton() {
 					disabled={capturing}
 					onClick={startBug}
 					onMouseDown={(event) => event.preventDefault()}
-					onPointerDown={(event) => event.stopPropagation()}
+					ref={keepOverlaysOpen}
 					size="icon"
 					variant="ghost"
 				>
