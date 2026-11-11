@@ -111,6 +111,17 @@ export function IssueReportDialog({
 		});
 	};
 
+	// Lets users paste a screenshot from the clipboard, for pages where the
+	// capture button cannot be reached. Text pastes are left alone.
+	const handlePaste = (event: React.ClipboardEvent) => {
+		const files = Array.from(event.clipboardData.files).filter((file) =>
+			file.type.startsWith("image/"),
+		);
+		if (files.length === 0) return;
+		event.preventDefault();
+		onUploadImages(files);
+	};
+
 	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault();
 		setPreparing(true);
@@ -150,7 +161,10 @@ export function IssueReportDialog({
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-6xl">
+			<DialogContent
+				className="max-h-[95vh] overflow-y-auto sm:max-w-6xl"
+				onPaste={handlePaste}
+			>
 				<form className="grid gap-4" onSubmit={handleSubmit}>
 					<DialogHeader>
 						<DialogTitle>
@@ -193,8 +207,8 @@ export function IssueReportDialog({
 					{needsScreenshot && (
 						<p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
 							A bug report needs at least one image. Use "Add another
-							screenshot" to capture a page, "Upload image" to add your own, or
-							switch to Feature request.
+							screenshot" to capture a page, "Upload image" or paste (Ctrl+V) to
+							add your own, or switch to Feature request.
 						</p>
 					)}
 
