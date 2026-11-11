@@ -72,9 +72,15 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 
 	const { data: claimHistory } = api.adminReview.getClaimHistory.useQuery(
 		{ clientId: client.id },
-		{ enabled: canEdit },
+		{ enabled: canEdit, refetchInterval: 60_000 },
 	);
-	const latestClaim = claimHistory?.[0];
+	// Only describe the latest assignment while it matches the current reviewer,
+	// so the line never contradicts the dropdown.
+	const latestEntry = claimHistory?.[0];
+	const latestClaim =
+		latestEntry?.userEmail === review?.claimedUserEmail
+			? latestEntry
+			: undefined;
 
 	const [localContent, setLocalContent] = useState<JSONContent | string>("");
 

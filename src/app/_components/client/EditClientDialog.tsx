@@ -449,6 +449,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 	const setAdminReviewEnabled = api.adminReview.setEnabled.useMutation({
 		onSuccess: () => {
 			utils.adminReview.getByClientId.invalidate(client.id);
+			utils.adminReview.getClaimHistory.invalidate({ clientId: client.id });
 		},
 		onError: (error) => {
 			toast.error("Failed to update admin review", {
