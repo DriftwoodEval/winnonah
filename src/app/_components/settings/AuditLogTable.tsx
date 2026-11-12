@@ -28,7 +28,7 @@ import {
 import { ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { Fragment, type MouseEvent, useState } from "react";
-import { formatInBusinessTime } from "~/lib/utils";
+import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AuditDetail, actionLabel, summarizeDetail } from "./AuditDetail";
 
@@ -102,16 +102,28 @@ export default function AuditLogTable() {
 			return next;
 		});
 
-	/** Row clicks toggle detail, except clicks on links (the client name) which navigate. */
-	const rowClick = (id: number) => (event: MouseEvent) => {
-		if ((event.target as HTMLElement).closest("a")) return;
-		toggleExpanded(id);
-	};
+	/** Whether opening the row would show anything: recorded detail or a failure message. */
+	const hasDetail = (row: AuditRow) =>
+		(row.detail !== null && row.detail !== undefined) ||
+		(!row.success && !!row.errorMessage);
+
+	/** Click props that make a whole row toggle its detail; clicks on links (the client name) navigate instead. */
+	const rowToggleProps = (row: AuditRow) =>
+		hasDetail(row)
+			? {
+					className: "cursor-pointer",
+					onClick: (event: MouseEvent) => {
+						if ((event.target as HTMLElement).closest("a")) return;
+						toggleExpanded(row.id);
+					},
+				}
+			: {};
 
 	const renderAction = (row: AuditRow) => {
-		const summary = expandedRows.has(row.id)
-			? null
-			: summarizeDetail(row.detail);
+		const summary =
+			expandedRows.has(row.id) || !hasDetail(row)
+				? null
+				: summarizeDetail(row.detail);
 		return (
 			<>
 				<span className="font-medium" title={row.action}>
@@ -135,19 +147,20 @@ export default function AuditLogTable() {
 		</div>
 	);
 
-	const renderToggle = (row: AuditRow) => (
-		<button
-			aria-expanded={expandedRows.has(row.id)}
-			aria-label={`${expandedRows.has(row.id) ? "Hide" : "Show"} detail for ${row.action}`}
-			className="rounded p-1 text-muted-foreground hover:bg-muted"
-			onClick={() => toggleExpanded(row.id)}
-			type="button"
-		>
-			<ChevronRight
-				className={`h-4 w-4 transition-transform ${expandedRows.has(row.id) ? "rotate-90" : ""}`}
-			/>
-		</button>
-	);
+	// The click bubbles to the row's own handler; the button is the keyboard path.
+	const renderToggle = (row: AuditRow) =>
+		hasDetail(row) && (
+			<button
+				aria-expanded={expandedRows.has(row.id)}
+				aria-label={`${expandedRows.has(row.id) ? "Hide" : "Show"} detail for ${row.action}`}
+				className="rounded p-1 text-muted-foreground hover:bg-muted"
+				type="button"
+			>
+				<ChevronRight
+					className={`h-4 w-4 transition-transform ${expandedRows.has(row.id) ? "rotate-90" : ""}`}
+				/>
+			</button>
+		);
 
 	const renderClient = (row: AuditRow) =>
 		row.clientId && row.clientHash ? (
@@ -287,7 +300,7 @@ export default function AuditLogTable() {
 						) : (
 							rows.map((row) => (
 								<Fragment key={row.id}>
-									<TableRow>
+									<TableRow {...rowToggleProps(row)}>
 										<TableCell>{renderToggle(row)}</TableCell>
 										<TableCell className="whitespace-nowrap">
 											{formatTime(row)}
@@ -323,9 +336,12 @@ export default function AuditLogTable() {
 					rows.map((row) => (
 						// biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: the chevron button inside is the keyboard path
 						<div
-							className="cursor-pointer space-y-1.5 rounded-lg border p-3 text-sm"
+							className={cn(
+								"space-y-1.5 rounded-lg border p-3 text-sm",
+								rowToggleProps(row).className,
+							)}
 							key={row.id}
-							onClick={rowClick(row.id)}
+							onClick={rowToggleProps(row).onClick}
 						>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-xs text-muted-foreground">

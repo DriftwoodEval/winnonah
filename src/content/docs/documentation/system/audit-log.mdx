@@ -12,7 +12,7 @@ needsCleanup: true
 - **Which client**: linked automatically when the app can tell an action relates to one, left blank for actions that aren't client-specific (settings changes, role changes, and so on).
 - **Whether it succeeded**, and the error message if it didn't.
 
-Each row shows a plain-language action name and a one-line preview of its details. Click anywhere on a row (other than the client name, which opens the client) to open the full details as a labeled list: for a change, the old value is crossed out next to the new one, and for a list, added items are marked + and removed items are marked −. A failed entry shows its error message when opened.
+Each row shows a plain-language action name and a one-line preview of its details. Click anywhere on a row (other than the client name, which opens the client) to open the full details as a labeled list: for a change, the old value is crossed out next to the new one, and for a list, added items are marked + and removed items are marked −. Rows with nothing extra recorded have no arrow and do not open. A failed entry shows its error message when opened.
 
 Automation also writes entries, shown as "Python script". Those cover calendar events (created, renamed, edited, or deleted, with the reason), an appointment being re-linked to a different calendar event, a client's reply confirming an appointment or stopping reminders, how an incoming fax was categorized, and DDS faxes that were sent.
 
