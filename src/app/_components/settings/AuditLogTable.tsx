@@ -25,11 +25,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { AuditDetail, summarizeDetail } from "./AuditDetail";
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
@@ -48,16 +49,6 @@ function groupActionsByCategory(actionNames: string[]) {
 		byCategory.set(category, names);
 	}
 	return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
-}
-
-function formatDetail(detail: unknown): string | null {
-	if (detail === null || detail === undefined) return null;
-	if (typeof detail === "object") {
-		return Object.entries(detail as Record<string, unknown>)
-			.map(([field, value]) => `${field}: ${JSON.stringify(value)}`)
-			.join(", ");
-	}
-	return JSON.stringify(detail);
 }
 
 export default function AuditLogTable() {
@@ -112,26 +103,45 @@ export default function AuditLogTable() {
 		});
 
 	const renderAction = (row: AuditRow) => {
-		const detail = formatDetail(row.detail);
-		const expanded = expandedRows.has(row.id);
+		const summary = expandedRows.has(row.id)
+			? null
+			: summarizeDetail(row.detail);
 		return (
 			<>
-				<Badge className="max-w-full" variant="outline">
+				<Badge className="max-w-full font-mono" variant="outline">
 					<span className="truncate">{row.action}</span>
 				</Badge>
-				{detail && (
-					<button
-						className={`mt-1 block w-full max-w-md text-left text-xs break-all text-muted-foreground ${expanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}
-						onClick={() => toggleExpanded(row.id)}
-						title={expanded ? undefined : "Show full detail"}
-						type="button"
-					>
-						{detail}
-					</button>
+				{summary && (
+					<span className="mt-1 block max-w-md truncate text-xs text-muted-foreground">
+						<Redact>{summary}</Redact>
+					</span>
 				)}
 			</>
 		);
 	};
+
+	const renderExpanded = (row: AuditRow) => (
+		<div className="space-y-3">
+			{!row.success && row.errorMessage && (
+				<p className="text-sm text-destructive">{row.errorMessage}</p>
+			)}
+			<AuditDetail detail={row.detail} />
+		</div>
+	);
+
+	const renderToggle = (row: AuditRow) => (
+		<button
+			aria-expanded={expandedRows.has(row.id)}
+			aria-label={`${expandedRows.has(row.id) ? "Hide" : "Show"} detail for ${row.action}`}
+			className="rounded p-1 text-muted-foreground hover:bg-muted"
+			onClick={() => toggleExpanded(row.id)}
+			type="button"
+		>
+			<ChevronRight
+				className={`h-4 w-4 transition-transform ${expandedRows.has(row.id) ? "rotate-90" : ""}`}
+			/>
+		</button>
+	);
 
 	const renderClient = (row: AuditRow) =>
 		row.clientId && row.clientHash ? (
@@ -141,12 +151,12 @@ export default function AuditLogTable() {
 				</ClientHoverCard>
 			</Link>
 		) : (
-			<span className="text-muted-foreground">—</span>
+			<span className="text-muted-foreground">None</span>
 		);
 
 	const renderStatus = (row: AuditRow) =>
 		row.success ? (
-			<Badge variant="outline">Success</Badge>
+			<Badge variant="success">Success</Badge>
 		) : (
 			<Badge title={row.errorMessage ?? ""} variant="destructive">
 				Failed
@@ -239,6 +249,7 @@ export default function AuditLogTable() {
 				<Table>
 					<TableHeader>
 						<TableRow>
+							<TableHead className="w-8" />
 							<TableHead>Time</TableHead>
 							<TableHead>User</TableHead>
 							<TableHead>Action</TableHead>
@@ -250,34 +261,43 @@ export default function AuditLogTable() {
 						{isPending ? (
 							SKELETON_ROWS.map((key) => (
 								<TableRow key={key}>
-									<TableCell colSpan={5}>
+									<TableCell colSpan={6}>
 										<Skeleton className="h-5 w-full" />
 									</TableCell>
 								</TableRow>
 							))
 						) : isError ? (
 							<TableRow>
-								<TableCell colSpan={5}>
+								<TableCell colSpan={6}>
 									<ErrorState compact onRetry={refetch} />
 								</TableCell>
 							</TableRow>
 						) : rows.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={5}>
+								<TableCell colSpan={6}>
 									<EmptyState compact title="No audit log entries found" />
 								</TableCell>
 							</TableRow>
 						) : (
 							rows.map((row) => (
-								<TableRow key={row.id}>
-									<TableCell className="whitespace-nowrap">
-										{formatTime(row)}
-									</TableCell>
-									<TableCell>{renderUser(row)}</TableCell>
-									<TableCell>{renderAction(row)}</TableCell>
-									<TableCell>{renderClient(row)}</TableCell>
-									<TableCell>{renderStatus(row)}</TableCell>
-								</TableRow>
+								<Fragment key={row.id}>
+									<TableRow>
+										<TableCell>{renderToggle(row)}</TableCell>
+										<TableCell className="whitespace-nowrap">
+											{formatTime(row)}
+										</TableCell>
+										<TableCell>{renderUser(row)}</TableCell>
+										<TableCell>{renderAction(row)}</TableCell>
+										<TableCell>{renderClient(row)}</TableCell>
+										<TableCell>{renderStatus(row)}</TableCell>
+									</TableRow>
+									{expandedRows.has(row.id) && (
+										<TableRow className="bg-muted/30 hover:bg-muted/30">
+											<TableCell />
+											<TableCell colSpan={5}>{renderExpanded(row)}</TableCell>
+										</TableRow>
+									)}
+								</Fragment>
 							))
 						)}
 					</TableBody>
@@ -309,7 +329,13 @@ export default function AuditLogTable() {
 								<div>{renderUser(row)}</div>
 								<div className="text-right">{renderClient(row)}</div>
 							</div>
-							<div>{renderAction(row)}</div>
+							<div className="flex items-start justify-between gap-2">
+								<div className="min-w-0">{renderAction(row)}</div>
+								{renderToggle(row)}
+							</div>
+							{expandedRows.has(row.id) && (
+								<div className="border-t pt-2">{renderExpanded(row)}</div>
+							)}
 						</div>
 					))
 				)}
