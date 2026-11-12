@@ -196,6 +196,44 @@ export const getInsuranceShortName = (
 };
 
 /**
+ * How many appointments the client's insurance needs to cover the DA and the
+ * eval: 1 means one combined DAEVAL visit, 2 or more means separate visits.
+ * Uses the highest value across primary and secondary insurance. Insurances no
+ * active evaluator accepts are ignored, since the client can't be scheduled
+ * under them. Undefined when no insurance matches.
+ */
+export function getAppointmentsRequired(
+	client: {
+		primaryInsurance: string | null;
+		secondaryInsurance: string[] | null;
+	},
+	insurances: (InsuranceWithAliases & {
+		appointmentsRequired: number;
+		evaluators: { evaluator: { archived: boolean } }[];
+	})[],
+): number | undefined {
+	const findRecord = (name: string | null) =>
+		name
+			? insurances.find(
+					(i) =>
+						i.shortName === getInsuranceShortName(name, insurances) ||
+						i.aliases.some((a) => a.name === name),
+				)
+			: undefined;
+
+	return [
+		findRecord(client.primaryInsurance),
+		...(client.secondaryInsurance ?? []).map(findRecord),
+	].reduce<number | undefined>((max, record) => {
+		if (!record) return max;
+		if (!record.evaluators.some((e) => !e.evaluator.archived)) return max;
+		return max === undefined
+			? record.appointmentsRequired
+			: Math.max(max, record.appointmentsRequired);
+	}, undefined);
+}
+
+/**
  * Same resolution as getInsuranceShortName, but also reports whether the name
  * actually matched an insurance/alias row, since a miss passes through
  * unchanged and is otherwise indistinguishable from an exact shortName match.

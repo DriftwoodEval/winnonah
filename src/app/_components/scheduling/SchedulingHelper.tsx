@@ -525,7 +525,13 @@ function SchedulingHelperGrid({
 		if (clientId === null || queueInfo === undefined || !evaluators) return;
 		if (defaultsAppliedFor === clientId) return;
 		const queuedType = appointmentTypeForQueueCode(queueInfo.code);
-		if (queuedType) setAppointmentType(queuedType);
+		// One appointment covers both the DA and the eval for this insurance,
+		// unless the queue row is explicitly the virtual DA.
+		if (queuedType !== "DA" && queueInfo.appointmentsRequired === 1) {
+			setAppointmentType("DAEVAL");
+		} else if (queuedType) {
+			setAppointmentType(queuedType);
+		}
 		if (queueInfo.office) setOfficeFilter(queueInfo.office);
 		setShowAllEvaluators(false);
 		// A client with a starred evaluator narrows the calendar to just them;

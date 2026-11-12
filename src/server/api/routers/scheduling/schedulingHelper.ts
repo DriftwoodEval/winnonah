@@ -8,7 +8,7 @@ import {
 	mergeOutOfOfficeEvents,
 	splitAvailabilityByOOO,
 } from "~/lib/integrations/google";
-import { formatInBusinessTime } from "~/lib/utils";
+import { formatInBusinessTime, getAppointmentsRequired } from "~/lib/utils";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -44,10 +44,24 @@ export const schedulingHelperRouter = createTRPCRouter({
 			});
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
-				columns: { dob: true, asdAdhd: true },
+				columns: {
+					dob: true,
+					asdAdhd: true,
+					primaryInsurance: true,
+					secondaryInsurance: true,
+				},
+			});
+			const allInsurances = await ctx.db.query.insurances.findMany({
+				with: {
+					aliases: true,
+					evaluators: { with: { evaluator: true } },
+				},
 			});
 
 			return {
+				appointmentsRequired: client
+					? (getAppointmentsRequired(client, allInsurances) ?? null)
+					: null,
 				dob: client?.dob ?? null,
 				asdAdhd: client?.asdAdhd ?? null,
 				office: row?.office ?? null,

@@ -35,7 +35,11 @@ import {
 } from "~/lib/integrations/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
-import { getInsuranceShortName, hasPermission } from "~/lib/utils";
+import {
+	getAppointmentsRequired,
+	getInsuranceShortName,
+	hasPermission,
+} from "~/lib/utils";
 import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
 import { saveNoteInternal } from "~/server/api/routers/clients/notes";
@@ -103,30 +107,9 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 	const daQsNeeded = true;
 
-	const findInsuranceRecord = (name: string | null) =>
-		name
-			? allInsurances.find(
-					(i) =>
-						i.shortName === getInsuranceShortName(name, allInsurances) ||
-						i.aliases.some((a) => a.name === name),
-				)
-			: undefined;
-
-	// Use the more restrictive of primary/secondary insurance: more
-	// appointments required is more restrictive. If either insurance
-	// requires 2 appointments, the DA and eval visits are separate, so
-	// only DA questionnaires are needed now. Insurances no active evaluator
-	// accepts are ignored, since the client can't be scheduled under them.
-	const appointmentsRequired = [
-		findInsuranceRecord(client.primaryInsurance),
-		...(client.secondaryInsurance ?? []).map(findInsuranceRecord),
-	].reduce<number | undefined>((max, record) => {
-		if (record?.appointmentsRequired === undefined) return max;
-		if (!record.evaluators.some((e) => !e.evaluator.archived)) return max;
-		return max === undefined
-			? record.appointmentsRequired
-			: Math.max(max, record.appointmentsRequired);
-	}, undefined);
+	// If either insurance requires 2 appointments, the DA and eval visits are
+	// separate, so only DA questionnaires are needed now.
+	const appointmentsRequired = getAppointmentsRequired(client, allInsurances);
 
 	const evalQsNeeded = appointmentsRequired === 1;
 
