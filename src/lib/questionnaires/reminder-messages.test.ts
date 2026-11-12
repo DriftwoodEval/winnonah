@@ -32,15 +32,15 @@ describe("reminderPluralization", () => {
 describe("substituteReminderPlaceholders", () => {
 	it("replaces every occurrence of each placeholder", () => {
 		const result = substituteReminderPlaceholders(
-			"Hi $CLIENT_FIRST_NAME, complete $IT_THEM. $CLIENT_FIRST_NAME!",
-			{ $CLIENT_FIRST_NAME: "Alex", $IT_THEM: "them" },
+			"Hi $CLIENT_FNAME, complete $IT_THEM. $CLIENT_FNAME!",
+			{ $CLIENT_FNAME: "Alex", $IT_THEM: "them" },
 		);
 		expect(result).toBe("Hi Alex, complete them. Alex!");
 	});
 
 	it("leaves unknown placeholders untouched", () => {
 		const result = substituteReminderPlaceholders("Hi $UNKNOWN", {
-			$CLIENT_FIRST_NAME: "Alex",
+			$CLIENT_FNAME: "Alex",
 		});
 		expect(result).toBe("Hi $UNKNOWN");
 	});

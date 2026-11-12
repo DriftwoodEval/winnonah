@@ -1,7 +1,6 @@
 import { parseDateOnly } from "~/lib/utils";
 
 export const REMINDER_PLACEHOLDERS = [
-	["$CLIENT_FIRST_NAME", "client's legal first name"],
 	[
 		"$CLIENT_FNAME",
 		"preferred name with legal first name, e.g. Alex (Alexander); just the first name if no preferred name",

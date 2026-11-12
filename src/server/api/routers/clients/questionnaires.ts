@@ -800,7 +800,6 @@ export const questionnaireRouter = createTRPCRouter({
 				variant,
 				remindedCount,
 				values: {
-					$CLIENT_FIRST_NAME: client?.firstName ?? "",
 					$CLIENT_FNAME: client?.preferredName
 						? `${client.preferredName} (${client.firstName})`
 						: (client?.firstName ?? ""),

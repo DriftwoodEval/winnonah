@@ -54,7 +54,6 @@ function samplePreviewValues(
 	const escalationDays = settings?.escalationSilenceDays ?? 3;
 	const todayBusiness = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 	return {
-		$CLIENT_FIRST_NAME: "Alexander",
 		$CLIENT_FNAME: "Alex (Alexander)",
 		$STAFF_NAME: staffName || "Jordan",
 		...reminderPluralization(2),

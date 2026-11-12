@@ -208,8 +208,8 @@ export function QuestionnaireReminderOverrideDialog({
 					Applies to every questionnaire sent to this client on this date. Each
 					stage starts pre-filled with the current default message for this
 					client, edit it to override just that stage. Placeholders (like
-					$CLIENT_FIRST_NAME) work the same as in the default messages. Saving
-					text identical to the default does nothing.
+					$CLIENT_FNAME) work the same as in the default messages. Saving text
+					identical to the default does nothing.
 				</p>
 				<div className="space-y-6">
 					{QUESTIONNAIRE_REMINDER_STAGES.map((stage) => (
