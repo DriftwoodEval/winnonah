@@ -34,6 +34,7 @@ from utils.database import (
     put_in_person_assessments_in_db,
     reconcile_pool_report_queue_state,
     reconcile_reports_from_appointments,
+    record_placeholder_promoted,
     set_client_drive_folder_evaluator,
     set_sync_report_date,
     sync_punchlist_to_db,
@@ -477,10 +478,12 @@ def replace_placeholder_with_real_appointment(
     da_eval: DAEvalType | None,
     start_time: datetime,
     real_gcal_event_id: str | None,
+    real_gcal_event_title: str | None = None,
 ) -> bool:
     """Remove the client's placeholder that a real appointment supersedes: its DB
     row, and its hold event on the evaluator's calendar unless that event is the
-    real appointment's own (a promoted hold).
+    real appointment's own (a promoted hold). The real event's title is only
+    recorded in the audit log.
 
     start_time must be naive UTC. Returns whether a placeholder was removed.
     """
@@ -492,6 +495,11 @@ def replace_placeholder_with_real_appointment(
         return False
 
     hold_event_id = placeholder["calendarEventId"]
+    # Outcome of the hold's calendar event, for the audit log:
+    # "promoted" (it is the real event, kept), "deleted", "delete_failed", or
+    # "none" (no event or no calendar to delete it from).
+    is_promoted = bool(hold_event_id) and hold_event_id == real_gcal_event_id
+    event_outcome = "promoted" if is_promoted else "none"
     # Never delete the real appointment's own event.
     if (
         hold_event_id
@@ -500,13 +508,29 @@ def replace_placeholder_with_real_appointment(
     ):
         try:
             delete_calendar_event(placeholder["evaluatorEmail"], hold_event_id)
+            event_outcome = "deleted"
         except Exception:
+            event_outcome = "delete_failed"
             logger.exception(
                 f"Could not delete placeholder calendar event {hold_event_id} for "
                 f"client {client_id}; removing the placeholder row anyway"
             )
 
-    delete_superseded_placeholder(placeholder["id"], client_id, appointment_id)
+    delete_superseded_placeholder(
+        placeholder["id"],
+        client_id,
+        appointment_id,
+        {
+            "placeholderEventId": hold_event_id,
+            "placeholderCalendarId": placeholder["evaluatorEmail"],
+            "placeholderDaEval": placeholder["daEval"],
+            "placeholderStartTime": placeholder["startTime"].isoformat(),
+            "realEventId": real_gcal_event_id,
+            "realEventTitle": real_gcal_event_title,
+            "realStartTime": start_time.isoformat(),
+            "eventOutcome": event_outcome,
+        },
+    )
     logger.info(
         f"Replaced placeholder {placeholder['id']} with appointment {appointment_id} "
         f"for client {client_id}"
@@ -1257,6 +1281,14 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                             gcal_event_id, real_title, calendar_id=gcal_calendar_id
                         )
                     ):
+                        record_placeholder_promoted(
+                            client_id,
+                            appointment_id,
+                            gcal_event_id,
+                            gcal_calendar_id,
+                            gcal_event_title,
+                            real_title,
+                        )
                         gcal_event_title = real_title
 
                 gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
@@ -1379,6 +1411,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         da_eval=gcal_daeval,
                         start_time=start_time.replace(tzinfo=None),
                         real_gcal_event_id=gcal_event_id,
+                        real_gcal_event_title=gcal_event_title,
                     )
                 except Exception:
                     logger.exception(

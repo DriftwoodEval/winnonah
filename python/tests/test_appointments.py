@@ -420,7 +420,9 @@ class TestReplacePlaceholderWithRealAppointment:
 
         assert replaced
         delete_event.assert_called_once_with("eval@example.com", "hold-event")
-        delete_row.assert_called_once_with("p1", 7, "ta-123")
+        delete_row.assert_called_once()
+        assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
+        assert delete_row.call_args.args[3]["eventOutcome"] == "deleted"
 
     @patch("utils.appointments.delete_superseded_placeholder")
     @patch("utils.appointments.delete_calendar_event")
@@ -450,7 +452,9 @@ class TestReplacePlaceholderWithRealAppointment:
         )
 
         assert replaced
-        delete_row.assert_called_once_with("p1", 7, "ta-123")
+        delete_row.assert_called_once()
+        assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
+        assert delete_row.call_args.args[3]["eventOutcome"] == "delete_failed"
 
     @patch("utils.appointments.delete_superseded_placeholder")
     @patch("utils.appointments.delete_calendar_event")
@@ -467,7 +471,9 @@ class TestReplacePlaceholderWithRealAppointment:
         )
 
         delete_event.assert_not_called()
-        delete_row.assert_called_once_with("p1", 7, "ta-123")
+        delete_row.assert_called_once()
+        assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
+        assert delete_row.call_args.args[3]["eventOutcome"] == "promoted"
 
 
 class TestFormatAgeAt:

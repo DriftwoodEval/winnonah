@@ -2382,10 +2382,12 @@ def delete_superseded_placeholder(
     placeholder_id: str,
     client_id: int,
     replaced_by_appointment_id: str,
+    detail: dict,
     connection: Connection[DictCursor],
 ) -> None:
     """Deletes a placeholder appointment that a real TA appointment replaced,
-    recording the swap in the audit log in the same transaction."""
+    recording the swap in the audit log in the same transaction. `detail` holds
+    the extra context to log (hold event, how it matched, calendar delete outcome)."""
     record_audit_log(
         connection,
         "python.appointments.placeholder_replaced",
@@ -2395,6 +2397,7 @@ def delete_superseded_placeholder(
         detail={
             "placeholderId": placeholder_id,
             "replacedByAppointmentId": replaced_by_appointment_id,
+            **detail,
         },
     )
     with connection.cursor() as cursor:
@@ -2403,6 +2406,35 @@ def delete_superseded_placeholder(
             (placeholder_id,),
         )
         connection.commit()
+
+
+@provide_connection
+def record_placeholder_promoted(
+    client_id: int,
+    appointment_id: str,
+    calendar_event_id: str,
+    calendar_id: str,
+    old_title: str,
+    new_title: str,
+    connection: Connection[DictCursor],
+) -> None:
+    """Records in the audit log that a placeholder hold event on the evaluator's
+    calendar was renamed into the real title of a TA appointment."""
+    record_audit_log(
+        connection,
+        "python.appointments.placeholder_promoted",
+        client_id,
+        "system:csv-sync",
+        "TA import",
+        detail={
+            "appointmentId": appointment_id,
+            "calendarEventId": calendar_event_id,
+            "calendarId": calendar_id,
+            "oldTitle": old_title,
+            "newTitle": new_title,
+        },
+    )
+    connection.commit()
 
 
 @provide_connection
