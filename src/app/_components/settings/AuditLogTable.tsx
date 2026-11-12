@@ -227,12 +227,10 @@ export default function AuditLogTable() {
 						{actionCategories.map(([category, names]) => (
 							<SelectGroup key={category}>
 								<SelectLabel>{category}</SelectLabel>
-								<SelectItem value={`${category}.*`}>
-									All {category}.*
-								</SelectItem>
+								<SelectItem value={`${category}.*`}>All {category}</SelectItem>
 								{names.map((name) => (
 									<SelectItem key={name} value={name}>
-										{name}
+										{actionLabel(name)}
 									</SelectItem>
 								))}
 							</SelectGroup>
