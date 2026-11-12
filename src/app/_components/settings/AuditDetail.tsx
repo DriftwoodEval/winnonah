@@ -96,6 +96,17 @@ function Scalar({ value, field }: { value: unknown; field?: string }) {
 	return <ValueView field={field} value={value} />;
 }
 
+/** Pairs each item with a React key that stays unique when the same value repeats. */
+function withKeys(items: unknown[], prefix = "") {
+	const seen = new Map<string, number>();
+	return items.map((item) => {
+		const base = `${prefix}${JSON.stringify(item)}`;
+		const count = seen.get(base) ?? 0;
+		seen.set(base, count + 1);
+		return { item, key: `${base}#${count}` };
+	});
+}
+
 function ValueView({ value, field }: { value: unknown; field?: string }) {
 	if (isChange(value)) {
 		return (
@@ -113,13 +124,13 @@ function ValueView({ value, field }: { value: unknown; field?: string }) {
 	if (isArrayChange(value)) {
 		return (
 			<span className="flex flex-wrap gap-1">
-				{value.added.map((item) => (
-					<Badge key={`+${JSON.stringify(item)}`} variant="success">
+				{withKeys(value.added, "+").map(({ item, key }) => (
+					<Badge key={key} variant="success">
 						+ <Scalar field={field} value={item} />
 					</Badge>
 				))}
-				{value.removed.map((item) => (
-					<Badge key={`-${JSON.stringify(item)}`} variant="destructive">
+				{withKeys(value.removed, "-").map(({ item, key }) => (
+					<Badge key={key} variant="destructive">
 						− <Scalar field={field} value={item} />
 					</Badge>
 				))}
@@ -130,16 +141,13 @@ function ValueView({ value, field }: { value: unknown; field?: string }) {
 		if (value.length === 0) return <Scalar value={null} />;
 		return (
 			<span className="flex flex-wrap gap-1">
-				{value.map((item) =>
+				{withKeys(value).map(({ item, key }) =>
 					isObject(item) ? (
-						<span
-							className="block w-full rounded border p-2"
-							key={JSON.stringify(item)}
-						>
+						<span className="block w-full rounded border p-2" key={key}>
 							<FieldGrid fields={item} />
 						</span>
 					) : (
-						<Badge key={JSON.stringify(item)} variant="outline">
+						<Badge key={key} variant="outline">
 							<Scalar field={field} value={item} />
 						</Badge>
 					),
