@@ -419,7 +419,13 @@ class TestReplacePlaceholderWithRealAppointment:
         )
 
         assert replaced
-        delete_event.assert_called_once_with("eval@example.com", "hold-event")
+        delete_event.assert_called_once_with(
+            "eval@example.com",
+            "hold-event",
+            client_id=7,
+            reason="placeholder_superseded",
+            appointment_id="ta-123",
+        )
         delete_row.assert_called_once()
         assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
         assert delete_row.call_args.args[3]["eventOutcome"] == "deleted"

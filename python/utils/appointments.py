@@ -34,7 +34,6 @@ from utils.database import (
     put_in_person_assessments_in_db,
     reconcile_pool_report_queue_state,
     reconcile_reports_from_appointments,
-    record_placeholder_promoted,
     set_client_drive_folder_evaluator,
     set_sync_report_date,
     sync_punchlist_to_db,
@@ -507,7 +506,13 @@ def replace_placeholder_with_real_appointment(
         and placeholder["evaluatorEmail"]
     ):
         try:
-            delete_calendar_event(placeholder["evaluatorEmail"], hold_event_id)
+            delete_calendar_event(
+                placeholder["evaluatorEmail"],
+                hold_event_id,
+                client_id=client_id,
+                reason="placeholder_superseded",
+                appointment_id=appointment_id,
+            )
             event_outcome = "deleted"
         except Exception:
             event_outcome = "delete_failed"
@@ -1278,17 +1283,14 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         real_title
                         and gcal_event_id
                         and update_gcal_event_title(
-                            gcal_event_id, real_title, calendar_id=gcal_calendar_id
+                            gcal_event_id,
+                            real_title,
+                            calendar_id=gcal_calendar_id,
+                            client_id=client_id,
+                            reason="placeholder_promoted",
+                            appointment_id=appointment_id,
                         )
                     ):
-                        record_placeholder_promoted(
-                            client_id,
-                            appointment_id,
-                            gcal_event_id,
-                            gcal_calendar_id,
-                            gcal_event_title,
-                            real_title,
-                        )
                         gcal_event_title = real_title
 
                 gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(

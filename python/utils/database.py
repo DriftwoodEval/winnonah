@@ -2409,30 +2409,21 @@ def delete_superseded_placeholder(
 
 
 @provide_connection
-def record_placeholder_promoted(
-    client_id: int,
-    appointment_id: str,
-    calendar_event_id: str,
-    calendar_id: str,
-    old_title: str,
-    new_title: str,
+def record_gcal_event_change(
+    action: str,
+    client_id: int | None,
+    detail: dict,
     connection: Connection[DictCursor],
 ) -> None:
-    """Records in the audit log that a placeholder hold event on the evaluator's
-    calendar was renamed into the real title of a TA appointment."""
+    """Records a change made to a Google Calendar event (title edit or delete)
+    in the audit log. Best-effort like record_audit_log."""
     record_audit_log(
         connection,
-        "python.appointments.placeholder_promoted",
+        action,
         client_id,
-        "system:csv-sync",
-        "TA import",
-        detail={
-            "appointmentId": appointment_id,
-            "calendarEventId": calendar_event_id,
-            "calendarId": calendar_id,
-            "oldTitle": old_title,
-            "newTitle": new_title,
-        },
+        "system:python",
+        "Python script",
+        detail=detail,
     )
     connection.commit()
 

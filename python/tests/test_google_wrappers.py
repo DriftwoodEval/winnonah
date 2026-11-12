@@ -4,6 +4,7 @@ import pytest
 from googleapiclient.errors import HttpError
 
 from utils import google
+from utils.google import delete_calendar_event, update_gcal_event_title
 
 
 def http_error() -> HttpError:
@@ -101,3 +102,53 @@ class TestGoogleAuthenticate:
         )
         assert calls[0].kwargs == {"creds": None}
         assert calls[1].kwargs == {"creds": first}
+
+
+class TestCalendarAudit:
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google.build_google_service")
+    @patch("utils.google.google_authenticate")
+    def test_delete_logs_title_and_reason(self, _auth, build, record):
+        events = build.return_value.events.return_value
+        events.get.return_value.execute.return_value = {
+            "summary": "Planned: Office",
+            "start": {"date": "2026-11-12"},
+        }
+
+        delete_calendar_event(
+            "eval@example.com", "evt1", reason="planned_office_cleared"
+        )
+
+        action, client_id, detail = record.call_args.args
+        assert action == "python.gcal.event_deleted"
+        assert client_id is None
+        assert detail["title"] == "Planned: Office"
+        assert detail["start"] == "2026-11-12"
+        assert detail["reason"] == "planned_office_cleared"
+        assert detail["alreadyDeleted"] is False
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google._patch_gcal_event")
+    def test_title_update_logs_old_and_new(self, patch_event, record):
+        def fake_patch(_event_id, _calendar_id, patch_fn):
+            patch_fn({"summary": "plchldr Jane"})
+            return True
+
+        patch_event.side_effect = fake_patch
+
+        update_gcal_event_title(
+            "evt1", "DA Jane", client_id=7, reason="placeholder_promoted"
+        )
+
+        action, client_id, detail = record.call_args.args
+        assert action == "python.gcal.event_title_updated"
+        assert client_id == 7
+        assert detail["oldTitle"] == "plchldr Jane"
+        assert detail["newTitle"] == "DA Jane"
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google._patch_gcal_event", return_value=False)
+    def test_failed_title_update_logs_nothing(self, _patch, record):
+        update_gcal_event_title("evt1", "DA Jane")
+
+        record.assert_not_called()

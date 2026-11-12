@@ -974,13 +974,49 @@ def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
     return False
 
 
+def _audit_gcal_change(action: str, client_id: int | None, detail: dict) -> None:
+    """Write an audit entry for a calendar change. A failure here is logged and
+    never undoes or blocks the calendar change it describes."""
+    try:
+        utils.database.record_gcal_event_change(action, client_id, detail)
+    except Exception:
+        logger.exception(f"Failed to write audit log for action={action}")
+
+
 def update_gcal_event_title(
-    event_id: str, new_title: str, calendar_id: str | None = None
+    event_id: str,
+    new_title: str,
+    calendar_id: str | None = None,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
 ) -> bool:
-    """Find a Google Calendar event by ID and update its title. Returns True if updated."""
-    patched = _patch_gcal_event(event_id, calendar_id, lambda _: {"summary": new_title})
+    """Find a Google Calendar event by ID and update its title. Returns True if updated.
+
+    client_id, reason, and appointment_id only add context to the audit entry.
+    """
+    old_title: list[str | None] = []
+
+    def patch_fn(event):
+        old_title.append(event.get("summary"))
+        return {"summary": new_title}
+
+    patched = _patch_gcal_event(event_id, calendar_id, patch_fn)
     if patched:
         logger.info(f"Updated calendar event {event_id} title to: {new_title}")
+        _audit_gcal_change(
+            "python.gcal.event_title_updated",
+            client_id,
+            {
+                "calendarEventId": event_id,
+                "calendarId": calendar_id,
+                "oldTitle": old_title[0],
+                "newTitle": new_title,
+                "reason": reason,
+                "appointmentId": appointment_id,
+            },
+        )
     else:
         logger.warning(f"Calendar event {event_id} not found in any calendar")
     return patched
@@ -1224,18 +1260,55 @@ def create_placeholder_event(
     return event["id"]
 
 
-def delete_calendar_event(calendar_id: str, event_id: str) -> None:
-    """Delete a calendar event. Used to clean up placeholder holds."""
+def delete_calendar_event(
+    calendar_id: str,
+    event_id: str,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
+) -> None:
+    """Delete a calendar event and record it in the audit log with the event's
+    title and start. Used to clean up placeholder holds and planned-office markers.
+
+    client_id, reason, and appointment_id only add context to the audit entry.
+    """
     creds = google_authenticate()
     service = build_google_service("calendar", "v3", creds)
+    # Read the event first so the audit entry can say what was deleted.
+    title = start = None
+    try:
+        event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+        title = event.get("summary")
+        start = event.get("start", {}).get("dateTime") or event.get("start", {}).get(
+            "date"
+        )
+    except HttpError as e:
+        logger.warning(f"Could not read event {event_id} before deleting it: {e}")
+
+    already_deleted = False
     try:
         service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         logger.info(f"Deleted calendar event {event_id} on calendar {calendar_id}")
     except HttpError as e:
-        if e.resp.status == 410:
-            logger.info(f"Calendar event {event_id} already deleted")
-        else:
+        if e.resp.status != 410:
             raise
+        already_deleted = True
+        logger.info(f"Calendar event {event_id} already deleted")
+
+    _audit_gcal_change(
+        "python.gcal.event_deleted",
+        client_id,
+        {
+            "calendarEventId": event_id,
+            "calendarId": calendar_id,
+            "title": title,
+            "start": start,
+            "reason": reason,
+            "appointmentId": appointment_id,
+            "alreadyDeleted": already_deleted,
+        },
+    )
 
 
 PLANNED_OFFICE_TITLE_PREFIX = "Planned: "
@@ -1303,4 +1376,6 @@ def clear_planned_office_events(calendar_id: str, date: date) -> None:
     for event in events:
         summary = event.get("summary") or ""
         if summary.startswith(PLANNED_OFFICE_TITLE_PREFIX):
-            delete_calendar_event(calendar_id, event["id"])
+            delete_calendar_event(
+                calendar_id, event["id"], reason="planned_office_cleared"
+            )
