@@ -944,8 +944,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										</div>
 										<div className="space-y-3 px-4">
 											<Label className="font-semibold">
-												Has your child been evaluated by the school district,
-												MUSC, Prisma, or OIDD? If yes, where, when?
+												Has your child been evaluated or are they awaiting an
+												evaluation by the school district, MUSC, Prisma, or
+												OIDD? If yes, where, when?
 												<PostPunchBadge
 													edit={latestEditByField.get("evaluatedByAgency")}
 												/>
