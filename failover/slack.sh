@@ -12,6 +12,9 @@
 
 SLACK_TS="${SLACK_TS:-}"
 SLACK_TEXT="${SLACK_TEXT:-}"
+# Same zone as BUSINESS_TIMEZONE in src/lib/constants.ts. Each line in the
+# message is prefixed with its time in this zone.
+SLACK_TIMEZONE="America/New_York"
 
 # slack_call TEXT [TS]: posts TEXT, or edits message TS when given. Prints the
 # message ts. Python builds the JSON so quotes and newlines in TEXT (e.g. a
@@ -43,7 +46,9 @@ PY
 }
 
 slack() {
-  SLACK_TEXT="${SLACK_TEXT:+$SLACK_TEXT$'\n'}$1"
+  local line
+  line="$(TZ="$SLACK_TIMEZONE" date '+%H:%M:%S') $1"
+  SLACK_TEXT="${SLACK_TEXT:+$SLACK_TEXT$'\n'}$line"
   local ts
   ts="$(slack_call "$SLACK_TEXT" "$SLACK_TS")"
   SLACK_TS="${ts:-$SLACK_TS}"

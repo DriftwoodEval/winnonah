@@ -13,6 +13,7 @@ STANDBY_COMPOSE="docker compose -f ~/winnonah/docker-compose.yaml -f ~/winnonah/
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILBACK: $*"; }
 source "$DIR/slack.sh"
+source "$DIR/health.sh"
 
 # Without this, a failure partway through exits with `set -e` and no other
 # indication of what happened or where, as if the script had just stopped.
@@ -140,7 +141,7 @@ STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
 log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   "${STANDBY_COMPOSE} --profile active_only stop cloudflared ${STANDBY_SLOT} winnonah-python kimai"
-slack "Standby tunnel stopped. Starting primary tunnel..."
+slack "Standby web app, tunnel, python jobs and kimai stopped. The site is down until the primary is up."
 
 # 3b. Pull kimai's data dir back from standby. It's the source of truth for
 # anything uploaded while standby was live, the same way the DB dump above is.
@@ -151,6 +152,7 @@ rsync -az --omit-dir-times -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet"
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/data/" "$ROOT/kimai/data/"
 rsync -az --omit-dir-times -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/plugins/" "$ROOT/kimai/plugins/"
+slack "Kimai files copied from standby. Starting primary web app and tunnel..."
 
 # 4. Start primary caddy, cloudflared, and winnonah-a
 # caddy has no profile so it's normally always-on, but STONITH (failover.sh)
@@ -159,7 +161,31 @@ rsync -az --omit-dir-times -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet"
 # to preserve - winnonah-a is always the right one to start.
 log "Starting primary caddy, cloudflared, winnonah-a, and kimai..."
 ${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a kimai
-sleep 10
+
+# `up -d` only means the containers started. Confirm the apps answer before
+# claiming the primary is live. A failed probe alerts but does not abort: the
+# standby is already stopped, so finishing the remaining steps is still right.
+degraded=()
+log "Waiting for primary winnonah-a to pass /api/health (timeout 60s)..."
+if wait_for_health "http://winnonah-a:3000/api/health"; then
+  slack "Primary winnonah-a is serving."
+else
+  degraded+=("winnonah-a")
+  slack "⚠️ Primary winnonah-a did not pass /api/health within 60s."
+fi
+
+# Kimai answers with a redirect to its login page, which curl -f accepts.
+log "Waiting for primary kimai to answer (timeout 60s)..."
+if wait_for_health "http://kimai:8001/"; then
+  slack "Primary kimai is serving."
+else
+  degraded+=("kimai")
+  slack "⚠️ Primary kimai did not answer within 60s."
+fi
+
+if [ "${#degraded[@]}" -gt 0 ]; then
+  slack_alert "⚠️ Failback: ${degraded[*]} on primary not responding. The site may be down or partly down - check primary now."
+fi
 
 # 5. Start primary python jobs
 log "Starting primary python jobs..."
@@ -195,4 +221,8 @@ docker exec winnonah-python uv run failover_notify.py failback \
   || log "Could not send failback email, non-fatal."
 
 log "=== FAILBACK COMPLETE ==="
-slack "Failback complete. Primary is live at emr.driftwoodeval.com. System normal."
+if [ "${#degraded[@]}" -eq 0 ]; then
+  slack "Failback complete. Primary is serving emr.driftwoodeval.com. System normal."
+else
+  slack "Failback finished with problems: ${degraded[*]} not responding. Check the primary before relying on it."
+fi

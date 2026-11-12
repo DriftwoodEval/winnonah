@@ -15,6 +15,7 @@ STONITH_INTERVAL=15 # retry every 15s
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILOVER: $*"; }
 source "$DIR/slack.sh"
+source "$DIR/health.sh"
 
 # Without this, a failure partway through (e.g. MySQL promotion) would exit
 # before the flag is normally set, leaving standby-poll.sh free to retrigger
@@ -67,7 +68,7 @@ stonith_loop() {
            "cd ~/winnonah && docker compose stop && docker compose rm -f" >> "$STONITH_LOG" 2>&1; then
 
       echo "[$(date '+%H:%M:%S')] STONITH: Success. Primary containers stopped." >> "$STONITH_LOG"
-      slack_alert "✅ STONITH Success: Primary containers confirmed stopped on ${PRIMARY_TAILSCALE_IP}. Split-brain risk averted."
+      slack_alert "✅ STONITH Success: Primary containers confirmed stopped on ${PRIMARY_TAILSCALE_IP}. Split-brain risk averted. The primary host is reachable, so once it is fixed run failback.sh on it."
       break
     fi
 
@@ -134,31 +135,35 @@ done
 [ "${up_ok}" = true ] || ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python kimai
 log "Step 3 done."
 
-# lazy: no health probe for kimai here (unlike winnonah-a below). If it fails
-# to come up, `up -d` still reports success; check it manually after a failover.
-
-# 3b. Confirm winnonah-a is actually serving before telling the world traffic is
-# live. winnonah-a has no compose healthcheck, so `up -d` returning only means
-# the container started, not that Next.js is up. Standby is the last line of
-# defense, so a failed probe alerts loudly but does not abort: a half-up standby
-# still beats no standby.
+# 3b. Confirm winnonah-a and kimai are actually serving before telling the world
+# traffic is live. Neither has a compose healthcheck, so `up -d` returning only
+# means the containers started, not that the apps are up. Standby is the last
+# line of defense, so a failed probe alerts loudly but does not abort: a
+# half-up standby still beats no standby.
+degraded=()
 log "Waiting for winnonah-a to pass /api/health (timeout 60s)..."
-health_ok=false
-for _ in $(seq 1 30); do
-  if docker run --rm --network winnonah-net curlimages/curl:latest \
-       -sf "http://winnonah-a:3000/api/health" >/dev/null 2>&1; then
-    health_ok=true
-    break
-  fi
-  sleep 2
-done
-if [ "${health_ok}" = true ]; then
+if wait_for_health "http://winnonah-a:3000/api/health"; then
   log "winnonah-a healthy."
-  slack "Services started, winnonah-a is serving."
+  slack "winnonah-a is serving."
 else
   log "WARNING: winnonah-a did not pass /api/health within 60s."
-  slack "⚠️ winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
-  slack_alert "⚠️ Failover: winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
+  degraded+=("winnonah-a")
+  slack "⚠️ winnonah-a on standby did not pass /api/health within 60s."
+fi
+
+# Kimai answers with a redirect to its login page, which curl -f accepts.
+log "Waiting for kimai to answer (timeout 60s)..."
+if wait_for_health "http://kimai:8001/"; then
+  log "kimai healthy."
+  slack "kimai is serving."
+else
+  log "WARNING: kimai did not answer within 60s."
+  degraded+=("kimai")
+  slack "⚠️ kimai on standby did not answer within 60s."
+fi
+
+if [ "${#degraded[@]}" -gt 0 ]; then
+  slack_alert "⚠️ Failover: ${degraded[*]} on standby not responding. The site may be down or partly down - check standby now."
 fi
 
 # 4. Ack to Worker
@@ -175,4 +180,8 @@ docker exec winnonah-python uv run failover_notify.py failover \
 
 log "=== FAILOVER COMPLETE ==="
 log "STONITH running in background (PID ${STONITH_PID}), retrying every ${STONITH_INTERVAL}s until confirmed. Check $STONITH_LOG for status."
-slack "Failover complete. Standby is live at emr.driftwoodeval.com. Run failback.sh on primary when it recovers."
+if [ "${#degraded[@]}" -eq 0 ]; then
+  slack "Failover complete. Standby is serving emr.driftwoodeval.com. Run failback.sh on primary when it recovers."
+else
+  slack "Failover finished with problems: ${degraded[*]} not responding. Check standby before relying on it. Run failback.sh on primary when it recovers."
+fi

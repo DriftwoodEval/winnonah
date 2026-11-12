@@ -1,5 +1,7 @@
 const CHECK_TIMEOUT_MS = 6000;
 const FAILURE_CONFIRM_MS = 180000; // 3 minutes of sustained failure before failover
+// Same zone as BUSINESS_TIMEZONE in src/lib/constants.ts (the worker can't import it).
+const BUSINESS_TIMEZONE = "America/New_York";
 
 export default {
 	async scheduled(_event, env, ctx) {
@@ -44,22 +46,10 @@ export default {
 async function runCheck(env) {
 	const state = (await env.FAILOVER_KV.get("state")) || "normal";
 
-	if (state === "failover_active") {
-		// Watch for primary coming back. No writes unless it does.
-		const ok = await checkPrimary();
-		if (ok) {
-			const notified =
-				(await env.FAILOVER_KV.get("primary_back_notified")) || "";
-			if (!notified) {
-				await env.FAILOVER_KV.put("primary_back_notified", "1");
-				await slackAlert(
-					env,
-					"Primary appears healthy again. Run failback.sh when ready.",
-				);
-			}
-		}
-		return;
-	}
+	// Once failover is active the public URL is served by the standby, so
+	// checking it says nothing about the primary. The standby's STONITH loop
+	// reports when it can reach the primary again.
+	if (state === "failover_active") return;
 
 	if (state === "failover") {
 		// Triggered but standby hasn't acked yet. Nothing to do.
@@ -129,7 +119,7 @@ async function runCheck(env) {
 	const minutes = Math.round(elapsed / 60000);
 	await slack(
 		env,
-		`Primary has been down for ~${minutes} minute(s). Failover triggered, standby activating within 30s.`,
+		`Primary has been down for ~${minutes} minute(s). Failover triggered, the standby picks it up within about a minute.`,
 	);
 }
 
@@ -146,21 +136,20 @@ async function checkPrimary() {
 
 // One Slack message per incident, edited as it progresses. slack() appends a
 // line to it (posting it first if needed) and keeps its ts and text in KV so
-// the standby can pick it up through /state. slackAlert() posts a separate
-// message, because edits don't notify anyone. slackEnd() closes the incident.
+// the standby can pick it up through /state. slackEnd() closes the incident.
 async function slack(env, line) {
 	if (!env.SLACK_BOT_TOKEN) return;
 	const ts = await env.FAILOVER_KV.get("slack_ts");
 	const previous = (await env.FAILOVER_KV.get("slack_text")) || "";
-	const text = previous ? `${previous}\n${line}` : line;
+	const stamped = `${formatTime(new Date())} ${line}`;
+	const text = previous ? `${previous}\n${stamped}` : stamped;
 	const newTs = await slackCall(env, text, ts);
 	await env.FAILOVER_KV.put("slack_ts", newTs || ts || "");
 	await env.FAILOVER_KV.put("slack_text", text);
 }
 
-async function slackAlert(env, text) {
-	if (!env.SLACK_BOT_TOKEN) return;
-	await slackCall(env, text, null);
+function formatTime(date) {
+	return date.toLocaleTimeString("en-GB", { timeZone: BUSINESS_TIMEZONE });
 }
 
 async function slackEnd(env) {

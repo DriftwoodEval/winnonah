@@ -17,7 +17,7 @@ put things back to normal afterward.
   server) that checks every minute whether the primary is answering. It is
   the watchdog that decides when a takeover should happen.
 - **Slack** Each failover or failback keeps one Slack message and updates it as
-  steps finish, so there is a running log in one place. Problems post as separate messages so they notify.
+  steps finish, with the time (Eastern) at the start of each line, so there is a running log in one place. Problems post as separate messages so they notify.
 - **Tailscale** A private network that lets the two servers talk directly
   and securely to each other, separate from the public internet.
 
@@ -76,8 +76,7 @@ three minutes.
 ## What happens during a failover
 
 The standby checks the monitor once a minute. When it sees that a failover
-has been ordered, it runs its takeover script. Roughly 30 seconds later the
-site is back. The steps:
+has been ordered, it runs its takeover script. The site is usually back within a minute or two of that. The steps:
 
 1. **Announce.** "Standby is taking over" is added to the incident's Slack message.
 2. **Fence the primary (STONITH).** The standby starts trying, in the
@@ -96,7 +95,7 @@ site is back. The steps:
    to trigger anything new.
 6. **Email.** A "Primary server is down" email is sent to the technical
    contacts, from `tech@driftwoodeval.com`.
-7. **Done.** A final Slack message confirms the standby is live and reminds
+7. **Done.** After checking that the web app and Kimai answer, a final Slack message confirms the standby is live (or says which one is not responding) and reminds
    whoever is on call to run the failback script once the primary is fixed.
 
 From then on, the standby *is* the EMR. Anyone using the site sees a yellow
@@ -138,9 +137,8 @@ does not delay the takeover itself.
 ## Putting things back: failback
 
 Failback is **not automatic**. Once the primary is repaired, a person runs
-the failback script on the primary by hand. The monitor helps by posting
-"Primary appears healthy again. Run failback.sh when ready." to Slack once it
-sees the primary answering.
+the failback script on the primary by hand. Once the standby has fenced off the primary, it posts
+"Primary containers confirmed stopped" to Slack, which means the primary machine is reachable and failback can be run once it is repaired.
 
 The reason it is manual: the standby has been the real EMR for a while and
 now holds the only current copy of the data. Cutting back to the primary
@@ -162,7 +160,7 @@ What the failback script does, running on the primary:
    get a false "all caught up" reading from a full copy.
 5. **Switch the tunnel over.** The standby's web app and tunnel are stopped,
    and the primary's web app, tunnel, and web server are started. The site
-   is now served from the primary again.
+   is now served from the primary again once the script confirms the web app and Kimai answer (Slack says which one is not, if either is stuck).
 6. **Restart the primary's background jobs.**
 7. **Re-establish replication**, this time primary to standby again, so the
    standby goes back to being a live read-only copy, ready for next time.
