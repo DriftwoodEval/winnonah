@@ -1,5 +1,6 @@
 import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
+import { formatInBusinessTime } from "~/lib/utils";
 
 type JsonObject = Record<string, unknown>;
 
@@ -7,10 +8,44 @@ function isObject(value: unknown): value is JsonObject {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** "oldEventId" -> "Old event id" */
+const ACRONYMS = new Set(["id", "url", "dds", "sms", "dob"]);
+
+/** "oldEventId" -> "Old event ID" */
 function labelFor(key: string) {
-	const words = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
-	return words.charAt(0).toUpperCase() + words.slice(1);
+	const words = key
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.toLowerCase()
+		.split(" ")
+		.map((word) => (ACRONYMS.has(word) ? word.toUpperCase() : word));
+	const text = words.join(" ");
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const REASON_CODE = /^[a-z]+(_[a-z]+)+$/;
+
+/** "python.gcal.event_deleted" -> "Gcal: Event deleted" (drops the source namespace). */
+export function actionLabel(action: string) {
+	const [, ...parts] = action.split(".");
+	const words = (parts.length > 0 ? parts : [action]).map((part) =>
+		labelFor(part.replace(/_/g, " ")).toLowerCase(),
+	);
+	const text = words.join(": ");
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Plain-language form of a stored string: timestamps in business time, snake_case codes as words. */
+function readableString(key: string | undefined, value: string) {
+	if (ISO_TIMESTAMP.test(value)) {
+		const date = new Date(value);
+		if (!Number.isNaN(date.getTime())) {
+			return formatInBusinessTime(date, "M/d/yy h:mm a");
+		}
+	}
+	if (key === "reason" && REASON_CODE.test(value)) {
+		return labelFor(value.replace(/_/g, " "));
+	}
+	return value;
 }
 
 /** A diff leaf written by `diffValues`: exactly `{ from, to }`. */
@@ -35,7 +70,7 @@ function isArrayChange(
 	);
 }
 
-function Scalar({ value }: { value: unknown }) {
+function Scalar({ value, field }: { value: unknown; field?: string }) {
 	if (value === null || value === undefined || value === "") {
 		return <span className="text-muted-foreground">None</span>;
 	}
@@ -43,7 +78,7 @@ function Scalar({ value }: { value: unknown }) {
 	if (typeof value === "string") {
 		return (
 			<span className="break-words whitespace-pre-wrap">
-				<Redact>{value}</Redact>
+				<Redact>{readableString(field, value)}</Redact>
 			</span>
 		);
 	}
@@ -53,17 +88,17 @@ function Scalar({ value }: { value: unknown }) {
 	);
 }
 
-function ValueView({ value }: { value: unknown }) {
+function ValueView({ value, field }: { value: unknown; field?: string }) {
 	if (isChange(value)) {
 		return (
 			<span className="flex flex-wrap items-baseline gap-x-2">
 				<span className="text-muted-foreground line-through">
-					<Scalar value={value.from} />
+					<Scalar field={field} value={value.from} />
 				</span>
 				<span aria-hidden className="text-muted-foreground">
 					→
 				</span>
-				<Scalar value={value.to} />
+				<Scalar field={field} value={value.to} />
 			</span>
 		);
 	}
@@ -72,12 +107,12 @@ function ValueView({ value }: { value: unknown }) {
 			<span className="flex flex-wrap gap-1">
 				{value.added.map((item) => (
 					<Badge key={`+${JSON.stringify(item)}`} variant="success">
-						+ <Scalar value={item} />
+						+ <Scalar field={field} value={item} />
 					</Badge>
 				))}
 				{value.removed.map((item) => (
 					<Badge key={`-${JSON.stringify(item)}`} variant="destructive">
-						− <Scalar value={item} />
+						− <Scalar field={field} value={item} />
 					</Badge>
 				))}
 			</span>
@@ -87,16 +122,25 @@ function ValueView({ value }: { value: unknown }) {
 		if (value.length === 0) return <Scalar value={null} />;
 		return (
 			<span className="flex flex-wrap gap-1">
-				{value.map((item) => (
-					<Badge key={JSON.stringify(item)} variant="outline">
-						{isObject(item) ? JSON.stringify(item) : <Scalar value={item} />}
-					</Badge>
-				))}
+				{value.map((item) =>
+					isObject(item) ? (
+						<span
+							className="block w-full rounded border p-2"
+							key={JSON.stringify(item)}
+						>
+							<FieldGrid fields={item} />
+						</span>
+					) : (
+						<Badge key={JSON.stringify(item)} variant="outline">
+							<Scalar field={field} value={item} />
+						</Badge>
+					),
+				)}
 			</span>
 		);
 	}
 	if (isObject(value)) return <FieldGrid fields={value} />;
-	return <Scalar value={value} />;
+	return <Scalar field={field} value={value} />;
 }
 
 function FieldGrid({ fields }: { fields: JsonObject }) {
@@ -121,16 +165,22 @@ export function summarizeDetail(detail: unknown): string | null {
 	if (detail === null || detail === undefined) return null;
 	if (!isObject(detail)) return String(detail);
 	return Object.entries(detail)
-		.map(([key, value]) => `${labelFor(key)}: ${previewValue(value)}`)
+		.map(([key, value]) => `${labelFor(key)}: ${previewValue(value, key)}`)
 		.join(" · ");
 }
 
-function previewValue(value: unknown): string {
+function previewValue(value: unknown, field?: string): string {
 	if (isChange(value)) {
-		return `${previewValue(value.from)} → ${previewValue(value.to)}`;
+		return `${previewValue(value.from, field)} → ${previewValue(value.to, field)}`;
 	}
 	if (value === null || value === undefined || value === "") return "none";
-	if (typeof value === "object") return "…";
+	if (Array.isArray(value)) {
+		return value.length === 0
+			? "none"
+			: `${value.length} item${value.length === 1 ? "" : "s"}`;
+	}
+	if (typeof value === "object") return "details";
+	if (typeof value === "string") return readableString(field, value);
 	return String(value);
 }
 

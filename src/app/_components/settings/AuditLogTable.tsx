@@ -27,10 +27,10 @@ import {
 } from "@ui/table";
 import { ChevronRight, X } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, type MouseEvent, useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { AuditDetail, summarizeDetail } from "./AuditDetail";
+import { AuditDetail, actionLabel, summarizeDetail } from "./AuditDetail";
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
@@ -102,15 +102,21 @@ export default function AuditLogTable() {
 			return next;
 		});
 
+	/** Row clicks toggle detail, except clicks on links (the client name) which navigate. */
+	const rowClick = (id: number) => (event: MouseEvent) => {
+		if ((event.target as HTMLElement).closest("a")) return;
+		toggleExpanded(id);
+	};
+
 	const renderAction = (row: AuditRow) => {
 		const summary = expandedRows.has(row.id)
 			? null
 			: summarizeDetail(row.detail);
 		return (
 			<>
-				<Badge className="max-w-full font-mono" variant="outline">
-					<span className="truncate">{row.action}</span>
-				</Badge>
+				<span className="font-medium" title={row.action}>
+					{actionLabel(row.action)}
+				</span>
 				{summary && (
 					<span className="mt-1 block max-w-md truncate text-xs text-muted-foreground">
 						<Redact>{summary}</Redact>
@@ -315,9 +321,11 @@ export default function AuditLogTable() {
 					<EmptyState compact title="No audit log entries found" />
 				) : (
 					rows.map((row) => (
+						// biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: the chevron button inside is the keyboard path
 						<div
-							className="space-y-1.5 rounded-lg border p-3 text-sm"
+							className="cursor-pointer space-y-1.5 rounded-lg border p-3 text-sm"
 							key={row.id}
+							onClick={rowClick(row.id)}
 						>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-xs text-muted-foreground">
