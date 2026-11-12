@@ -35,14 +35,14 @@ export function actionLabel(action: string) {
 }
 
 /** Plain-language form of a stored string: timestamps in business time, snake_case codes as words. */
-function readableString(key: string | undefined, value: string) {
+function readableString(value: string) {
 	if (ISO_TIMESTAMP.test(value)) {
 		const date = new Date(value);
 		if (!Number.isNaN(date.getTime())) {
 			return formatInBusinessTime(date, "M/d/yy h:mm a");
 		}
 	}
-	if (key === "reason" && REASON_CODE.test(value)) {
+	if (REASON_CODE.test(value)) {
 		return labelFor(value.replace(/_/g, " "));
 	}
 	return value;
@@ -78,20 +78,18 @@ function Scalar({ value, field }: { value: unknown; field?: string }) {
 	if (typeof value === "string") {
 		return (
 			<span className="break-words whitespace-pre-wrap">
-				<Redact>{readableString(field, value)}</Redact>
+				<Redact>{readableString(value)}</Redact>
 			</span>
 		);
 	}
 	if (typeof value === "number") return <>{value}</>;
-	return (
-		<span className="font-mono text-xs break-all">{JSON.stringify(value)}</span>
-	);
+	return <ValueView field={field} value={value} />;
 }
 
 function ValueView({ value, field }: { value: unknown; field?: string }) {
 	if (isChange(value)) {
 		return (
-			<span className="flex flex-wrap items-baseline gap-x-2">
+			<div className="flex flex-wrap items-baseline gap-x-2">
 				<span className="text-muted-foreground line-through">
 					<Scalar field={field} value={value.from} />
 				</span>
@@ -99,7 +97,7 @@ function ValueView({ value, field }: { value: unknown; field?: string }) {
 					→
 				</span>
 				<Scalar field={field} value={value.to} />
-			</span>
+			</div>
 		);
 	}
 	if (isArrayChange(value)) {
@@ -204,7 +202,7 @@ function previewValue(value: unknown, field?: string): string {
 			: `${value.length} item${value.length === 1 ? "" : "s"}`;
 	}
 	if (typeof value === "object") return "details";
-	if (typeof value === "string") return readableString(field, value);
+	if (typeof value === "string") return readableString(value);
 	return String(value);
 }
 
