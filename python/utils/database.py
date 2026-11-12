@@ -2413,17 +2413,15 @@ def record_gcal_event_change(
     action: str,
     client_id: int | None,
     detail: dict,
+    actor: tuple[str, str] | None,
     connection: Connection[DictCursor],
 ) -> None:
     """Records a change made to a Google Calendar event (title edit or delete)
-    in the audit log. Best-effort like record_audit_log."""
+    in the audit log. actor is the (user id, email) behind the change, or None
+    for a system job. Best-effort like record_audit_log."""
+    actor_id, actor_email = actor or ("system:python", "Python script")
     record_audit_log(
-        connection,
-        action,
-        client_id,
-        "system:python",
-        "Python script",
-        detail=detail,
+        connection, action, client_id, actor_id, actor_email, detail=detail
     )
     connection.commit()
 

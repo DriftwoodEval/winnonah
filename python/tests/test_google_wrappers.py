@@ -119,13 +119,14 @@ class TestCalendarAudit:
             "eval@example.com", "evt1", reason="planned_office_cleared"
         )
 
-        action, client_id, detail = record.call_args.args
+        action, client_id, detail, actor = record.call_args.args
         assert action == "python.gcal.event_deleted"
         assert client_id is None
         assert detail["title"] == "Planned: Office"
         assert detail["start"] == "2026-11-12"
         assert detail["reason"] == "planned_office_cleared"
         assert detail["alreadyDeleted"] is False
+        assert actor is None
 
     @patch("utils.google.utils.database.record_gcal_event_change")
     @patch("utils.google._patch_gcal_event")
@@ -137,14 +138,19 @@ class TestCalendarAudit:
         patch_event.side_effect = fake_patch
 
         update_gcal_event_title(
-            "evt1", "DA Jane", client_id=7, reason="placeholder_promoted"
+            "evt1",
+            "DA Jane",
+            client_id=7,
+            reason="placeholder_promoted",
+            actor=("user-1", "staff@example.com"),
         )
 
-        action, client_id, detail = record.call_args.args
+        action, client_id, detail, actor = record.call_args.args
         assert action == "python.gcal.event_title_updated"
         assert client_id == 7
         assert detail["oldTitle"] == "plchldr Jane"
         assert detail["newTitle"] == "DA Jane"
+        assert actor == ("user-1", "staff@example.com")
 
     @patch("utils.google.utils.database.record_gcal_event_change")
     @patch("utils.google._patch_gcal_event", return_value=False)

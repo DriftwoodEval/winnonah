@@ -191,6 +191,11 @@ def get_google_services():
     return {"drive": drive_service, "sheets": sheets_service}
 
 
+def _audit_actor(current_user: dict) -> tuple[str, str]:
+    """The (user id, email) recorded as the actor on audit entries."""
+    return current_user["user_id"], current_user["email"]
+
+
 def get_current_user(request: Request):
     cookie_names = [
         "authjs.session-token",
@@ -1061,7 +1066,11 @@ async def create_placeholder_appointment(
         gcal_event_title=title,
         placeholder=True,
     )
-    clear_planned_office_events(evaluator_email, start_time_business.date())
+    clear_planned_office_events(
+        evaluator_email,
+        start_time_business.date(),
+        actor=_audit_actor(current_user),
+    )
 
     return {
         "id": appointment_id,
@@ -1089,7 +1098,12 @@ async def delete_placeholder_appointment(
 
     if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
         delete_calendar_event(
-            appointment["evaluatorEmail"], appointment["calendarEventId"]
+            appointment["evaluatorEmail"],
+            appointment["calendarEventId"],
+            client_id=appointment["clientId"],
+            reason="placeholder_deleted",
+            appointment_id=appointment_id,
+            actor=_audit_actor(current_user),
         )
 
     delete_appointment(appointment_id)
@@ -1137,7 +1151,12 @@ async def move_placeholder_appointment(
 
     if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
         delete_calendar_event(
-            appointment["evaluatorEmail"], appointment["calendarEventId"]
+            appointment["evaluatorEmail"],
+            appointment["calendarEventId"],
+            client_id=appointment["clientId"],
+            reason="placeholder_moved",
+            appointment_id=appointment_id,
+            actor=_audit_actor(current_user),
         )
     calendar_event_id = create_placeholder_event(
         evaluator_email, title, start_time_business, end_time_business, description
@@ -1156,7 +1175,11 @@ async def move_placeholder_appointment(
         gcal_event_title=title,
         placeholder=True,
     )
-    clear_planned_office_events(evaluator_email, start_time_business.date())
+    clear_planned_office_events(
+        evaluator_email,
+        start_time_business.date(),
+        actor=_audit_actor(current_user),
+    )
 
     return {
         "id": appointment_id,
@@ -1198,7 +1221,9 @@ async def unplan_evaluator_office(
     if evaluator_email is None:
         raise HTTPException(status_code=404, detail="Evaluator not found")
 
-    clear_planned_office_events(evaluator_email, request.date)
+    clear_planned_office_events(
+        evaluator_email, request.date, actor=_audit_actor(current_user)
+    )
     return {"status": "ok"}
 
 
@@ -1226,7 +1251,7 @@ def _apply_confirmed_marker(title: str, confirmed: bool) -> str | None:
 def confirm_appointment_calendar(
     appointment_id: str,
     confirmed: bool = True,
-    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+    current_user: dict = Depends(get_current_user),
 ):
     """Adds or removes the `[CONFIRMED]` suffix on the linked calendar event to
     match the appointment's confirmed state (`confirmed=false` strips it)."""
@@ -1250,7 +1275,13 @@ def confirm_appointment_calendar(
     new_title = _apply_confirmed_marker(current_title, confirmed) if event_id else None
     if event_id and new_title is not None:
         try:
-            update_gcal_event_title(event_id, new_title)
+            update_gcal_event_title(
+                event_id,
+                new_title,
+                reason="confirmed_marker_toggled",
+                appointment_id=appointment_id,
+                actor=_audit_actor(current_user),
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Calendar update failed: {e}"

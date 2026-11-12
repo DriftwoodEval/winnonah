@@ -974,11 +974,16 @@ def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
     return False
 
 
-def _audit_gcal_change(action: str, client_id: int | None, detail: dict) -> None:
+def _audit_gcal_change(
+    action: str,
+    client_id: int | None,
+    detail: dict,
+    actor: tuple[str, str] | None = None,
+) -> None:
     """Write an audit entry for a calendar change. A failure here is logged and
     never undoes or blocks the calendar change it describes."""
     try:
-        utils.database.record_gcal_event_change(action, client_id, detail)
+        utils.database.record_gcal_event_change(action, client_id, detail, actor)
     except Exception:
         logger.exception(f"Failed to write audit log for action={action}")
 
@@ -991,10 +996,12 @@ def update_gcal_event_title(
     client_id: int | None = None,
     reason: str | None = None,
     appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
 ) -> bool:
     """Find a Google Calendar event by ID and update its title. Returns True if updated.
 
     client_id, reason, and appointment_id only add context to the audit entry.
+    actor is the (user id, email) behind the change; omitted means a system job.
     """
     old_title: list[str | None] = []
 
@@ -1016,6 +1023,7 @@ def update_gcal_event_title(
                 "reason": reason,
                 "appointmentId": appointment_id,
             },
+            actor,
         )
     else:
         logger.warning(f"Calendar event {event_id} not found in any calendar")
@@ -1267,11 +1275,13 @@ def delete_calendar_event(
     client_id: int | None = None,
     reason: str | None = None,
     appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
 ) -> None:
     """Delete a calendar event and record it in the audit log with the event's
     title and start. Used to clean up placeholder holds and planned-office markers.
 
     client_id, reason, and appointment_id only add context to the audit entry.
+    actor is the (user id, email) behind the change; omitted means a system job.
     """
     creds = google_authenticate()
     service = build_google_service("calendar", "v3", creds)
@@ -1308,6 +1318,7 @@ def delete_calendar_event(
             "appointmentId": appointment_id,
             "alreadyDeleted": already_deleted,
         },
+        actor,
     )
 
 
@@ -1341,7 +1352,9 @@ def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
     return event["id"]
 
 
-def clear_planned_office_events(calendar_id: str, date: date) -> None:
+def clear_planned_office_events(
+    calendar_id: str, date: date, actor: tuple[str, str] | None = None
+) -> None:
     """Delete any "Planned: <office>" all-day events on the given calendar/date.
 
     Called once a placeholder or real appointment lands on that evaluator's
@@ -1377,5 +1390,8 @@ def clear_planned_office_events(calendar_id: str, date: date) -> None:
         summary = event.get("summary") or ""
         if summary.startswith(PLANNED_OFFICE_TITLE_PREFIX):
             delete_calendar_event(
-                calendar_id, event["id"], reason="planned_office_cleared"
+                calendar_id,
+                event["id"],
+                reason="planned_office_cleared",
+                actor=actor,
             )
