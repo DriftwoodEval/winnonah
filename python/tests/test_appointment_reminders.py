@@ -1,11 +1,12 @@
 import json
 from datetime import datetime, time, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from driftwood_common.timezone import business_to_utc, now_business
 
 from api.appointment_reminders import (
+    _audit_event_relink,
     _compute_age_years,
     _fix_stale_event_id,
     _matches_template,
@@ -551,3 +552,21 @@ class TestGetReminderPreview:
         conn = FakeConnection(cursor)
         result = get_reminder_preview("appt-1", connection=conn)
         assert result["hasPhone"] is False
+
+
+def test_event_relink_audit_records_old_and_new_event():
+
+    context = {
+        "appointment_id": "a1",
+        "clientId": 3,
+        "calendarEventId": "old",
+        "calendarEventTitle": "DA Jane",
+    }
+    found = {"event_id": "new", "calendar_id": "eval@example.com"}
+    with patch("api.appointment_reminders.record_audit_log") as record:
+        _audit_event_relink(MagicMock(), context, found, "DA Jane [CONFIRMED]")
+
+    detail = record.call_args.kwargs["detail"]
+    assert record.call_args.args[1] == "python.appointments.calendar_event_relinked"
+    assert (detail["oldEventId"], detail["newEventId"]) == ("old", "new")
+    assert detail["newTitle"] == "DA Jane [CONFIRMED]"

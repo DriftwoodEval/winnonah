@@ -33,7 +33,7 @@ from utils.constants import (
     TABLE_EI_CONTACT,
     TABLE_OFFICE,
 )
-from utils.database import provide_connection
+from utils.database import SYSTEM_ACTOR, provide_connection, record_audit_log
 from utils.google import (
     append_gcal_event_description,
     find_gcal_event_by_client_and_time,
@@ -706,6 +706,26 @@ def _fix_stale_event_id(context: dict, old_event_id: str) -> dict | None:
     return found
 
 
+def _audit_event_relink(connection, context: dict, found: dict, new_title: str) -> None:
+    """Audit an appointment's stored calendar event being repointed at the event
+    found by the client/time fallback."""
+    record_audit_log(
+        connection,
+        "python.appointments.calendar_event_relinked",
+        context["clientId"],
+        *SYSTEM_ACTOR,
+        detail={
+            "appointmentId": context["appointment_id"],
+            "oldEventId": context.get("calendarEventId"),
+            "oldTitle": context.get("calendarEventTitle"),
+            "newEventId": found["event_id"],
+            "newCalendarId": found["calendar_id"],
+            "newTitle": new_title,
+            "reason": "stale_event_id",
+        },
+    )
+
+
 def is_confirmation(incoming_text: str) -> bool:
     """
     Checks for a confirmed response with word boundary protection
@@ -925,6 +945,16 @@ async def handle_incoming_reply(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
                 (context["appointment_id"],),
             )
+            record_audit_log(
+                connection,
+                "python.appointments.confirmed_by_reply",
+                context["clientId"],
+                *SYSTEM_ACTOR,
+                detail={
+                    "appointmentId": context["appointment_id"],
+                    "openphoneMessageId": message_id,
+                },
+            )
 
             event_id = context.get("calendarEventId")
             effective_event_id = event_id
@@ -971,6 +1001,7 @@ async def handle_incoming_reply(
                                     context["appointment_id"],
                                 ),
                             )
+                            _audit_event_relink(connection, context, found, new_title)
                             logger.info(
                                 f"Corrected stale event ID for appt {context['appointment_id']}: "
                                 f"{event_id!r} → {found['event_id']!r}, updated title to {new_title!r}."
@@ -1019,6 +1050,16 @@ async def handle_incoming_reply(
                     f"UPDATE {TABLE_APPOINTMENT} SET doNotRemind = 1 WHERE id = %s",
                     (context["appointment_id"],),
                 )
+                record_audit_log(
+                    connection,
+                    "python.appointments.reminders_stopped_by_reply",
+                    context["clientId"],
+                    *SYSTEM_ACTOR,
+                    detail={
+                        "appointmentId": context["appointment_id"],
+                        "openphoneMessageId": message_id,
+                    },
+                )
 
             event_id = context.get("calendarEventId")
             if event_id:
@@ -1048,6 +1089,9 @@ async def handle_incoming_reply(
                                     found["title"],
                                     context["appointment_id"],
                                 ),
+                            )
+                            _audit_event_relink(
+                                connection, context, found, found["title"]
                             )
                             logger.info(
                                 f"Corrected stale event ID for appt {context['appointment_id']}: "

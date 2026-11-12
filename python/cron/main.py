@@ -401,6 +401,20 @@ def process_resync_confirmed():
                             f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
                             (event_id, new_title, appt_id),
                         )
+                    utils.database.record_audit_log(
+                        conn,
+                        "python.appointments.calendar_event_synced",
+                        row["clientId"],
+                        *utils.database.SYSTEM_ACTOR,
+                        detail={
+                            "appointmentId": appt_id,
+                            "oldEventId": row["calendarEventId"],
+                            "newEventId": event_id,
+                            "oldTitle": row["calendarEventTitle"],
+                            "newTitle": new_title,
+                            "reason": "resync_confirmed",
+                        },
+                    )
                     conn.commit()
 
                 if success:

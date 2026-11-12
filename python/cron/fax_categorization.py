@@ -28,7 +28,7 @@ from utils.constants import (
     TABLE_FAX_CATEGORIZATION,
     TABLE_FAX_CATEGORIZATION_CLIENT_LINK,
 )
-from utils.database import db_session, get_all_clients
+from utils.database import SYSTEM_ACTOR, db_session, get_all_clients, record_audit_log
 from utils.dds_fax import send_approved_dds_requests
 from utils.document_categorizer import (
     categorize_document,
@@ -205,6 +205,20 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
 
             if is_dds:
                 _queue_dds_requests(cursor, fax_id, list(matched_clients))
+        record_audit_log(
+            conn,
+            "python.fax.categorized",
+            None,
+            *SYSTEM_ACTOR,
+            detail={
+                "faxCategorizationId": fax_id,
+                "driveFileId": file["id"],
+                "category": category,
+                "confidence": confidence,
+                "isDds": is_dds,
+                "matchedClientIds": list(matched_clients),
+            },
+        )
         conn.commit()
 
     logger.info(

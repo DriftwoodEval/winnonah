@@ -1,11 +1,17 @@
 import io
 import shutil
+from unittest.mock import MagicMock, patch
 
 import pymupdf
 import pytest
 from PIL import Image
 
-from utils.dds_fax import PAYEE_LINES, build_dds_fax_pdf, find_label
+from utils.dds_fax import (
+    PAYEE_LINES,
+    build_dds_fax_pdf,
+    find_label,
+    mark_dds_request_sent,
+)
 
 requires_tesseract = pytest.mark.skipif(
     shutil.which("tesseract") is None,
@@ -90,3 +96,25 @@ def test_cover_page_alone_with_note():
 def test_overlong_note_raises():
     with pytest.raises(ValueError, match="too long"):
         build_dds_fax_pdf(FAX, _png(), note="word " * 2000)
+
+
+def test_marking_a_request_sent_audits_the_pdf_that_went_out():
+
+    request = {
+        "id": 4,
+        "clientId": 9,
+        "faxCategorizationId": 2,
+        "selectedFileId": "file1",
+        "selectedFileName": "eval.pdf",
+        "coverNote": None,
+    }
+    with (
+        patch("utils.dds_fax.utils.database.get_db", return_value=MagicMock()),
+        patch("utils.dds_fax.utils.database.record_audit_log") as record,
+    ):
+        mark_dds_request_sent(request)
+
+    args = record.call_args
+    assert args.args[1:3] == ("python.dds_fax.sent", 9)
+    assert args.kwargs["detail"]["selectedFileName"] == "eval.pdf"
+    assert args.kwargs["detail"]["hasCoverNote"] is False

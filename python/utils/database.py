@@ -2408,6 +2408,9 @@ def delete_superseded_placeholder(
         connection.commit()
 
 
+SYSTEM_ACTOR = ("system:python", "Python script")
+
+
 @provide_connection
 def record_gcal_event_change(
     action: str,
@@ -2419,7 +2422,7 @@ def record_gcal_event_change(
     """Records a change made to a Google Calendar event (title edit or delete)
     in the audit log. actor is the (user id, email) behind the change, or None
     for a system job. Best-effort like record_audit_log."""
-    actor_id, actor_email = actor or ("system:python", "Python script")
+    actor_id, actor_email = actor or SYSTEM_ACTOR
     record_audit_log(
         connection, action, client_id, actor_id, actor_email, detail=detail
     )

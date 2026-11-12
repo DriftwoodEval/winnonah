@@ -190,7 +190,8 @@ def build_dds_fax_pdf(
 
 
 _REQUEST_SELECT = f"""
-    SELECT r.id, r.clientId, r.selectedFileId, r.coverNote, f.driveFileId AS faxFileId,
+    SELECT r.id, r.clientId, r.faxCategorizationId, r.selectedFileId, r.selectedFileName, r.coverNote,
+           f.driveFileId AS faxFileId,
            c.firstName, c.lastName
     FROM {TABLE_DDS_FAX_REQUEST} r
     JOIN {TABLE_FAX_CATEGORIZATION} f ON f.id = r.faxCategorizationId
@@ -233,7 +234,8 @@ def build_request_fax_pdf(request: dict) -> bytes:
     )
 
 
-def mark_dds_request_sent(request_id: int) -> None:
+def mark_dds_request_sent(request: dict) -> None:
+    """Mark an approved request sent and audit which evaluation PDF went out."""
     with utils.database.get_db() as conn, conn.cursor() as cursor:
         cursor.execute(
             f"""
@@ -241,7 +243,20 @@ def mark_dds_request_sent(request_id: int) -> None:
             SET status = 'sent', sentAt = UTC_TIMESTAMP()
             WHERE id = %s AND status = 'approved'
             """,
-            (request_id,),
+            (request["id"],),
+        )
+        utils.database.record_audit_log(
+            conn,
+            "python.dds_fax.sent",
+            request["clientId"],
+            *utils.database.SYSTEM_ACTOR,
+            detail={
+                "requestId": request["id"],
+                "faxCategorizationId": request["faxCategorizationId"],
+                "selectedFileId": request["selectedFileId"],
+                "selectedFileName": request["selectedFileName"],
+                "hasCoverNote": bool(request["coverNote"]),
+            },
         )
         conn.commit()
 
@@ -276,5 +291,5 @@ def send_approved_dds_requests() -> None:
             logger.error(f"Failed to send DDS fax for request {request['id']}")
             continue
 
-        mark_dds_request_sent(request["id"])
+        mark_dds_request_sent(request)
         logger.info(f"Sent DDS fax for request {request['id']}")
