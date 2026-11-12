@@ -2,6 +2,8 @@ import { EventEmitter } from "node:events";
 import type { JSONContent } from "@tiptap/core";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { setAuditDetail } from "~/server/api/audit";
+import { noteChanges } from "~/server/api/note-changes";
 import {
 	assertPermission,
 	type Context,
@@ -37,6 +39,7 @@ export async function saveNoteInternal(
 ) {
 	const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
+	let changes: ReturnType<typeof noteChanges> | undefined;
 	const changed = await ctx.db.transaction(async (tx) => {
 		const currentNote = await tx.query.notes.findFirst({
 			where: eq(notes.clientId, input.clientId),
@@ -51,6 +54,10 @@ export async function saveNoteInternal(
 			};
 
 			await tx.insert(notes).values(notePayload);
+			changes = noteChanges(
+				{ content: null, title: null },
+				{ content: input.contentJson ?? null, title: input.title ?? null },
+			);
 			return true;
 		}
 
@@ -68,6 +75,13 @@ export async function saveNoteInternal(
 		const titleChanged = currentNote.title !== newTitle;
 
 		if (contentChanged || titleChanged) {
+			changes = noteChanges(
+				{
+					content: currentNote.content as JSONContent | null,
+					title: currentNote.title,
+				},
+				{ content: newContent, title: newTitle },
+			);
 			const timeSinceLastUpdate = currentNote.updatedAt
 				? Date.now() - new Date(currentNote.updatedAt).getTime()
 				: Number.POSITIVE_INFINITY;
@@ -131,7 +145,7 @@ export async function saveNoteInternal(
 		}
 	}
 
-	return { success: true };
+	return { success: true, changes };
 }
 
 export const noteRouter = createTRPCRouter({
@@ -215,7 +229,10 @@ export const noteRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:notes");
-			return saveNoteInternal(ctx, input);
+			const { changes } = await saveNoteInternal(ctx, input);
+			// Log what changed, not the whole note the client sent.
+			setAuditDetail(ctx, changes ?? { changed: false });
+			return { success: true };
 		}),
 
 	createNote: protectedProcedure
@@ -228,7 +245,10 @@ export const noteRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:notes");
-			return saveNoteInternal(ctx, input);
+			const { changes } = await saveNoteInternal(ctx, input);
+			// Log what changed, not the whole note the client sent.
+			setAuditDetail(ctx, changes ?? { changed: false });
+			return { success: true };
 		}),
 
 	getHistory: protectedProcedure
