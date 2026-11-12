@@ -2,6 +2,7 @@ import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	assertPermissionOrBabyNetLimited,
@@ -163,6 +164,25 @@ const extractTextFromTiptapJson = (tiptapJson: any): string => {
  * Requires clients:records:requested, or the BabyNet-limited permission when
  * the client is a BabyNet client.
  */
+/** The request row as it stands now, for audit diffs. Null when it is gone. */
+const getRecordRequest = async (
+	ctx: Context,
+	requestId: number,
+	clientId: number,
+) => {
+	const [row] = await ctx.db
+		.select()
+		.from(externalRecordRequests)
+		.where(
+			and(
+				eq(externalRecordRequests.id, requestId),
+				eq(externalRecordRequests.clientId, clientId),
+			),
+		)
+		.limit(1);
+	return row ?? null;
+};
+
 const assertCanManageRecordRequests = async (
 	ctx: Pick<Context, "db"> & {
 		session: NonNullable<Context["session"]>;
@@ -251,8 +271,18 @@ export const externalRecordRouter = createTRPCRouter({
 			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Cancelling record request");
 
+			const before = await getRecordRequest(
+				ctx,
+				input.requestId,
+				input.clientId,
+			);
 			// Only a still-pending (unsent) request can be cancelled. A row with a
-			// requestedDate has already gone out and is part of the record.
+			// requestedDate has already gone out and is part of the record. The
+			// audit entry keeps the deleted row so the cancel can be undone by hand.
+			setAuditDetail(ctx, {
+				requestId: input.requestId,
+				deleted: before?.requestedDate ? null : before,
+			});
 			await ctx.db
 				.delete(externalRecordRequests)
 				.where(
@@ -288,6 +318,19 @@ export const externalRecordRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request date");
+
+			const before = await getRecordRequest(
+				ctx,
+				input.requestId,
+				input.clientId,
+			);
+			setAuditDetail(ctx, {
+				requestId: input.requestId,
+				changes: diffValues(
+					before,
+					before && { ...before, requestedDate: input.requestedDate },
+				),
+			});
 
 			await ctx.db
 				.update(externalRecordRequests)
@@ -337,6 +380,19 @@ export const externalRecordRouter = createTRPCRouter({
 			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request hold until");
 
+			const before = await getRecordRequest(
+				ctx,
+				input.requestId,
+				input.clientId,
+			);
+			setAuditDetail(ctx, {
+				requestId: input.requestId,
+				changes: diffValues(
+					before,
+					before && { ...before, holdUntil: input.holdUntil },
+				),
+			});
+
 			await ctx.db
 				.update(externalRecordRequests)
 				.set({ holdUntil: input.holdUntil })
@@ -359,6 +415,19 @@ export const externalRecordRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request message");
+
+			const before = await getRecordRequest(
+				ctx,
+				input.requestId,
+				input.clientId,
+			);
+			setAuditDetail(ctx, {
+				requestId: input.requestId,
+				changes: diffValues(
+					before,
+					before && { ...before, customMessage: input.message },
+				),
+			});
 
 			await ctx.db
 				.update(externalRecordRequests)

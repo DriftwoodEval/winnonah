@@ -19,6 +19,7 @@ import { formatAppointmentInfoBlock } from "~/lib/appointment-info-block";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	type Context,
@@ -603,6 +604,20 @@ export const appointmentRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const { id, confirmedAt, ...rest } = input;
+			const before = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, id),
+				columns: { confirmedAt: true, doNotRemind: true },
+			});
+			setAuditDetail(ctx, {
+				appointmentId: id,
+				changes:
+					before &&
+					diffValues(before, {
+						confirmedAt:
+							confirmedAt === undefined ? before.confirmedAt : confirmedAt,
+						doNotRemind: rest.doNotRemind ?? before.doNotRemind,
+					}),
+			});
 			await ctx.db
 				.update(appointments)
 				.set({ confirmedAt, ...rest })
