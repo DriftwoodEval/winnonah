@@ -32,7 +32,7 @@ type ReminderSettings = RouterOutputs["questionnaires"]["getReminderSettings"];
 
 const VARIANTS = [
 	{ key: "DEFAULT", label: "Default" },
-	{ key: "POSTDA", label: "Post-DA, awaiting eval" },
+	{ key: "POSTDA", label: "Post-DA" },
 	{ key: "POSTEVAL", label: "Post-eval" },
 ] as const;
 
