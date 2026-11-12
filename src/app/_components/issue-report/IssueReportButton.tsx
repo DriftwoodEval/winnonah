@@ -112,12 +112,24 @@ async function capturePage(): Promise<string | null> {
 	const attempts = [
 		{ ...options, cacheBust: true },
 		{ ...options, skipFonts: true, imagePlaceholder: BLANK_IMAGE },
+		// Last resort: leave out <img> elements, whose failure to load is what
+		// html-to-image reports as a bare Event.
+		{
+			...options,
+			skipFonts: true,
+			imagePlaceholder: BLANK_IMAGE,
+			filter: (node: HTMLElement) =>
+				options.filter(node) && node.tagName !== "IMG",
+		},
 	];
 	for (const attempt of attempts) {
 		try {
 			return await withScrollFlattened(() => toPng(document.body, attempt));
 		} catch (error) {
-			console.error("Issue report screenshot failed", error);
+			// html-to-image rejects with the failing image's error Event, so log its
+			// target to show which element could not be loaded.
+			const target = error instanceof Event ? error.target : null;
+			console.error("Issue report screenshot failed", error, target);
 		}
 	}
 	return null;
