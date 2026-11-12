@@ -8,7 +8,17 @@ function isObject(value: unknown): value is JsonObject {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const ACRONYMS = new Set(["id", "url", "json", "dds", "sms", "dob"]);
+const ACRONYMS = new Set([
+	"id",
+	"url",
+	"json",
+	"dds",
+	"sms",
+	"dob",
+	"asd",
+	"adhd",
+	"ld",
+]);
 
 /** "oldEventId" -> "Old event ID" */
 function labelFor(key: string) {
