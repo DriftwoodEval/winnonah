@@ -11,7 +11,10 @@ export const greeterProxyRouter = createTRPCRouter({
 
 			const response = await fetch(url);
 			if (!response.ok) {
-				throw new Error(`Failed to fetch greeter schedule: ${response.status}`);
+				const detail = (await response.text()).slice(0, 200);
+				throw new Error(
+					`Failed to fetch greeter schedule: ${response.status} ${detail}`.trim(),
+				);
 			}
 			const data = (await response.json()) as {
 				entries: { location: string; name: string; phone: string | null }[];

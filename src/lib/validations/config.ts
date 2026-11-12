@@ -255,6 +255,9 @@ export const ISSUE_REPORT_PRIORITIES = [
 	"Lowest",
 ] as const;
 
+/** Size cap for the browser error log attached to an issue report. */
+export const MAX_RECENT_ERRORS_LENGTH = 20000;
+
 // Each screenshot is a JPEG as base64, capped at roughly 3 MB. Five of them stay
 // under Gmail's message size limit.
 export const issueReportSubmissionSchema = z
@@ -265,7 +268,7 @@ export const issueReportSubmissionSchema = z
 		priority: z.enum(ISSUE_REPORT_PRIORITIES),
 		pageUrl: z.string().max(2000).optional(),
 		userAgent: z.string().max(500).optional(),
-		recentErrors: z.string().max(5000).optional(),
+		recentErrors: z.string().max(MAX_RECENT_ERRORS_LENGTH).optional(),
 		ccEmails: z.array(z.string()).max(50),
 		screenshots: z
 			.array(
