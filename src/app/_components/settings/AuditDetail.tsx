@@ -160,9 +160,33 @@ function FieldGrid({ fields }: { fields: JsonObject }) {
 	);
 }
 
+/** Some details store a nested value as a JSON string; parse those (at any depth) so they render as fields. */
+function unpackJson(value: unknown): unknown {
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		if (!/^[{[]/.test(trimmed)) return value;
+		try {
+			const parsed: unknown = JSON.parse(trimmed);
+			return typeof parsed === "object" && parsed !== null
+				? unpackJson(parsed)
+				: value;
+		} catch {
+			return value;
+		}
+	}
+	if (Array.isArray(value)) return value.map(unpackJson);
+	if (isObject(value)) {
+		return Object.fromEntries(
+			Object.entries(value).map(([key, item]) => [key, unpackJson(item)]),
+		);
+	}
+	return value;
+}
+
 /** One-line preview of a detail payload, shown while its row is collapsed. */
-export function summarizeDetail(detail: unknown): string | null {
-	if (detail === null || detail === undefined) return null;
+export function summarizeDetail(rawDetail: unknown): string | null {
+	if (rawDetail === null || rawDetail === undefined) return null;
+	const detail = unpackJson(rawDetail);
 	if (!isObject(detail)) return String(detail);
 	return Object.entries(detail)
 		.map(([key, value]) => `${labelFor(key)}: ${previewValue(value, key)}`)
@@ -191,7 +215,7 @@ export function AuditDetail({ detail }: { detail: unknown }) {
 	}
 	return (
 		<div className="text-sm">
-			<ValueView value={detail} />
+			<ValueView value={unpackJson(detail)} />
 		</div>
 	);
 }
