@@ -932,7 +932,13 @@ async def handle_incoming_reply(
             if event_id and "[confirmed]" not in current_title.lower():
                 new_title = f"{current_title} [CONFIRMED]".strip()
                 try:
-                    updated = update_gcal_event_title(event_id, new_title)
+                    updated = update_gcal_event_title(
+                        event_id,
+                        new_title,
+                        client_id=context["clientId"],
+                        reason="client_confirmed_reply",
+                        appointment_id=context["appointment_id"],
+                    )
                     if updated:
                         logger.info(
                             f"Updated calendar event {event_id} title to {new_title!r}."
@@ -953,6 +959,9 @@ async def handle_incoming_reply(
                                     found["event_id"],
                                     new_title,
                                     calendar_id=found["calendar_id"],
+                                    client_id=context["clientId"],
+                                    reason="client_confirmed_reply",
+                                    appointment_id=context["appointment_id"],
                                 )
                             cursor.execute(
                                 f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
@@ -973,7 +982,13 @@ async def handle_incoming_reply(
 
             if effective_event_id:
                 try:
-                    append_gcal_event_description(effective_event_id, description_note)
+                    append_gcal_event_description(
+                        effective_event_id,
+                        description_note,
+                        client_id=context["clientId"],
+                        reason="client_confirmed_reply",
+                        appointment_id=context["appointment_id"],
+                    )
                 except Exception as e:
                     logger.error(f"Failed to append to calendar event description: {e}")
         else:
@@ -1008,7 +1023,13 @@ async def handle_incoming_reply(
             event_id = context.get("calendarEventId")
             if event_id:
                 try:
-                    appended = append_gcal_event_description(event_id, description_note)
+                    appended = append_gcal_event_description(
+                        event_id,
+                        description_note,
+                        client_id=context["clientId"],
+                        reason="client_reply",
+                        appointment_id=context["appointment_id"],
+                    )
                     if not appended:
                         found = _fix_stale_event_id(context, event_id)
                         if found:
@@ -1016,6 +1037,9 @@ async def handle_incoming_reply(
                                 found["event_id"],
                                 description_note,
                                 calendar_id=found["calendar_id"],
+                                client_id=context["clientId"],
+                                reason="client_reply",
+                                appointment_id=context["appointment_id"],
                             )
                             cursor.execute(
                                 f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",

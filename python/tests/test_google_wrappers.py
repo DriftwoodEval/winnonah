@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -158,3 +159,55 @@ class TestCalendarAudit:
         update_gcal_event_title("evt1", "DA Jane")
 
         record.assert_not_called()
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google._patch_gcal_event", return_value=True)
+    def test_description_append_logs_text_and_reason(self, _patch, record):
+        google.append_gcal_event_description(
+            "evt1",
+            "Client replied: yes",
+            client_id=7,
+            reason="client_reply",
+            appointment_id="appt1",
+        )
+
+        action, client_id, detail, _actor = record.call_args.args
+        assert action == "python.gcal.event_description_updated"
+        assert client_id == 7
+        assert detail["change"] == "appended"
+        assert detail["appendedText"] == "Client replied: yes"
+        assert detail["reason"] == "client_reply"
+        assert detail["appointmentId"] == "appt1"
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google._patch_gcal_event", return_value=False)
+    def test_failed_description_append_logs_nothing(self, _patch, record):
+        google.append_gcal_event_description("evt1", "text")
+
+        record.assert_not_called()
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google.build_google_service")
+    @patch("utils.google.google_authenticate")
+    def test_placeholder_create_logs_event_id_and_reason(self, _auth, build, record):
+        build.return_value.events.return_value.insert.return_value.execute.return_value = {
+            "id": "new-evt"
+        }
+
+        google.create_placeholder_event(
+            "eval@example.com",
+            "plchldr Jane",
+            datetime(2026, 11, 12, 9),
+            datetime(2026, 11, 12, 10),
+            "desc",
+            client_id=7,
+            reason="placeholder_created",
+            appointment_id="plchldr-1",
+        )
+
+        action, client_id, detail, _actor = record.call_args.args
+        assert action == "python.gcal.event_created"
+        assert client_id == 7
+        assert detail["calendarEventId"] == "new-evt"
+        assert detail["reason"] == "placeholder_created"
+        assert detail["appointmentId"] == "plchldr-1"

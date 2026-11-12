@@ -1048,11 +1048,19 @@ async def create_placeholder_appointment(
     description = build_placeholder_description(
         request.client_id, client_dob, client_drive_id, start_time_business.date()
     )
+    appointment_id = f"plchldr-{uuid4()}"
     calendar_event_id = create_placeholder_event(
-        evaluator_email, title, start_time_business, end_time_business, description
+        evaluator_email,
+        title,
+        start_time_business,
+        end_time_business,
+        description,
+        client_id=request.client_id,
+        reason="placeholder_created",
+        appointment_id=appointment_id,
+        actor=_audit_actor(current_user),
     )
 
-    appointment_id = f"plchldr-{uuid4()}"
     put_appointment_in_db(
         appointment_id=appointment_id,
         client_id=request.client_id,
@@ -1159,7 +1167,15 @@ async def move_placeholder_appointment(
             actor=_audit_actor(current_user),
         )
     calendar_event_id = create_placeholder_event(
-        evaluator_email, title, start_time_business, end_time_business, description
+        evaluator_email,
+        title,
+        start_time_business,
+        end_time_business,
+        description,
+        client_id=appointment["clientId"],
+        reason="placeholder_moved",
+        appointment_id=appointment_id,
+        actor=_audit_actor(current_user),
     )
 
     put_appointment_in_db(
@@ -1205,7 +1221,10 @@ async def plan_evaluator_office(
         raise HTTPException(status_code=404, detail="Evaluator not found")
 
     calendar_event_id = create_all_day_event(
-        evaluator_email, request.title, request.date
+        evaluator_email,
+        request.title,
+        request.date,
+        actor=_audit_actor(current_user),
     )
     return {"calendarEventId": calendar_event_id}
 

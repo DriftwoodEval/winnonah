@@ -1031,9 +1031,19 @@ def update_gcal_event_title(
 
 
 def append_gcal_event_description(
-    event_id: str, text: str, calendar_id: str | None = None
+    event_id: str,
+    text: str,
+    calendar_id: str | None = None,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
 ) -> bool:
-    """Append text to a Google Calendar event's description. Returns True if updated."""
+    """Append text to a Google Calendar event's description. Returns True if updated.
+
+    client_id, reason, appointment_id, and actor only add context to the audit entry.
+    """
 
     def patch_fn(event):
         current = event.get("description") or ""
@@ -1042,6 +1052,19 @@ def append_gcal_event_description(
     patched = _patch_gcal_event(event_id, calendar_id, patch_fn)
     if patched:
         logger.info(f"Appended to calendar event {event_id} description.")
+        _audit_gcal_change(
+            "python.gcal.event_description_updated",
+            client_id,
+            {
+                "calendarEventId": event_id,
+                "calendarId": calendar_id,
+                "change": "appended",
+                "appendedText": text,
+                "reason": reason,
+                "appointmentId": appointment_id,
+            },
+            actor,
+        )
     else:
         logger.warning(f"Calendar event {event_id} not found in any calendar")
     return patched
@@ -1066,11 +1089,21 @@ def _insert_drive_link_into_description(description: str, drive_id: str) -> str:
 
 
 def set_gcal_event_drive_link(
-    event_id: str, drive_id: str, calendar_id: str | None = None
+    event_id: str,
+    drive_id: str,
+    calendar_id: str | None = None,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
 ) -> bool:
     """Insert the client's Drive folder link into a Google Calendar event's
     description, after the client info header and before any reminder reply
-    notes. Returns True if updated."""
+    notes. Returns True if updated.
+
+    client_id, reason, appointment_id, and actor only add context to the audit entry.
+    """
 
     def patch_fn(event):
         current = event.get("description") or ""
@@ -1079,6 +1112,19 @@ def set_gcal_event_drive_link(
     patched = _patch_gcal_event(event_id, calendar_id, patch_fn)
     if patched:
         logger.info(f"Inserted Drive link into calendar event {event_id} description.")
+        _audit_gcal_change(
+            "python.gcal.event_description_updated",
+            client_id,
+            {
+                "calendarEventId": event_id,
+                "calendarId": calendar_id,
+                "change": "drive_link_inserted",
+                "driveId": drive_id,
+                "reason": reason,
+                "appointmentId": appointment_id,
+            },
+            actor,
+        )
     else:
         logger.warning(f"Calendar event {event_id} not found in any calendar")
     return patched
@@ -1232,12 +1278,22 @@ def list_calendar_events_batch(
 
 
 def create_placeholder_event(
-    calendar_id: str, title: str, start: datetime, end: datetime, description: str
+    calendar_id: str,
+    title: str,
+    start: datetime,
+    end: datetime,
+    description: str,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
 ) -> str:
     """Insert a placeholder hold event on an evaluator's calendar. Returns the event id.
 
     start/end are treated as naive America/New_York wall-clock times, matching how
     appointment times are stored in the database (see put_appointment_in_db).
+    client_id, reason, appointment_id, and actor only add context to the audit entry.
     """
     creds = google_authenticate()
     service = build_google_service("calendar", "v3", creds)
@@ -1265,6 +1321,20 @@ def create_placeholder_event(
         .execute()
     )
     logger.info(f"Created placeholder event {event['id']} on calendar {calendar_id}")
+    _audit_gcal_change(
+        "python.gcal.event_created",
+        client_id,
+        {
+            "calendarEventId": event["id"],
+            "calendarId": calendar_id,
+            "title": title,
+            "start": naive_start.isoformat(),
+            "end": naive_end.isoformat(),
+            "reason": reason,
+            "appointmentId": appointment_id,
+        },
+        actor,
+    )
     return event["id"]
 
 
@@ -1325,12 +1395,17 @@ def delete_calendar_event(
 PLANNED_OFFICE_TITLE_PREFIX = "Planned: "
 
 
-def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
+def create_all_day_event(
+    calendar_id: str,
+    title: str,
+    date: date,
+    actor: tuple[str, str] | None = None,
+) -> str:
     """Insert an all-day event on an evaluator's calendar. Returns the event id.
 
     Used to mark a "planned" office for a day the evaluator hasn't booked
     anything on yet - see clear_planned_office_events, which removes it once a
-    real booking lands.
+    real booking lands. actor only adds context to the audit entry.
     """
     creds = google_authenticate()
     service = build_google_service("calendar", "v3", creds)
@@ -1349,6 +1424,19 @@ def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
         .execute()
     )
     logger.info(f"Created all-day event {event['id']} on calendar {calendar_id}")
+    _audit_gcal_change(
+        "python.gcal.event_created",
+        None,
+        {
+            "calendarEventId": event["id"],
+            "calendarId": calendar_id,
+            "title": title,
+            "start": date.isoformat(),
+            "end": end_date.isoformat(),
+            "reason": "planned_office",
+        },
+        actor,
+    )
     return event["id"]
 
 

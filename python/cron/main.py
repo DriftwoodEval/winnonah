@@ -356,7 +356,12 @@ def process_resync_confirmed():
 
                 evaluator_calendar_id = row.get("evaluatorCalendarId")
                 success = update_gcal_event_title(
-                    event_id, new_title, calendar_id=evaluator_calendar_id
+                    event_id,
+                    new_title,
+                    calendar_id=evaluator_calendar_id,
+                    client_id=row["clientId"],
+                    reason="resync_confirmed",
+                    appointment_id=appt_id,
                 )
 
                 if not success:
@@ -380,6 +385,9 @@ def process_resync_confirmed():
                                 event_id,
                                 new_title,
                                 calendar_id=found["calendar_id"],
+                                client_id=row["clientId"],
+                                reason="resync_confirmed",
+                                appointment_id=appt_id,
                             )
                         logger.info(
                             f"Corrected stale event ID for appt {appt_id}: "

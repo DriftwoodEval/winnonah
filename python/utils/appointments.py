@@ -1358,7 +1358,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     and drive_folder_link(client_drive_id) not in gcal_description
                 ):
                     set_gcal_event_drive_link(
-                        gcal_event_id, client_drive_id, calendar_id=gcal_calendar_id
+                        gcal_event_id,
+                        client_drive_id,
+                        calendar_id=gcal_calendar_id,
+                        client_id=client_id,
+                        reason="drive_link_added",
+                        appointment_id=appointment_id,
                     )
 
             appointments_synced += 1
