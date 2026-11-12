@@ -27,6 +27,13 @@ response=$(curl -sf --max-time 10 \
 
 state=$(echo "${response}" | python3 -c \
   "import sys,json; print(json.load(sys.stdin)['state'])" 2>/dev/null || echo "unknown")
+# The Slack message the worker already started for this incident, so
+# failover.sh keeps editing it instead of posting a new one.
+SLACK_TS=$(echo "${response}" | python3 -c \
+  "import sys,json; print(json.load(sys.stdin).get('slackTs', ''))" 2>/dev/null || echo "")
+SLACK_TEXT=$(echo "${response}" | python3 -c \
+  "import sys,json; print(json.load(sys.stdin).get('slackText', ''))" 2>/dev/null || echo "")
+export SLACK_TS SLACK_TEXT
 log "Worker state: ${state}"
 
 case "${state}" in

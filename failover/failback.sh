@@ -12,16 +12,7 @@ PRIMARY_COMPOSE="docker compose -f $ROOT/docker-compose.yaml -f $ROOT/docker-com
 STANDBY_COMPOSE="docker compose -f ~/winnonah/docker-compose.yaml -f ~/winnonah/docker-compose.standby.yaml --env-file ~/winnonah/.env"
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILBACK: $*"; }
-slack() {
-  # JSON-encoded via python3 rather than hand-built, since a hand-built
-  # payload breaks on a message containing a double quote or newline (e.g.
-  # a failing command reported by the ERR trap below).
-  local payload
-  payload="$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$1")"
-  curl -s -X POST "${SLACK_WEBHOOK_URL}" \
-    -H "Content-Type: application/json" \
-    -d "${payload}" > /dev/null || true
-}
+source "$DIR/slack.sh"
 
 # Without this, a failure partway through exits with `set -e` and no other
 # indication of what happened or where, as if the script had just stopped.
@@ -35,7 +26,9 @@ slack() {
 on_error() {
   local status="$1" line="$2" command="$3"
   log "FAILED (exit ${status}) at line ${line}: ${command}"
-  slack "🚨 Failback script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Check the primary manually before retrying."
+  local msg="🚨 Failback script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Check the primary manually before retrying."
+  slack "$msg"
+  slack_alert "$msg"
 }
 trap 'on_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
 
@@ -70,6 +63,7 @@ log "Starting primary driftwood-db, redis, loki, promtail, and grafana..."
 if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; then
   log "Primary MySQL did not become healthy. Fix it first."
   slack "Failback aborted. Primary MySQL not healthy."
+  slack_alert "Failback aborted. Primary MySQL not healthy."
   exit 1
 fi
 log "Primary MySQL OK."
@@ -170,7 +164,6 @@ sleep 10
 # 5. Start primary python jobs
 log "Starting primary python jobs..."
 ${PRIMARY_COMPOSE} up -d winnonah-python
-slack "Python jobs active on primary."
 
 # 6. Re-establish primary -> standby replication
 log "Disconnecting primary replica channel..."
@@ -179,7 +172,7 @@ docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
 
 log "Re-seeding standby as replica..."
 bash "$DIR/mysql-replication-init.sh"
-slack "Replication restored: primary -> standby."
+slack "Python jobs and replication (primary -> standby) restored."
 
 # 7. Clear flags and ack to Worker
 log "Clearing failover flags..."

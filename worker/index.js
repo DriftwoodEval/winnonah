@@ -16,7 +16,9 @@ export default {
 		if (request.method === "GET" && url.pathname === "/state") {
 			const state = (await env.FAILOVER_KV.get("state")) || "normal";
 			const updatedAt = (await env.FAILOVER_KV.get("state_updated_at")) || "";
-			return Response.json({ state, updatedAt });
+			const slackTs = (await env.FAILOVER_KV.get("slack_ts")) || "";
+			const slackText = (await env.FAILOVER_KV.get("slack_text")) || "";
+			return Response.json({ state, updatedAt, slackTs, slackText });
 		}
 
 		if (request.method === "POST" && url.pathname === "/ack") {
@@ -25,14 +27,12 @@ export default {
 			if (body.event === "failover_complete") {
 				await env.FAILOVER_KV.put("state", "failover_active");
 				await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
-				await slack(
-					env,
-					"Failover complete. Standby is active at emr.driftwoodeval.com.",
-				);
+				// failover.sh has been editing the Slack message and posts the
+				// final status itself.
+				await slackEnd(env);
 			} else if (body.event === "failback_complete") {
 				await env.FAILOVER_KV.put("state", "normal");
 				await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
-				await slack(env, "Failback complete. Primary is live, system normal.");
 			}
 			return new Response("ok");
 		}
@@ -52,7 +52,7 @@ async function runCheck(env) {
 				(await env.FAILOVER_KV.get("primary_back_notified")) || "";
 			if (!notified) {
 				await env.FAILOVER_KV.put("primary_back_notified", "1");
-				await slack(
+				await slackAlert(
 					env,
 					"Primary appears healthy again. Run failback.sh when ready.",
 				);
@@ -78,6 +78,7 @@ async function runCheck(env) {
 			await env.FAILOVER_KV.delete("pending_failure_warned");
 			if (warned) {
 				await slack(env, "Primary recovered.");
+				await slackEnd(env);
 			}
 		}
 		return;
@@ -128,7 +129,7 @@ async function runCheck(env) {
 	const minutes = Math.round(elapsed / 60000);
 	await slack(
 		env,
-		`Primary has been down for ~${minutes} minute(s). Failover triggered. Standby activating within 30s.`,
+		`Primary has been down for ~${minutes} minute(s). Failover triggered, standby activating within 30s.`,
 	);
 }
 
@@ -143,11 +144,47 @@ async function checkPrimary() {
 	}
 }
 
-async function slack(env, msg) {
-	if (!env.SLACK_WEBHOOK_URL) return;
-	await fetch(env.SLACK_WEBHOOK_URL, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ text: msg }),
-	}).catch(() => {});
+// One Slack message per incident, edited as it progresses. slack() appends a
+// line to it (posting it first if needed) and keeps its ts and text in KV so
+// the standby can pick it up through /state. slackAlert() posts a separate
+// message, because edits don't notify anyone. slackEnd() closes the incident.
+async function slack(env, line) {
+	if (!env.SLACK_BOT_TOKEN) return;
+	const ts = await env.FAILOVER_KV.get("slack_ts");
+	const previous = (await env.FAILOVER_KV.get("slack_text")) || "";
+	const text = previous ? `${previous}\n${line}` : line;
+	const newTs = await slackCall(env, text, ts);
+	await env.FAILOVER_KV.put("slack_ts", newTs || ts || "");
+	await env.FAILOVER_KV.put("slack_text", text);
+}
+
+async function slackAlert(env, text) {
+	if (!env.SLACK_BOT_TOKEN) return;
+	await slackCall(env, text, null);
+}
+
+async function slackEnd(env) {
+	await env.FAILOVER_KV.delete("slack_ts");
+	await env.FAILOVER_KV.delete("slack_text");
+}
+
+// Posts text, or edits message `ts` when given. Returns the message ts.
+async function slackCall(env, text, ts) {
+	const res = await fetch(
+		`https://slack.com/api/${ts ? "chat.update" : "chat.postMessage"}`,
+		{
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
+				"Content-Type": "application/json; charset=utf-8",
+			},
+			body: JSON.stringify({
+				channel: env.SLACK_CHANNEL_ID,
+				text,
+				...(ts && { ts }),
+			}),
+		},
+	).catch(() => null);
+	const data = await res?.json().catch(() => null);
+	return data?.ts ?? null;
 }

@@ -14,16 +14,7 @@ STONITH_LOG="/tmp/stonith.log"
 STONITH_INTERVAL=15 # retry every 15s
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILOVER: $*"; }
-slack() {
-  # JSON-encoded via python3 rather than hand-built, since a hand-built
-  # payload breaks on a message containing a double quote or newline (e.g.
-  # a failing command reported by the ERR trap below).
-  local payload
-  payload="$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$1")"
-  curl -s -X POST "${SLACK_WEBHOOK_URL}" \
-    -H "Content-Type: application/json" \
-    -d "${payload}" > /dev/null || true
-}
+source "$DIR/slack.sh"
 
 # Without this, a failure partway through (e.g. MySQL promotion) would exit
 # before the flag is normally set, leaving standby-poll.sh free to retrigger
@@ -38,7 +29,9 @@ slack() {
 on_error() {
   local status="$1" line="$2" command="$3"
   log "FAILED (exit ${status}) at line ${line}: ${command}"
-  slack "🚨 Failover script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Standby may not be fully up - check standby-poll.log and this host manually."
+  local msg="🚨 Failover script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Standby may not be fully up - check standby-poll.log and this host manually."
+  slack "$msg"
+  slack_alert "$msg"
 }
 trap 'on_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
 
@@ -48,7 +41,7 @@ if [ -f "${FAILOVER_FLAG}" ]; then
 fi
 
 log "=== FAILOVER STARTING ==="
-slack "Failover starting on standby."
+slack "Standby is taking over."
 
 # 1. STONITH -   background loop, does not block failover
 stonith_loop() {
@@ -74,13 +67,13 @@ stonith_loop() {
            "cd ~/winnonah && docker compose stop && docker compose rm -f" >> "$STONITH_LOG" 2>&1; then
 
       echo "[$(date '+%H:%M:%S')] STONITH: Success. Primary containers stopped." >> "$STONITH_LOG"
-      slack "✅ STONITH Success: Primary containers confirmed stopped on ${PRIMARY_TAILSCALE_IP}. Split-brain risk averted."
+      slack_alert "✅ STONITH Success: Primary containers confirmed stopped on ${PRIMARY_TAILSCALE_IP}. Split-brain risk averted."
       break
     fi
 
     # Send a Slack alert every 100 attempts so we know it's still fighting
     if [ $((attempt % 100)) -eq 0 ]; then
-      slack "⚠️ STONITH Warning: Still unable to reach primary (${PRIMARY_TAILSCALE_IP}) after $attempt attempts. Continuing to retry..."
+      slack_alert "⚠️ STONITH Warning: Still unable to reach primary (${PRIMARY_TAILSCALE_IP}) after $attempt attempts. Continuing to retry..."
     fi
 
     echo "[$(date '+%H:%M:%S')] STONITH: SSH failed, retrying in ${STONITH_INTERVAL}s..." >> "$STONITH_LOG"
@@ -112,7 +105,7 @@ CREATE USER IF NOT EXISTS '${MYSQL_REPLICATION_USER}'@'%'
 GRANT REPLICATION SLAVE ON *.* TO '${MYSQL_REPLICATION_USER}'@'%';
 FLUSH PRIVILEGES;
 SQL
-slack "MySQL promoted to primary."
+slack "MySQL promoted."
 log "Step 2 done."
 
 # 3. Start services
@@ -161,10 +154,11 @@ for _ in $(seq 1 30); do
 done
 if [ "${health_ok}" = true ]; then
   log "winnonah-a healthy."
-  slack "Services started and winnonah-a is serving. Traffic routing to standby within seconds."
+  slack "Services started, winnonah-a is serving."
 else
   log "WARNING: winnonah-a did not pass /api/health within 60s."
-  slack "⚠️ Failover: winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
+  slack "⚠️ winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
+  slack_alert "⚠️ Failover: winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
 fi
 
 # 4. Ack to Worker

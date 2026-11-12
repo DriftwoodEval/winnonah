@@ -15,4 +15,5 @@ invocation_logs = true
 
 # Secrets - set with `npx wrangler secret put <NAME>`:
 #   MONITOR_SECRET - shared secret with standby-poll.sh
-#   SLACK_WEBHOOK_URL -Slack incoming webhook
+#   SLACK_BOT_TOKEN - Slack bot token (chat:write scope)
+#   SLACK_CHANNEL_ID - channel the bot posts to

@@ -16,8 +16,8 @@ put things back to normal afterward.
 - **The monitor** A small program running on Cloudflare (not on either
   server) that checks every minute whether the primary is answering. It is
   the watchdog that decides when a takeover should happen.
-- **Slack** Every meaningful step announces itself in Slack, so there is a
-  running commentary of what is happening.
+- **Slack** Each failover or failback keeps one Slack message and updates it as
+  steps finish, so there is a running log in one place. Problems post as separate messages so they notify.
 - **Tailscale** A private network that lets the two servers talk directly
   and securely to each other, separate from the public internet.
 
@@ -79,7 +79,7 @@ The standby checks the monitor once a minute. When it sees that a failover
 has been ordered, it runs its takeover script. Roughly 30 seconds later the
 site is back. The steps:
 
-1. **Announce.** "Failover starting on standby" goes to Slack.
+1. **Announce.** "Standby is taking over" is added to the incident's Slack message.
 2. **Fence the primary (STONITH).** The standby starts trying, in the
    background, to reach the primary over the private network and forcibly
    shut its containers down. This is a safety measure explained below. It
