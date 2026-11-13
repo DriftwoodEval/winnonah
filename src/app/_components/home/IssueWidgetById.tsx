@@ -5,6 +5,7 @@ import {
 	DdsRequestActions,
 } from "@components/issues/DdsRequestActions";
 import {
+	ClientAgeLabel,
 	ClientsSharingQuestionnaires,
 	DuplicateDriveFoldersList,
 	DuplicateNamesList,
@@ -463,6 +464,7 @@ function AdultClientsWidget() {
 			isLoading={isLoading}
 			onRetry={refetch}
 			permission="issues:adult-clients"
+			rowAction={(client) => <ClientAgeLabel client={client} />}
 			title="Clients 22 and Over"
 		/>
 	);

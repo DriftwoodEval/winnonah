@@ -49,7 +49,11 @@ import {
 } from "~/lib/issues/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
-import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
+import {
+	formatClientAge,
+	formatInBusinessTime,
+	formatShortDate,
+} from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
 	DDS_REQUESTS_DESCRIPTION,
@@ -66,6 +70,12 @@ interface IssueListProps {
 	showOutreachLog?: boolean;
 	rowAction?: (client: ClientWithIssueInfo) => React.ReactNode;
 }
+
+export const ClientAgeLabel = ({ client }: { client: ClientWithIssueInfo }) => (
+	<span className="shrink-0 text-sm text-muted-foreground">
+		{client.dob ? formatClientAge(client.dob, "years") : ""}
+	</span>
+);
 
 export const SpecialAccommodationsActions = ({
 	clientId,
@@ -1810,6 +1820,7 @@ export function IssuesList() {
 					<IssueList
 						clients={adultClients}
 						description="Active clients who are 22 or older, oldest first."
+						rowAction={(client) => <ClientAgeLabel client={client} />}
 						title={ISSUE_TITLES.adultClients}
 					/>
 				)}
