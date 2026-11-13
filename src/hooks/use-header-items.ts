@@ -8,6 +8,7 @@ import { api } from "~/trpc/react";
 const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
 	dashboard: "pages:dashboard",
 	availability: "pages:availability",
+	questionnaires: "pages:questionnaires",
 	scheduling: "pages:scheduling",
 	"scheduling-helper": "pages:scheduling-helper",
 	"fax-categorization": "fax:categorization:review",

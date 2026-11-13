@@ -526,6 +526,32 @@ export const questionnaireRouter = createTRPCRouter({
 				.where(eq(questionnaireRules.id, input.id));
 		}),
 
+	/**
+	 * Every questionnaire row across all clients, with the owning client's
+	 * display fields, for the Questionnaires page. Filtering, sorting, and
+	 * counts happen in the browser against this full list.
+	 */
+	listAll: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "pages:questionnaires");
+
+		return ctx.db
+			.select({
+				id: questionnaires.id,
+				clientId: clients.id,
+				clientHash: clients.hash,
+				clientName: clients.fullName,
+				clientActive: clients.status,
+				questionnaireType: questionnaires.questionnaireType,
+				status: questionnaires.status,
+				sent: questionnaires.sent,
+				reminded: questionnaires.reminded,
+				lastReminded: questionnaires.lastReminded,
+			})
+			.from(questionnaires)
+			.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+			.orderBy(desc(questionnaires.sent), desc(questionnaires.id));
+	}),
+
 	getSentQuestionnaires: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
