@@ -397,6 +397,7 @@ export const PERMISSIONS = {
 					{ id: "pages:availability", title: "Availability" },
 					{ id: "pages:dashboard", title: "Dashboard" },
 					{ id: "pages:calculator", title: "Calculator" },
+					{ id: "pages:questionnaires", title: "Questionnaires" },
 					{ id: "pages:scheduling", title: "Scheduling" },
 					{
 						id: "pages:scheduling-helper",
