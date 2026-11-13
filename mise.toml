@@ -57,9 +57,9 @@ done
 DUMP_FILE="$(mktemp)"
 trap 'rm -f "$DUMP_FILE"' EXIT
 
-log "Connecting to opti over SSH and dumping to a local temp file..."
-ssh -C -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3 driftwood@opti \
-    'echo "[sync-db remote] connected, starting mysqldump" >&2; cd winnonah && source .env && docker exec driftwood-db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --events --set-gtid-purged=OFF driftwood; echo "[sync-db remote] mysqldump finished" >&2' \
+log "Connecting to opti over SSH and dumping (zstd-compressed) to a local temp file..."
+ssh -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3 driftwood@opti \
+    'echo "[sync-db remote] connected, starting mysqldump" >&2; cd winnonah && source .env && docker exec driftwood-db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --events --set-gtid-purged=OFF driftwood | zstd -3 -T0; echo "[sync-db remote] mysqldump finished" >&2' \
     > "$DUMP_FILE" &
 SSH_PID=$!
 
@@ -74,7 +74,7 @@ if ! wait "$SSH_PID"; then
     exit 1
 fi
 log "Dump written ($(wc -c < "$DUMP_FILE") bytes). Importing into local container..."
-docker exec -i driftwood-db mysql -h 127.0.0.1 -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood < "$DUMP_FILE"
+zstd -dc "$DUMP_FILE" | docker exec -i driftwood-db mysql -h 127.0.0.1 -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
 log "Database sync complete!"
 
 if [ -z "$WAS_RUNNING" ]; then
