@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, not, or } from "drizzle-orm";
 import { z } from "zod";
 import { fetchIssueList, invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
@@ -525,6 +525,41 @@ export const questionnaireRouter = createTRPCRouter({
 				.delete(questionnaireRules)
 				.where(eq(questionnaireRules.id, input.id));
 		}),
+
+	/**
+	 * Every non-archived questionnaire row across all clients, with the owning
+	 * client's display fields, for the Database page. Filtering, sorting, and
+	 * counts happen in the browser against this full list.
+	 */
+	listAll: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "pages:database");
+
+		return (
+			ctx.db
+				.select({
+					id: questionnaires.id,
+					clientId: clients.id,
+					clientHash: clients.hash,
+					clientName: clients.fullName,
+					clientActive: clients.status,
+					questionnaireType: questionnaires.questionnaireType,
+					status: questionnaires.status,
+					sent: questionnaires.sent,
+					reminded: questionnaires.reminded,
+					lastReminded: questionnaires.lastReminded,
+				})
+				.from(questionnaires)
+				.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+				// A null status counts as active, and plain "!=" would drop those rows.
+				.where(
+					or(
+						isNull(questionnaires.status),
+						ne(questionnaires.status, "ARCHIVED"),
+					),
+				)
+				.orderBy(desc(questionnaires.sent), desc(questionnaires.id))
+		);
+	}),
 
 	getSentQuestionnaires: protectedProcedure
 		.input(z.number())

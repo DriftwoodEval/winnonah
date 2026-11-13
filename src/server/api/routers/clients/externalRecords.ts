@@ -2,6 +2,8 @@ import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { summarizeRecords } from "~/lib/records/records-status";
+import { formatInBusinessTime } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
@@ -205,6 +207,93 @@ const assertCanManageRecordRequests = async (
 };
 
 export const externalRecordRouter = createTRPCRouter({
+	/**
+	 * One row per client that has a records status set, a request, or records
+	 * notes, for the Database page. Only requests from the client's current
+	 * session count, the same rule the dashboard and records-request.py use.
+	 * Filtering, sorting, and counts happen in the browser.
+	 */
+	listAll: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "pages:database");
+
+		const [clientRows, recordRows, requestRows] = await Promise.all([
+			ctx.db
+				.select({
+					id: clients.id,
+					hash: clients.hash,
+					fullName: clients.fullName,
+					active: clients.status,
+					recordsNeeded: clients.recordsNeeded,
+					sessionStartedAt: clients.sessionStartedAt,
+				})
+				.from(clients),
+			ctx.db
+				.select({
+					clientId: externalRecords.clientId,
+					hasContent:
+						sql<number>`${externalRecords.content} IS NOT NULL`.mapWith(
+							Boolean,
+						),
+					updatedAt: externalRecords.updatedAt,
+				})
+				.from(externalRecords),
+			ctx.db
+				.select({
+					clientId: externalRecordRequests.clientId,
+					requestedDate: externalRecordRequests.requestedDate,
+					holdUntil: externalRecordRequests.holdUntil,
+					createdAt: externalRecordRequests.createdAt,
+				})
+				.from(externalRecordRequests),
+		]);
+
+		const recordsByClientId = new Map(recordRows.map((r) => [r.clientId, r]));
+		const requestsByClientId = new Map<number, typeof requestRows>();
+		for (const request of requestRows) {
+			const group = requestsByClientId.get(request.clientId);
+			if (group) group.push(request);
+			else requestsByClientId.set(request.clientId, [request]);
+		}
+
+		const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+
+		return clientRows.flatMap((client) => {
+			const record = recordsByClientId.get(client.id);
+			const requests = (requestsByClientId.get(client.id) ?? []).filter(
+				(request) =>
+					!client.sessionStartedAt ||
+					request.createdAt >= client.sessionStartedAt,
+			);
+			const hasContent = record?.hasContent ?? false;
+
+			if (!client.recordsNeeded && !hasContent && requests.length === 0) {
+				return [];
+			}
+
+			const summary = summarizeRecords({
+				recordsNeeded: client.recordsNeeded,
+				hasContent,
+				requests,
+				today,
+			});
+
+			return [
+				{
+					clientId: client.id,
+					clientHash: client.hash,
+					clientName: client.fullName,
+					clientActive: client.active,
+					recordsNeeded: client.recordsNeeded,
+					status: summary.status,
+					latestRequestedDate: summary.latestRequestedDate,
+					requestCount: summary.requestCount,
+					holdUntil: summary.holdUntil,
+					notesUpdatedAt: hasContent ? (record?.updatedAt ?? null) : null,
+				},
+			];
+		});
+	}),
+
 	getExternalRecordByClientId: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input: clientId }) => {
