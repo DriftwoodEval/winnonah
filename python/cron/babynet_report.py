@@ -12,7 +12,6 @@ logger.add(
     "logs/babynet-report.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "babynet_report",
 )
 load_dotenv()
 

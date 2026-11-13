@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Starting cron schedule using: $CRON_SCHEDULE, $NOTIFY_CRON_SCHEDULE, $CATEGORIZATION_CRON_SCHEDULE, $BABYNET_REPORT_CRON_SCHEDULE, $OFFICE_DRIVE_TIMES_CRON_SCHEDULE, $REFERRAL_STATUS_FAX_CRON_SCHEDULE, $EXCLUSION_CHECK_CRON_SCHEDULE, and $POST_VISIT_MESSAGE_CRON_SCHEDULE"
+echo "Starting cron schedule using: $CRON_SCHEDULE, $NOTIFY_CRON_SCHEDULE, $CATEGORIZATION_CRON_SCHEDULE, $DDS_FAX_SEND_CRON_SCHEDULE, $BABYNET_REPORT_CRON_SCHEDULE, $OFFICE_DRIVE_TIMES_CRON_SCHEDULE, $REFERRAL_STATUS_FAX_CRON_SCHEDULE, $EXCLUSION_CHECK_CRON_SCHEDULE, and $POST_VISIT_MESSAGE_CRON_SCHEDULE"
 echo "$CRON_SCHEDULE /app/cron-winnonah-python.sh" > /tmp/crontab
 echo "$NOTIFY_CRON_SCHEDULE cd /app && uv run python -m cron.notify_reports" >> /tmp/crontab
 echo "$CATEGORIZATION_CRON_SCHEDULE cd /app && uv run python -m cron.fax_categorization" >> /tmp/crontab
+echo "$DDS_FAX_SEND_CRON_SCHEDULE cd /app && uv run python -m cron.dds_fax_send" >> /tmp/crontab
 echo "$BABYNET_REPORT_CRON_SCHEDULE cd /app && uv run python -m cron.babynet_report" >> /tmp/crontab
 echo "$OFFICE_DRIVE_TIMES_CRON_SCHEDULE cd /app && uv run python -m cron.office_drive_times" >> /tmp/crontab
 echo "$REFERRAL_STATUS_FAX_CRON_SCHEDULE cd /app && uv run python -m cron.referral_status_faxes" >> /tmp/crontab

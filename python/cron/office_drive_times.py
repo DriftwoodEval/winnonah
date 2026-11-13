@@ -20,7 +20,6 @@ logger.add(
     "logs/office-drive-times.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "office_drive_times",
 )
 load_dotenv()
 

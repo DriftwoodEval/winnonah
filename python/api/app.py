@@ -85,7 +85,7 @@ from utils.waze import (
 
 load_dotenv()
 
-_api_excluded_modules = {"appointment_reminders", "utils.webhook"}
+_api_excluded_modules = {"api.appointment_reminders", "utils.webhook"}
 logger.add(
     "logs/api.log",
     format=json_log_format,

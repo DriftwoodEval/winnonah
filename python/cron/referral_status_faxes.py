@@ -21,7 +21,6 @@ logger.add(
     "logs/referral-status-faxes.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "referral_status_faxes",
 )
 load_dotenv()
 

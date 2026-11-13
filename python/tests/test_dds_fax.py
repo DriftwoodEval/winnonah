@@ -91,6 +91,7 @@ def test_cover_page_alone_with_note():
 
     assert len(result) == 1
     assert result[0].search_for("No evaluation on file")
+    assert result[0].get_images() == []
 
 
 def test_overlong_note_raises():

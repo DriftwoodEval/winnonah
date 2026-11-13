@@ -9,7 +9,6 @@ logger.add(
     "logs/post-visit-messages.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "utils.therapyappointment",
 )
 load_dotenv()
 

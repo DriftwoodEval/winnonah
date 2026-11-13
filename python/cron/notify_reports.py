@@ -20,7 +20,6 @@ logger.add(
     "logs/report-notifications.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "notify_reports",
 )
 load_dotenv()
 

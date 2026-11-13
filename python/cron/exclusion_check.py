@@ -21,7 +21,6 @@ logger.add(
     "logs/exclusion-check.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "exclusion_check",
 )
 load_dotenv()
 

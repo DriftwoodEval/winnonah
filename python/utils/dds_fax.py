@@ -24,6 +24,7 @@ from utils.constants import (
     TABLE_FAX_CATEGORIZATION,
 )
 from utils.google import get_file_as_bytes, get_file_by_id, send_gmail
+from utils.task_tracker import track_task
 
 SIGNATURE_PATH = Path("forms/dds_signature.png")
 FROM_ADDR = "me"
@@ -120,11 +121,12 @@ def find_label(page: pymupdf.Page, label: str) -> pymupdf.Rect:
 
 
 def fill_dds_form(
-    fax_pdf: bytes, signature_png: bytes, note: str | None = None
+    fax_pdf: bytes, signature_png: bytes | None, note: str | None = None
 ) -> pymupdf.Document:
     """Page 2 of the DDS fax alone, with payee name and address filled in, the
-    signature placed and the note (if any) at the page bottom. Raises ValueError
-    if the fax has no page 2, a label is not found or the note does not fit."""
+    signature placed (if given) and the note (if any) at the page bottom. Raises
+    ValueError if the fax has no page 2, a label is not found or the note does
+    not fit."""
     doc = pymupdf.open(stream=fax_pdf, filetype="pdf")
     if len(doc) <= FORM_PAGE_INDEX:
         raise ValueError("The DDS fax has no page 2")
@@ -143,18 +145,19 @@ def fill_dds_form(
             fontsize=TEXT_FONT_SIZE,
         )
 
-    rect = find_label(page, SIGNATURE_LABEL)
-    width, height = SIGNATURE_SIZE
-    page.insert_image(
-        pymupdf.Rect(
-            rect.x0 + SIGNATURE_OFFSET_X,
-            rect.y0 - height + SIGNATURE_DROP,
-            rect.x0 + SIGNATURE_OFFSET_X + width,
-            rect.y0 + SIGNATURE_DROP,
-        ),
-        stream=signature_png,
-        keep_proportion=True,
-    )
+    if signature_png:
+        rect = find_label(page, SIGNATURE_LABEL)
+        width, height = SIGNATURE_SIZE
+        page.insert_image(
+            pymupdf.Rect(
+                rect.x0 + SIGNATURE_OFFSET_X,
+                rect.y0 - height + SIGNATURE_DROP,
+                rect.x0 + SIGNATURE_OFFSET_X + width,
+                rect.y0 + SIGNATURE_DROP,
+            ),
+            stream=signature_png,
+            keep_proportion=True,
+        )
 
     if note:
         leftover = page.insert_textbox(
@@ -179,8 +182,9 @@ def build_dds_fax_pdf(
     note: str | None = None,
 ) -> bytes:
     """Completed page 2 of the DDS fax as page one, with the note (if any) at
-    its bottom, followed by the evaluation PDF (if any)."""
-    doc = fill_dds_form(fax_pdf, signature_png, note)
+    its bottom, followed by the evaluation PDF (if any). The cover page is only
+    signed when an evaluation is attached; a note-only fax goes out unsigned."""
+    doc = fill_dds_form(fax_pdf, signature_png if evaluation_pdf else None, note)
     if evaluation_pdf:
         with pymupdf.open(stream=evaluation_pdf, filetype="pdf") as evaluation:
             doc.insert_pdf(evaluation)
@@ -224,7 +228,7 @@ def get_approved_dds_requests() -> list[dict]:
 def build_request_fax_pdf(request: dict) -> bytes:
     """The completed fax for a request: the filled form page (with the cover
     note, if any), then the selected evaluation. A request with no selected
-    evaluation is the cover page alone. This is exactly what gets sent to DDS."""
+    evaluation is the unsigned cover page alone. This is exactly what gets sent to DDS."""
     evaluation_id = request["selectedFileId"]
     return build_dds_fax_pdf(
         get_file_as_bytes(get_file_by_id(request["faxFileId"])),
@@ -263,33 +267,41 @@ def mark_dds_request_sent(request: dict) -> None:
 
 def send_approved_dds_requests() -> None:
     """Fax each approved request, then mark it sent. A failure leaves the
-    request approved so the next run retries it."""
+    request approved so the next run retries it. Runs with approved requests
+    are recorded as a task so sent and failed counts are visible."""
     requests = get_approved_dds_requests()
     if not requests:
         return
 
-    fax_number = os.getenv(ENV_DDS_FAX_NUMBER)
-    if not fax_number:
-        logger.error(f"{ENV_DDS_FAX_NUMBER} is not set, cannot fax DDS requests")
-        return
+    with track_task("dds_fax_send", "Send DDS fax replies") as task:
+        if task is None:
+            return
 
-    for request in requests:
-        try:
-            pdf_bytes = build_request_fax_pdf(request)
-        except Exception:
-            logger.exception(f"Failed to build DDS fax for request {request['id']}")
-            continue
+        fax_number = os.getenv(ENV_DDS_FAX_NUMBER)
+        if not fax_number:
+            raise RuntimeError(f"{ENV_DDS_FAX_NUMBER} is not set, cannot fax DDS")
 
-        result = send_gmail(
-            message_text="Fax",
-            subject="Fax",
-            to_addr=f"{fax_number}@redfax.com",
-            from_addr=FROM_ADDR,
-            attachments=[(pdf_bytes, f"dds_{request['clientId']}.pdf")],
-        )
-        if result is None:
-            logger.error(f"Failed to send DDS fax for request {request['id']}")
-            continue
+        sent = 0
+        for request in requests:
+            try:
+                pdf_bytes = build_request_fax_pdf(request)
+            except Exception:
+                logger.exception(f"Failed to build DDS fax for request {request['id']}")
+                continue
 
-        mark_dds_request_sent(request)
-        logger.info(f"Sent DDS fax for request {request['id']}")
+            result = send_gmail(
+                message_text="Fax",
+                subject="Fax",
+                to_addr=f"{fax_number}@redfax.com",
+                from_addr=FROM_ADDR,
+                attachments=[(pdf_bytes, f"dds_{request['clientId']}.pdf")],
+            )
+            if result is None:
+                logger.error(f"Failed to send DDS fax for request {request['id']}")
+                continue
+
+            mark_dds_request_sent(request)
+            logger.info(f"Sent DDS fax for request {request['id']}")
+            sent += 1
+
+        task.set_summary({"sent": sent, "failed": len(requests) - sent})

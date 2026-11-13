@@ -46,7 +46,7 @@ logger.add(
     "logs/appointment-reminders.log",
     format=json_log_format,
     rotation="500 MB",
-    filter=lambda r: r["name"] in {"appointment_reminders", "utils.webhook"},
+    filter=lambda r: r["name"] in {"api.appointment_reminders", "utils.webhook"},
 )
 
 OPENPHONE_API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")

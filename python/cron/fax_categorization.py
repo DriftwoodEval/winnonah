@@ -29,7 +29,6 @@ from utils.constants import (
     TABLE_FAX_CATEGORIZATION_CLIENT_LINK,
 )
 from utils.database import SYSTEM_ACTOR, db_session, get_all_clients, record_audit_log
-from utils.dds_fax import send_approved_dds_requests
 from utils.document_categorizer import (
     categorize_document,
     extract_text,
@@ -53,7 +52,6 @@ logger.add(
     "logs/fax-categorization.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "fax_categorization",
 )
 load_dotenv()
 
@@ -352,7 +350,6 @@ def main() -> None:
     try:
         validate_config()
         process_faxes()
-        send_approved_dds_requests()
     except Exception:
         logger.exception("Failed to run fax categorization")
 
