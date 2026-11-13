@@ -120,6 +120,13 @@ services:
     # CPU-only on this hardware: the host's Intel iGPU produces degenerate
     # output over Vulkan (see fax categorization vision-OCR eval), so no
     # GPU passthrough is configured here.
+    # One request at a time and one model loaded keep the KV cache small, and
+    # the hard limit makes the kernel OOM-kill ollama inside its own cgroup
+    # (restart: always brings it back) instead of picking a host process.
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+    mem_limit: 10g
     volumes:
       - ollama-data:/root/.ollama
     healthcheck:
