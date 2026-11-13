@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 import time
 from collections import deque
 from collections.abc import Sequence
@@ -130,11 +131,18 @@ def upload_file(name: str, content: bytes, mime_type: str, folder_id: str) -> st
     return created["id"]
 
 
-@lru_cache(maxsize=1)
+_drive_local = threading.local()
+
+
 def get_drive_service():
-    """Get the Google Drive service, reusing the same instance across calls."""
-    creds = google_authenticate()
-    return build_google_service("drive", "v3", creds)
+    """Get the Google Drive service, reusing one instance per thread. The
+    underlying httplib2 connection is not thread-safe, and the API serves
+    requests from a threadpool, so threads must not share a service."""
+    if not hasattr(_drive_local, "service"):
+        _drive_local.service = build_google_service(
+            "drive", "v3", google_authenticate()
+        )
+    return _drive_local.service
 
 
 @lru_cache(maxsize=1)
