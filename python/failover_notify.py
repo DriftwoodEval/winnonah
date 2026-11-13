@@ -2,8 +2,8 @@
 
 Invoked from the failover shell scripts on the host:
 
-    docker exec winnonah-python python failover_notify.py failover
-    docker exec winnonah-python python failover_notify.py failback
+    docker exec winnonah-python uv run failover_notify.py failover
+    docker exec winnonah-python uv run failover_notify.py failback
 
 Recipients come from the ERROR_EMAILS env var (comma separated). Mail is sent
 as tech@driftwoodeval.com via the Gmail API, matching the other automated mail
