@@ -14,10 +14,29 @@ from utils.constants import TEST_NAMES_LOWER
 from utils.misc import capitalize_name_with_exceptions
 from utils.therapyappointment import download_csvs
 
+# The demographic export is Latin-1 and writes "?" for any character outside it,
+# which turns the curly apostrophe in names like O'Brien into "O?Brien".
+_LOST_APOSTROPHE = re.compile(r"(?<=[^\W\d_])\?(?=[^\W\d_])")
+# A nickname wrapped in curly double quotes: a "?" opening a word and a "?" closing it.
+_LOST_QUOTES = re.compile(r"(?<!\S)\?(\S[^?]*?)\?(?!\S)")
+
+
+def _restore_apostrophes(name: object) -> object:
+    """Turns a "?" between two letters back into the curly apostrophe, and a
+    "?nickname?" back into a curly-quoted nickname."""
+    if not isinstance(name, str):
+        return name
+    name = _LOST_QUOTES.sub("\u201c\\1\u201d", name)
+    return _LOST_APOSTROPHE.sub("\u2019", name)
+
 
 def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     """Normalizes client names intelligently, handling capitalization and suffixes."""
     logger.debug("Normalizing client names")
+
+    for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
+        if col in df.columns:
+            df[col] = df[col].apply(_restore_apostrophes)
 
     for col in ["LASTNAME", "FIRSTNAME"]:
         if col in df.columns:
@@ -39,16 +58,16 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
             capitalize_name_with_exceptions,
         )
 
-        # Nullify preferred name only if it's an exact match for the first name or first name and last name
+        # Nullify preferred name if it matches the first name, or first and last
+        # name, ignoring case and punctuation: lossy "?" characters in the export
+        # can make the same name differ by one character.
+        preferred = df["PREFERRED_NAME"].fillna("").map(_normalize_for_match)
+        first = df["FIRSTNAME"].map(_normalize_for_match)
+        full = (df["FIRSTNAME"].astype(str) + " " + df["LASTNAME"].astype(str)).map(
+            _normalize_for_match
+        )
         df.loc[
-            (
-                (df["PREFERRED_NAME"] == df["FIRSTNAME"])
-                | (
-                    df["PREFERRED_NAME"]
-                    == df["FIRSTNAME"].astype(str) + " " + df["LASTNAME"].astype(str)
-                )
-            )
-            & (df["PREFERRED_NAME"].notna()),
+            (preferred != "") & ((preferred == first) | (preferred == full)),
             "PREFERRED_NAME",
         ] = np.nan
 

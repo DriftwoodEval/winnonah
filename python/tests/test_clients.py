@@ -34,6 +34,42 @@ class TestNormalizeForMatch:
 
 
 class TestNormalizeNames:
+    def test_restores_apostrophe_lost_as_question_mark(self):
+        df = pd.DataFrame(
+            {
+                "FIRSTNAME": ["d?angelo"],
+                "LASTNAME": ["o?brien"],
+                "PREFERRED_NAME": ["what?"],
+            }
+        )
+        result = _normalize_names(df)
+        assert result.iloc[0]["FIRSTNAME"] == "D\u2019Angelo"
+        assert result.iloc[0]["LASTNAME"] == "O\u2019Brien"
+        assert result.iloc[0]["PREFERRED_NAME"] == "What?"
+
+    def test_nullifies_preferred_name_differing_only_by_punctuation(self):
+        df = pd.DataFrame(
+            {
+                "FIRSTNAME": ["d'angelo", "Ana"],
+                "LASTNAME": ["Smith", "Lee"],
+                "PREFERRED_NAME": ["d?angelo?", "ana lee"],
+            }
+        )
+        result = _normalize_names(df)
+        assert result["PREFERRED_NAME"].isna().all()
+
+    def test_restores_quoted_nickname_and_leaves_unpaired_question_mark(self):
+        df = pd.DataFrame(
+            {
+                "FIRSTNAME": ["Robert", "Sam"],
+                "LASTNAME": ["Jones", "Lee"],
+                "PREFERRED_NAME": ["?bobby?", "?zzz"],
+            }
+        )
+        result = _normalize_names(df)
+        assert result.iloc[0]["PREFERRED_NAME"] == '"Bobby"'
+        assert result.iloc[1]["PREFERRED_NAME"] == "?Zzz"
+
     def test_capitalizes_first_and_last_name(self):
         df = pd.DataFrame({"FIRSTNAME": ["john"], "LASTNAME": ["mcdonald"]})
         result = _normalize_names(df)
