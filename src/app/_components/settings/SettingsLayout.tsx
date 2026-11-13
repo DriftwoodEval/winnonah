@@ -47,7 +47,6 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	DEFAULT_SETTINGS_PAGE,
 	getVisibleSettingsGroups,
-	legacyTabToPage,
 	type SettingsPageId,
 } from "~/lib/settings/pages";
 import { cn } from "~/lib/utils";
@@ -194,20 +193,13 @@ export function SettingsLayout() {
 	const groups = getVisibleSettingsGroups(can);
 	const visiblePages = groups.flatMap((entry) => entry.pages);
 
-	// Links from the old tab layout (`?tab=...`) land on the matching page.
-	const pageParam = searchParams.get("page");
-	const legacyPage = pageParam ? undefined : legacyTabToPage(searchParams);
-	const requested = pageParam ?? legacyPage;
+	const requested = searchParams.get("page");
 	const current =
 		visiblePages.find((page) => page.id === requested) ??
 		visiblePages.find((page) => page.id === DEFAULT_SETTINGS_PAGE) ??
 		visiblePages[0];
 
 	const hrefFor = (id: SettingsPageId) => `${pathname}?page=${id}`;
-
-	useEffect(() => {
-		if (legacyPage) router.replace(`${pathname}?page=${legacyPage}`);
-	}, [legacyPage, pathname, router]);
 
 	const goTo = (id: SettingsPageId) => router.push(hrefFor(id));
 

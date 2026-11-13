@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { PermissionId } from "~/lib/types";
 import {
 	getVisibleSettingsGroups,
-	legacyTabToPage,
 	SETTINGS_GROUPS,
 	SETTINGS_PAGES,
 } from "./pages";
@@ -48,39 +47,5 @@ describe("getVisibleSettingsGroups", () => {
 		);
 		expect(pageIds).toContain("run-logs");
 		expect(pageIds).not.toContain("audit-log");
-	});
-});
-
-describe("legacyTabToPage", () => {
-	it.each([
-		["tab=preferences", "preferences"],
-		["tab=people", "people"],
-		["tab=people&peopleSubTab=staff", "people"],
-		["tab=people&peopleSubTab=roles", "roles"],
-		["tab=people&peopleSubTab=ei-contacts", "ei-contacts"],
-		["tab=clinical", "insurances"],
-		["tab=clinical&clinicalTab=assessments", "assessments"],
-		["tab=clinical&clinicalTab=reminders", "questionnaire-reminders"],
-		["tab=clinical&clinicalTab=report-queue", "report-queue"],
-		["tab=scheduling", "appointment-sync"],
-		["tab=scheduling&schedulingTab=reminders", "appointment-reminders"],
-		["tab=scheduling&schedulingTab=durations", "appointment-durations"],
-		["tab=qsuite", "qsuite-general"],
-		["tab=qsuite&qsuiteTab=services", "qsuite-services"],
-		["tab=qsuite&qsuiteTab=records", "qsuite-records"],
-		["tab=qsuite&qsuiteTab=piecework", "qsuite-piecework"],
-		["tab=downloads", "downloads"],
-		["tab=audit-log", "audit-log"],
-		["tab=run-logs", "run-logs"],
-		["tab=babynet-report", "babynet-report"],
-		["tab=post-visit-attachment", "post-visit-message"],
-		["tab=issue-report", "issue-reports"],
-	])("maps %s to %s", (query, expected) => {
-		expect(legacyTabToPage(new URLSearchParams(query))).toBe(expected);
-	});
-
-	it("returns nothing without a known tab", () => {
-		expect(legacyTabToPage(new URLSearchParams(""))).toBeUndefined();
-		expect(legacyTabToPage(new URLSearchParams("tab=nope"))).toBeUndefined();
 	});
 });
