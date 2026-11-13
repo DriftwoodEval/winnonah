@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Starting FastAPI server..."
-uv run uvicorn api.app:app --host 0.0.0.0 --port 8000 &
-
 echo "Starting cron schedule using: $CRON_SCHEDULE, $NOTIFY_CRON_SCHEDULE, $CATEGORIZATION_CRON_SCHEDULE, $BABYNET_REPORT_CRON_SCHEDULE, $OFFICE_DRIVE_TIMES_CRON_SCHEDULE, $REFERRAL_STATUS_FAX_CRON_SCHEDULE, $EXCLUSION_CHECK_CRON_SCHEDULE, and $POST_VISIT_MESSAGE_CRON_SCHEDULE"
 echo "$CRON_SCHEDULE /app/cron-winnonah-python.sh" > /tmp/crontab
 echo "$NOTIFY_CRON_SCHEDULE cd /app && uv run python -m cron.notify_reports" >> /tmp/crontab
@@ -13,4 +10,15 @@ echo "$OFFICE_DRIVE_TIMES_CRON_SCHEDULE cd /app && uv run python -m cron.office_
 echo "$REFERRAL_STATUS_FAX_CRON_SCHEDULE cd /app && uv run python -m cron.referral_status_faxes" >> /tmp/crontab
 echo "$EXCLUSION_CHECK_CRON_SCHEDULE cd /app && uv run python -m cron.exclusion_check" >> /tmp/crontab
 echo "$POST_VISIT_MESSAGE_CRON_SCHEDULE cd /app && uv run python -m cron.post_visit_messages" >> /tmp/crontab
-supercronic -passthrough-logs /tmp/crontab
+supercronic -passthrough-logs /tmp/crontab &
+
+# The compose restart policy is "no" on the primary (failover scripts start
+# services explicitly), so restart uvicorn here if it exits; otherwise cron
+# would keep running with no API.
+while true; do
+	echo "Starting FastAPI server..."
+	status=0
+	uv run uvicorn api.app:app --host 0.0.0.0 --port 8000 || status=$?
+	echo "FastAPI server exited with status ${status}, restarting in 5s"
+	sleep 5
+done
