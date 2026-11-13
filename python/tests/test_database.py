@@ -1222,8 +1222,16 @@ def test_dedupe_contact_rows_keeps_most_complete_duplicate():
     assert dedupe_contact_rows([sparse, full]) == [full]
 
 
-def test_dedupe_contact_rows_keeps_genuinely_different_rows():
-    a = _contact(phone="(843) 555-0100")
-    b = _contact(phone="(843) 555-0199")
+def test_dedupe_contact_rows_matches_name_case_insensitively_and_merges_flags():
+    resp = _contact(resp=True, phone="(843) 555-0100")
+    emerg = _contact(last="SMITH", first="ann", emerg=True, phone="(843) 555-0199")
+    [merged] = dedupe_contact_rows([resp, emerg])
+    assert merged[1] is True and merged[2] is True
+    assert merged[13] == "(843) 555-0100"
+
+
+def test_dedupe_contact_rows_keeps_different_people_and_clients():
+    ann = _contact()
+    bob = _contact(first="Bob")
     other_client = _contact(client_id=2)
-    assert len(dedupe_contact_rows([a, b, other_client])) == 3
+    assert len(dedupe_contact_rows([ann, bob, other_client])) == 3

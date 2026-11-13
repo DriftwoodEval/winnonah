@@ -1586,46 +1586,49 @@ def _parse_bool(val) -> bool | None:
     return str(val).strip().upper() in ("TRUE", "YES", "1", "Y")
 
 
-# Contact rows are only ever duplicates within the same client (checked on the
-# client id at position 0 in dedupe_contact_rows), so the field key starts after
-# it. The added date varies between duplicate entries, so it is ignored too.
-_CONTACT_COMPARE_FROM = 1
-_CONTACT_ADDED_DATE = 4
+# Positions in a contact row tuple (see put_client_contacts_in_db).
+_CONTACT_CLIENT_ID = 0
+_CONTACT_IS_RESPONSIBLE = 1
+_CONTACT_IS_EMERGENCY = 2
+_CONTACT_LAST_NAME = 5
+_CONTACT_FIRST_NAME = 6
 
 
-def _contact_key(row: tuple) -> tuple:
-    """Case-insensitive comparable fields of a contact row; blanks become None."""
-    return tuple(
-        None if i == _CONTACT_ADDED_DATE or not value else str(value).strip().casefold()
-        for i, value in enumerate(row)
-        if i >= _CONTACT_COMPARE_FROM
+def _contact_person_key(row: tuple) -> tuple:
+    """Identifies a person within a client: client id plus case-insensitive
+    first and last name."""
+    return (
+        row[_CONTACT_CLIENT_ID],
+        str(row[_CONTACT_FIRST_NAME] or "").strip().casefold(),
+        str(row[_CONTACT_LAST_NAME] or "").strip().casefold(),
     )
-
-
-def _is_subsumed(key: tuple, kept_key: tuple) -> bool:
-    """True if every filled field in key matches the same field in kept_key."""
-    return all(v is None or v == k for v, k in zip(key, kept_key, strict=True))
 
 
 def dedupe_contact_rows(rows: list[tuple]) -> list[tuple]:
-    """Drops contact rows that only repeat another row of the same client with
-    less information. Rows that differ in any field both of them fill (a
-    different phone, say) are kept as separate contacts."""
-    kept: list[tuple] = []
-    kept_keys: list[tuple] = []
-    by_info = sorted(
-        rows, key=lambda r: sum(1 for k in _contact_key(r) if k), reverse=True
-    )
-    for row in by_info:
-        key = _contact_key(row)
-        if any(
-            row[0] == other[0] and _is_subsumed(key, other_key)
-            for other, other_key in zip(kept, kept_keys, strict=True)
-        ):
-            continue
-        kept.append(row)
-        kept_keys.append(key)
-    return kept
+    """Collapses rows for the same person (same client, first and last name)
+    into one. TA lists a person once per role or after repeated entry, so the
+    row with the most filled fields is kept and the responsible-party and
+    emergency-contact flags are merged across all of the person's rows."""
+    by_person: dict[tuple, list[tuple]] = {}
+    for row in rows:
+        by_person.setdefault(_contact_person_key(row), []).append(row)
+
+    deduped = []
+    for person_rows in by_person.values():
+        # max() returns the first of equal rows, so ties keep export order.
+        best = max(
+            person_rows,
+            key=lambda r: sum(1 for v in r[_CONTACT_IS_EMERGENCY + 1 :] if v),
+        )
+        merged = list(best)
+        merged[_CONTACT_IS_RESPONSIBLE] = any(
+            r[_CONTACT_IS_RESPONSIBLE] for r in person_rows
+        )
+        merged[_CONTACT_IS_EMERGENCY] = any(
+            r[_CONTACT_IS_EMERGENCY] for r in person_rows
+        )
+        deduped.append(tuple(merged))
+    return deduped
 
 
 def put_client_contacts_in_db(

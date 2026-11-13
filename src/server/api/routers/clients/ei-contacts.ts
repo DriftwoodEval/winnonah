@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { parseUsPhoneDigits } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -27,7 +27,22 @@ export const eiContactsRouter = createTRPCRouter({
 					message: "Phone number must be a valid 10-digit US number.",
 				});
 			}
-			const data = { name: input.name, phoneNumber: digits };
+			const data = { name: input.name.trim(), phoneNumber: digits };
+
+			// The column collation is case-insensitive, so this also catches
+			// "jane doe" vs "Jane Doe".
+			const duplicate = await ctx.db.query.eiContacts.findFirst({
+				where: and(
+					eq(eiContacts.name, data.name),
+					input.id ? ne(eiContacts.id, input.id) : undefined,
+				),
+			});
+			if (duplicate) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `An EI contact named "${duplicate.name}" already exists.`,
+				});
+			}
 
 			if (input.id) {
 				const existing = await ctx.db.query.eiContacts.findFirst({
