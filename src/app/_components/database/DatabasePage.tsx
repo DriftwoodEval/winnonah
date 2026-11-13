@@ -10,7 +10,7 @@ const TABLES = [
 		id: "questionnaires",
 		label: "Questionnaires",
 		description:
-			"Every questionnaire sent to a client. Archived questionnaires are hidden unless you filter for them.",
+			"Every questionnaire sent to a client. Archived questionnaires are not shown.",
 	},
 	{
 		id: "external-records",

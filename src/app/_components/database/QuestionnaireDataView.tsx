@@ -50,9 +50,6 @@ type StatusValue = (typeof QUESTIONNAIRE_STATUSES)[number];
 // Status shown when a row's status is null in the database.
 const UNSET_STATUS = "PENDING";
 
-// Rows with these statuses are hidden unless the status filter asks for them.
-const HIDDEN_BY_DEFAULT: StatusValue[] = ["ARCHIVED"];
-
 // A questionnaire in one of these statuses counts toward a client's progress.
 const DONE_STATUSES: string[] = ["COMPLETED", "EXTERNAL"];
 
@@ -127,9 +124,7 @@ function matchesFilters(
 
 	if (except !== "statuses") {
 		const status = rowStatus(row);
-		if (filters.statuses.length > 0) {
-			if (!filters.statuses.includes(status)) return false;
-		} else if (HIDDEN_BY_DEFAULT.includes(status as StatusValue)) {
+		if (filters.statuses.length > 0 && !filters.statuses.includes(status)) {
 			return false;
 		}
 	}
@@ -355,10 +350,12 @@ export function QuestionnaireDataView() {
 
 	const statusOptions = useMemo(
 		() =>
-			QUESTIONNAIRE_STATUSES.map((status) => ({
-				value: status,
-				label: statusLabel(status),
-			})),
+			QUESTIONNAIRE_STATUSES.filter((status) => status !== "ARCHIVED").map(
+				(status) => ({
+					value: status,
+					label: statusLabel(status),
+				}),
+			),
 		[],
 	);
 	const typeOptions = useMemo(
