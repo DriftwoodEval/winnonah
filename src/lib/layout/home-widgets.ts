@@ -186,6 +186,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "adult-clients",
+		label: "Clients 22 and Over",
+		permission: "issues:adult-clients",
+		category: "issues",
+		sizing: "content",
+	},
+	{
 		id: "not-in-ta",
 		label: "Not in TA",
 		permission: "issues:not-in-ta",

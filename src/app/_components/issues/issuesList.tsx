@@ -1240,6 +1240,16 @@ export function IssuesList() {
 		enabled: can("issues:babynet-ageout"),
 	});
 
+	const {
+		data: adultClients,
+		isLoading: isLoadingAdultClients,
+		isError: isErrorAdultClients,
+		refetch: refetchAdultClients,
+	} = api.clients.getAdultClients.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:adult-clients"),
+	});
+
 	const { mutate: autoUpdateBabyNet } =
 		api.clients.autoUpdateBabyNet.useMutation({
 			onSuccess: (data) => {
@@ -1784,6 +1794,23 @@ export function IssuesList() {
 						clients={babyNetErrors}
 						description="Clients who have aged out of BabyNet eligibility, but still have it listed."
 						title={ISSUE_TITLES.babyNetAgeOut}
+					/>
+				)}
+			</GuardedIssue>
+		),
+		adultClients: (
+			<GuardedIssue
+				isError={isErrorAdultClients}
+				isLoading={isLoadingAdultClients}
+				onRetry={refetchAdultClients}
+				permission={ISSUE_LIST_PERMISSIONS.adultClients}
+				title={ISSUE_TITLES.adultClients}
+			>
+				{adultClients && adultClients.length !== 0 && (
+					<IssueList
+						clients={adultClients}
+						description="Active clients who are 22 or older, oldest first."
+						title={ISSUE_TITLES.adultClients}
 					/>
 				)}
 			</GuardedIssue>

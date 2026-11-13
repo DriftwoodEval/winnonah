@@ -32,6 +32,10 @@ export function useIssueCounts(
 		undefined,
 		query(can("issues:babynet-ageout")),
 	);
+	const { data: adultClients } = api.clients.getAdultClients.useQuery(
+		undefined,
+		query(can("issues:adult-clients")),
+	);
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery(
 		undefined,
 		query(can("issues:not-in-ta")),
@@ -189,6 +193,7 @@ export function useIssueCounts(
 			count: districtErrors?.clientsWithPoorAddressLookup.length,
 		},
 		{ title: ISSUE_TITLES.babyNetAgeOut, count: babyNetErrors?.length },
+		{ title: ISSUE_TITLES.adultClients, count: adultClients?.length },
 		{ title: ISSUE_TITLES.notInTA, count: notInTAErrors?.length },
 		{ title: ISSUE_TITLES.dropList, count: dropList?.length },
 		{ title: ISSUE_TITLES.notesOnly, count: notesOnlyClients?.length },
