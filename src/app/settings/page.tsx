@@ -1,5 +1,5 @@
 import { Guard } from "@components/layout/Guard";
-import { SettingsTabs } from "@components/settings/SettingsTabs";
+import { SettingsLayout } from "@components/settings/SettingsLayout";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
@@ -11,7 +11,7 @@ export default function Settings() {
 	return (
 		<Guard>
 			<Suspense>
-				<SettingsTabs />
+				<SettingsLayout />
 			</Suspense>
 		</Guard>
 	);

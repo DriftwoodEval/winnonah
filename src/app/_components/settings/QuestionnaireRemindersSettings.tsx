@@ -257,9 +257,7 @@ export default function QuestionnaireRemindersSettings() {
 		);
 
 	return (
-		<div className="space-y-8 px-4">
-			<h3 className="text-lg font-bold">Questionnaire Reminders</h3>
-
+		<div className="space-y-8">
 			<CadenceCard canEdit={canEdit} settings={settings} />
 
 			<Card>

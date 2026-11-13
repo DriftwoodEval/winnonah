@@ -7,11 +7,11 @@ Separate from questionnaire reminders (which tell a family to finish paperwork) 
 
 ## 1. How it runs
 
-A background loop that starts automatically inside the Python API service and checks every 15 minutes for reminders that are due. Like the other automations, its last run time shows up in **Settings > Billing Download**'s "Last Script Run Times" panel, labeled **Appointment Reminders**.
+A background loop that starts automatically inside the Python API service and checks every 15 minutes for reminders that are due. Like the other automations, its last run time shows up in **Settings > Reports & Logs > Downloads**'s "Last Script Run Times" panel, labeled **Appointment Reminders**.
 
 ## 2. Reminder templates
 
-Configured at **Settings > Scheduling**, under Reminder Scripts. Staff can create any number of templates, each one is a card with an **Edit Script** button opening these fields:
+Configured at **Settings > Messages & Reports > Appointment Reminders**, under Reminder Scripts. Staff can create any number of templates, each one is a card with an **Edit Script** button opening these fields:
 
 - **Template Name**
 - Either a **Keyword (Title Match)** (matched against the calendar event's title), or a combination of **DA/Eval**, **Locations**, and **Min/Max Client Age**, whichever set of conditions decides which appointments this template applies to.
@@ -75,7 +75,7 @@ A manual confirmation stamps the appointment as confirmed, shows a **Confirmed**
 
 **For one appointment.** On the client's page, in the Appointments list, open the **⋯** menu on that appointment and choose **Stop Reminders** (it becomes **Resume Reminders** to switch back). This blocks every reminder template for that one appointment and doesn't carry over to the client's other appointments. Any logged-in user can do it.
 
-**For everyone.** Turn off a template's **Active** switch in **Settings > Scheduling** to stop that template firing for all appointments, without deleting it.
+**For everyone.** Turn off a template's **Active** switch in **Settings > Messages & Reports > Appointment Reminders** to stop that template firing for all appointments, without deleting it.
 
 **When a client says no.** If a client's reply is only a decline (**N**, **NO**, **NOPE**, **CANCEL**, **STOP**, or a 👎), reminders for that appointment stop automatically, the same as **Stop Reminders**, and the reply is logged under **Non-Confirmation Replies**. The whole message has to be the decline: "no problem, see you then" doesn't count, and neither does a longer message like "no I can't make it", so staff should still read the non-confirmation log. Use **Resume Reminders** to turn them back on.
 
@@ -87,7 +87,7 @@ A client can have an **EI Contact** on file, for their Early Intervention coordi
 
 EI contacts come from a shared directory (**Settings > People > EI Contacts**) of coordinators' names and phone numbers, since the same coordinator often covers several clients: entering one once and picking them from the search box on each client avoids re-typing the same number. Picking a contact who isn't listed yet can be done right from the Edit Client dialog's search box, which adds them to the directory. Editing a contact's number in the directory updates it everywhere that contact is selected; deleting a contact clears it from any client that had it selected.
 
-Which reminders actually go to that number is controlled per template, not per client: each reminder template in **Settings > Scheduling** has an **EI Reminder** toggle. A template with that toggle on is sent **only** to clients with EI Reminders enabled and an EI contact on file, and only to that contact's number, never to the client's own number. A client without EI Reminders enabled never receives that template at all. Templates without the toggle always go to the client's own number as normal, and are unaffected by any client's EI settings.
+Which reminders actually go to that number is controlled per template, not per client: each reminder template in **Settings > Messages & Reports > Appointment Reminders** has an **EI Reminder** toggle. A template with that toggle on is sent **only** to clients with EI Reminders enabled and an EI contact on file, and only to that contact's number, never to the client's own number. A client without EI Reminders enabled never receives that template at all. Templates without the toggle always go to the client's own number as normal, and are unaffected by any client's EI settings.
 
 EI reminders go out even if the client doesn't speak English, since the EI coordinator, not the family, is the one reading them.
 

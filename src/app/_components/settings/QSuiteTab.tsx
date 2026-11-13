@@ -39,10 +39,8 @@ import {
 } from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useMemo, useState } from "react";
 import {
 	type Control,
@@ -445,11 +443,10 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	);
 }
 
-export function QSuiteTab() {
-	const router = useRouter();
-	const pathname = usePathname();
-	const searchParams = useSearchParams();
+export type QSuiteSection = "general" | "services" | "records" | "piecework";
 
+/** One section of the QSuite config. All sections share one config document and one Save. */
+export function QSuiteTab({ section }: { section: QSuiteSection }) {
 	const utils = api.useUtils();
 	const { data: config, isLoading } = api.pyConfig.get.useQuery(undefined, {
 		refetchInterval: 60_000,
@@ -463,27 +460,7 @@ export function QSuiteTab() {
 	});
 
 	const can = useCheckPermission();
-	const canEditGeneral = can("settings:qsuite:general");
-	const canEditServices = can("settings:qsuite:services");
-	const canEditRecords = can("settings:qsuite:records");
-	const canEditPiecework = can("settings:qsuite:piecework");
-	const canEditAny =
-		canEditGeneral || canEditServices || canEditRecords || canEditPiecework;
-
-	const defaultTab = canEditGeneral
-		? "general"
-		: canEditServices
-			? "services"
-			: canEditRecords
-				? "records"
-				: "piecework";
-	const activeTab = searchParams.get("qsuiteTab") ?? defaultTab;
-
-	const handleTabChange = (value: string) => {
-		const params = new URLSearchParams(searchParams.toString());
-		params.set("qsuiteTab", value);
-		router.push(`${pathname}?${params.toString()}`);
-	};
+	const canEdit = can(`settings:qsuite:${section}`);
 
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
@@ -617,80 +594,45 @@ export function QSuiteTab() {
 
 	if (isLoading)
 		return (
-			<div className="space-y-4">
-				<div className="flex flex-wrap gap-2">
-					<Skeleton className="h-8 w-20" />
-					<Skeleton className="h-8 w-20" />
-					<Skeleton className="h-8 w-20" />
-					<Skeleton className="h-8 w-20" />
-				</div>
-				<div className="grid gap-4 sm:grid-cols-2">
-					<Skeleton className="h-24 w-full" />
-					<Skeleton className="h-24 w-full" />
-					<Skeleton className="h-24 w-full" />
-					<Skeleton className="h-24 w-full" />
-				</div>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Skeleton className="h-24 w-full" />
+				<Skeleton className="h-24 w-full" />
+				<Skeleton className="h-24 w-full" />
+				<Skeleton className="h-24 w-full" />
 			</div>
 		);
 
 	return (
 		<Form {...form}>
-			<div className="space-y-4">
-				<Tabs onValueChange={handleTabChange} value={activeTab}>
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<TabsList className="!h-auto flex-wrap justify-start gap-1">
-							{canEditGeneral && (
-								<TabsTrigger value="general">General</TabsTrigger>
-							)}
-							{canEditServices && (
-								<TabsTrigger value="services">Services</TabsTrigger>
-							)}
-							{canEditRecords && (
-								<TabsTrigger value="records">Records</TabsTrigger>
-							)}
-							{canEditPiecework && (
-								<TabsTrigger value="piecework">Piecework</TabsTrigger>
-							)}
-						</TabsList>
-						<Button
-							disabled={
-								mutation.isPending || !canEditAny || !form.formState.isDirty
-							}
-							onClick={form.handleSubmit(onSubmit)}
-						>
-							{mutation.isPending && (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							)}
-							Save
-						</Button>
-					</div>
-
-					{canEditGeneral && (
-						<TabsContent className="mt-6" value="general">
-							<GeneralTab disabled={!canEditGeneral} form={form} />
-						</TabsContent>
-					)}
-					{canEditServices && (
-						<TabsContent className="mt-6" value="services">
-							<ServicesTab
-								disabled={!canEditServices}
-								form={form}
-								onSyncQuo={onSyncQuo}
-								syncingQuo={opUsersQuery.isFetching}
-							/>
-						</TabsContent>
-					)}
-					{canEditRecords && (
-						<TabsContent className="mt-6" value="records">
-							<RecordsTab disabled={!canEditRecords} form={form} />
-						</TabsContent>
-					)}
-					{canEditPiecework && (
-						<TabsContent className="mt-6" value="piecework">
-							<PieceworkTab disabled={!canEditPiecework} form={form} />
-						</TabsContent>
-					)}
-				</Tabs>
+			<div className="space-y-6">
+				<div className="flex justify-end">
+					<Button
+						disabled={mutation.isPending || !canEdit || !form.formState.isDirty}
+						onClick={form.handleSubmit(onSubmit)}
+					>
+						{mutation.isPending && (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						)}
+						Save
+					</Button>
+				</div>
+				{section === "general" && (
+					<GeneralTab disabled={!canEdit} form={form} />
+				)}
+				{section === "services" && (
+					<ServicesTab
+						disabled={!canEdit}
+						form={form}
+						onSyncQuo={onSyncQuo}
+						syncingQuo={opUsersQuery.isFetching}
+					/>
+				)}
+				{section === "records" && (
+					<RecordsTab disabled={!canEdit} form={form} />
+				)}
+				{section === "piecework" && (
+					<PieceworkTab disabled={!canEdit} form={form} />
+				)}
 			</div>
 		</Form>
 	);

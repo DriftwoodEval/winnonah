@@ -8,11 +8,18 @@ import { useClientCardFields } from "~/hooks/use-client-card-fields";
 import {
 	CLIENT_CARD_FIELD_IDS,
 	CLIENT_CARD_FIELDS,
-	CLIENT_CARD_GROUPS,
+	type CLIENT_CARD_GROUPS,
 	type ClientCardFieldId,
 	type ClientCardSummary,
 	DEFAULT_CLIENT_CARD_FIELDS,
 } from "~/lib/clients/client-card";
+
+/** Field groups laid out as columns, balancing the long lists against the short ones. */
+const FIELD_COLUMNS: (typeof CLIENT_CARD_GROUPS)[number][][] = [
+	["Title", "Quick facts"],
+	["Badges"],
+	["Details"],
+];
 
 const SAMPLE_CLIENT: ClientCardSummary = {
 	id: 123456789,
@@ -89,17 +96,31 @@ export function ClientCardPreferences() {
 					Reset to default
 				</Button>
 			</div>
-			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-				<div className="flex flex-col gap-4">
-					{CLIENT_CARD_GROUPS.map((group) => (
-						<div className="flex flex-col gap-1" key={group}>
-							<p className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-								{group}
-							</p>
-							{CLIENT_CARD_FIELDS.filter((field) => field.group === group).map(
-								(field) => (
+			<div className="flex flex-wrap items-center gap-4 rounded-lg bg-muted/50 p-4">
+				<div className="w-72 max-w-full rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+					<ClientInfoCard client={SAMPLE_CLIENT} fields={fields} />
+				</div>
+				<div className="flex flex-col gap-1">
+					<p className="text-sm font-medium">Preview</p>
+					<p className="max-w-xs text-xs text-muted-foreground">
+						Sample data. A real card leaves out fields a client has no value
+						for.
+					</p>
+				</div>
+			</div>
+			<div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+				{FIELD_COLUMNS.map((groups) => (
+					<div className="flex flex-col gap-4" key={groups.join()}>
+						{groups.map((group) => (
+							<div className="flex flex-col gap-0.5" key={group}>
+								<p className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+									{group}
+								</p>
+								{CLIENT_CARD_FIELDS.filter(
+									(field) => field.group === group,
+								).map((field) => (
 									<div
-										className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+										className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted"
 										key={field.id}
 									>
 										<Checkbox
@@ -110,33 +131,17 @@ export function ClientCardPreferences() {
 											}
 										/>
 										<Label
-											className="flex-1 cursor-pointer text-sm font-normal"
+											className="flex-1 cursor-pointer text-sm leading-tight font-normal"
 											htmlFor={`client-card-${field.id}`}
 										>
 											{field.label}
 										</Label>
-										<span className="text-xs text-muted-foreground">
-											Default:{" "}
-											{DEFAULT_CLIENT_CARD_FIELDS.includes(field.id)
-												? "on"
-												: "off"}
-										</span>
 									</div>
-								),
-							)}
-						</div>
-					))}
-				</div>
-				<div className="flex flex-col gap-2">
-					<p className="text-sm font-medium">Preview</p>
-					<div className="w-72 max-w-full rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
-						<ClientInfoCard client={SAMPLE_CLIENT} fields={fields} />
+								))}
+							</div>
+						))}
 					</div>
-					<p className="text-xs text-muted-foreground">
-						Sample data. A real card leaves out fields a client has no value
-						for.
-					</p>
-				</div>
+				))}
 			</div>
 		</div>
 	);

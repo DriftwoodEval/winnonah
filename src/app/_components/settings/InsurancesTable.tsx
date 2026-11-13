@@ -697,15 +697,14 @@ export default function InsurancesTable() {
 	if (isError) return <ErrorState onRetry={refetch} />;
 
 	return (
-		<div className="px-4">
-			<div className="flex items-center justify-between pb-4">
-				<h3 className="text-lg font-bold">Insurances</h3>
-				{canEdit && (
+		<div>
+			{canEdit && (
+				<div className="flex justify-end pb-4">
 					<AddInsuranceButton
 						existingInsurances={(insurances as InsuranceWithAliases[]) ?? []}
 					/>
-				)}
-			</div>
+				</div>
+			)}
 			{!isMobile && (
 				<div className="rounded-md border">
 					<Table>

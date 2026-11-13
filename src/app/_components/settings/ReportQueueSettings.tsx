@@ -44,10 +44,9 @@ export default function ReportQueueSettings() {
 	if (isLoading) return null;
 
 	return (
-		<div className="mt-8 px-4">
+		<div>
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<h3 className="text-lg font-bold">Report Queue</h3>
 					<p className="text-sm text-muted-foreground">
 						Default maximum number of reports a user can have claimed at once.
 						Individual users can have their own override set in their account

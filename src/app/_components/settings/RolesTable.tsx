@@ -316,11 +316,12 @@ export default function RolesTable() {
 	} = api.roles.getAll.useQuery();
 
 	return (
-		<div className="px-4">
-			<div className="flex items-center justify-between pb-4">
-				<h3 className="text-lg font-bold">Roles</h3>
-				{canEditRoles && <AddRoleButton />}
-			</div>
+		<div>
+			{canEditRoles && (
+				<div className="flex justify-end pb-4">
+					<AddRoleButton />
+				</div>
+			)}
 
 			<div className="hidden sm:block">
 				<Table>

@@ -30,8 +30,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import OfficesSettings from "./OfficesSettings";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
+import { SettingsJumpLinks } from "./SettingsJumpLinks";
 
 type ReminderTemplate = RouterOutputs["reminders"]["getTemplates"][number];
 
@@ -100,10 +100,17 @@ export default function ReminderSettings() {
 	};
 
 	return (
-		<div className="space-y-8 px-4">
-			<h3 className="text-lg font-bold">Reminder Configuration</h3>
+		<div className="space-y-8">
+			<SettingsJumpLinks
+				items={[
+					{ id: "quiet-time", label: "Quiet time" },
+					{ id: "reminder-scripts", label: "Scripts" },
+					{ id: "reminder-history", label: "History" },
+					{ id: "reminder-replies", label: "Replies" },
+				]}
+			/>
 
-			<Card>
+			<Card id="quiet-time">
 				<CardHeader>
 					<CardTitle>Quiet Time</CardTitle>
 					<CardDescription>
@@ -134,9 +141,7 @@ export default function ReminderSettings() {
 				</CardContent>
 			</Card>
 
-			<OfficesSettings />
-
-			<div className="space-y-4">
+			<div className="space-y-4" id="reminder-scripts">
 				<div className="flex items-center justify-between">
 					<h2 className="text-xl font-semibold">Reminder Scripts</h2>
 					<Button onClick={handleCreate}>Add Template</Button>
@@ -217,7 +222,7 @@ export default function ReminderSettings() {
 				}}
 			/>
 
-			<Card>
+			<Card id="reminder-history">
 				<CardHeader>
 					<CardTitle>Reminder History</CardTitle>
 					<CardDescription>The 50 most recent reminders sent.</CardDescription>
@@ -275,7 +280,7 @@ export default function ReminderSettings() {
 				</CardContent>
 			</Card>
 
-			<Card>
+			<Card id="reminder-replies">
 				<CardHeader>
 					<CardTitle>Confirmation Replies</CardTitle>
 					<CardDescription>

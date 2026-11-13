@@ -273,9 +273,9 @@ export default function InvitesTable() {
 	} = api.users.getPendingInvitations.useQuery();
 
 	return (
-		<div className="px-4">
+		<div>
 			<div className="flex items-center justify-between pb-4">
-				<h3 className="text-lg font-bold">Pending Invites</h3>
+				<h3 className="text-base font-semibold">Pending Invites</h3>
 				{canInvite && <AddInviteButton />}
 			</div>
 

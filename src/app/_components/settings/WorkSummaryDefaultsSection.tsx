@@ -138,10 +138,9 @@ export default function WorkSummaryDefaultsSection() {
 	if (isLoading) return null;
 
 	return (
-		<div className="mt-8 px-4">
+		<div>
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<h3 className="text-lg font-bold">Default Appointment Durations</h3>
 					<p className="text-sm text-muted-foreground">
 						Hours per appointment type used when an evaluator has no duration
 						configured.

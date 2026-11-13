@@ -67,7 +67,7 @@ export default function AppointmentsSyncSettings() {
 
 	if (isLoading) {
 		return (
-			<div className="space-y-8 px-4 pt-4">
+			<div className="space-y-8">
 				<Skeleton className="h-20" />
 				<Skeleton className="h-20" />
 			</div>
@@ -75,8 +75,7 @@ export default function AppointmentsSyncSettings() {
 	}
 
 	return (
-		<div className="px-4">
-			<h3 className="pb-4 text-lg font-bold">Appointment Sync Settings</h3>
+		<div>
 			<Form {...form}>
 				<form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
 					<FormField

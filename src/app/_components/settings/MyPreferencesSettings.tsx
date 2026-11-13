@@ -25,7 +25,7 @@ export default function MyPreferencesSettings() {
 					<ClientCardPreferences />
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<Card>
 					<CardHeader>
 						<CardTitle>Header</CardTitle>
@@ -44,12 +44,16 @@ export default function MyPreferencesSettings() {
 						)}
 					</CardContent>
 				</Card>
-				<Card>
+				<Card className="md:col-span-2">
 					<CardHeader>
 						<CardTitle>Issue Lists</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<IssueListOrderEditor onChange={setOrder} order={order} />
+						<IssueListOrderEditor
+							className="grid grid-cols-1 gap-6 space-y-0 md:grid-cols-2"
+							onChange={setOrder}
+							order={order}
+						/>
 					</CardContent>
 				</Card>
 			</div>

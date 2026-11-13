@@ -26,7 +26,7 @@ import {
 import { ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { formatInBusinessTime } from "~/lib/utils";
+import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const RUN_PAGE_SIZE = 25;
@@ -296,8 +296,7 @@ export default function RunLogsTable({
 
 	if (selectedRunId || showAllLines) {
 		return (
-			<div className="space-y-4 px-4">
-				<h3 className="text-lg font-bold">Run Logs</h3>
+			<div className={cn("space-y-4", lockedClient && "px-4")}>
 				<RunLines
 					initialClient={client}
 					onBack={() => {
@@ -311,9 +310,7 @@ export default function RunLogsTable({
 	}
 
 	return (
-		<div className="space-y-4 px-4">
-			{!lockedClient && <h3 className="text-lg font-bold">Run Logs</h3>}
-
+		<div className={cn("space-y-4", lockedClient && "px-4")}>
 			<div className="flex flex-wrap gap-2">
 				<Select
 					onValueChange={(value) => {

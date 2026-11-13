@@ -11,15 +11,18 @@ import {
 	type IssueListId,
 	splitActionItems,
 } from "~/lib/issues/issue-titles";
+import { cn } from "~/lib/utils";
 
 interface IssueListOrderEditorProps {
 	order: IssueListId[];
 	onChange: (order: IssueListId[]) => void;
+	className?: string;
 }
 
 export function IssueListOrderEditor({
 	order,
 	onChange,
+	className,
 }: IssueListOrderEditorProps) {
 	const can = useCheckPermission();
 	const visibleOrder = order.filter((id) => can(ISSUE_LIST_PERMISSIONS[id]));
@@ -85,7 +88,7 @@ export function IssueListOrderEditor({
 		);
 
 	return (
-		<div className="space-y-4">
+		<div className={cn("space-y-4", className)}>
 			{renderGroup("Action Item Order", actionItems)}
 			{renderGroup("Issue List Order", issues)}
 		</div>

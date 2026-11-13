@@ -444,11 +444,12 @@ export default function PeopleTable() {
 	};
 
 	return (
-		<div className="px-4">
-			<div className="flex items-center justify-between pb-4">
-				<h3 className="text-lg font-bold">People</h3>
-				{canEditEvaluators && activeTab === "active" && <AddEvaluatorButton />}
-			</div>
+		<div>
+			{canEditEvaluators && activeTab === "active" && (
+				<div className="flex justify-end pb-4">
+					<AddEvaluatorButton />
+				</div>
+			)}
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
 				<TabsList>
 					<TabsTrigger value="active">

@@ -190,9 +190,7 @@ export default function AuditLogTable() {
 	}
 
 	return (
-		<div className="space-y-4 px-4">
-			<h3 className="text-lg font-bold">Audit Log</h3>
-
+		<div className="space-y-4">
 			<div className="flex flex-wrap gap-2">
 				<Select
 					onValueChange={resetAndSet<string | undefined>((value) =>

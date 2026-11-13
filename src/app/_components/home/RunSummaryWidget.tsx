@@ -3,7 +3,7 @@ import { WidgetShell } from "./DayAheadWidgets";
 
 export function RunSummaryWidget() {
 	return (
-		<WidgetShell linkHref="/settings?tab=downloads" title="Run Summary">
+		<WidgetShell linkHref="/settings?page=downloads" title="Run Summary">
 			<RunSummaryList />
 		</WidgetShell>
 	);
