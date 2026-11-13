@@ -3,18 +3,19 @@
 import { Button } from "@ui/button";
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getErrorReference } from "~/lib/error-reference";
 
 export default function RouteError({
 	error,
-	retry,
 }: {
 	error: Error & { digest?: string };
-	retry: () => void;
 }) {
+	const [reference] = useState(() => getErrorReference(error));
+
 	useEffect(() => {
-		console.error(error);
-	}, [error]);
+		console.error(reference, error);
+	}, [error, reference]);
 
 	return (
 		<div className="flex w-full flex-col items-center justify-center gap-4 p-8 text-center">
@@ -24,13 +25,16 @@ export default function RouteError({
 				This page hit an unexpected error. Trying again often fixes it. If it
 				keeps happening, report an issue and include the reference below.
 			</p>
-			{error.digest && (
-				<p className="font-mono text-xs text-muted-foreground">
-					Reference: {error.digest}
+			<p className="font-mono text-xs text-muted-foreground">
+				Reference: {reference}
+			</p>
+			{!error.digest && (
+				<p className="max-w-md font-mono text-xs break-words text-muted-foreground">
+					{error.message}
 				</p>
 			)}
 			<div className="flex gap-2">
-				<Button onClick={retry} type="button">
+				<Button onClick={() => window.location.reload()} type="button">
 					Try again
 				</Button>
 				<Button asChild variant="outline">

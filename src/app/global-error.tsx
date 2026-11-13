@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getErrorReference } from "~/lib/error-reference";
 
 // Replaces the root layout when it fails, so it cannot rely on the app's
 // stylesheet or components. Inline styles keep it readable in light and dark.
 export default function GlobalError({
 	error,
-	retry,
 }: {
 	error: Error & { digest?: string };
-	retry: () => void;
 }) {
+	const [reference] = useState(() => getErrorReference(error));
+
 	useEffect(() => {
-		console.error(error);
-	}, [error]);
+		console.error(reference, error);
+	}, [error, reference]);
 
 	return (
 		<html lang="en">
@@ -36,15 +37,24 @@ export default function GlobalError({
 				<p style={{ maxWidth: "28rem", margin: 0, opacity: 0.7 }}>
 					The app could not load. Trying again often fixes it.
 				</p>
-				{error.digest && (
+				<p style={{ fontFamily: "monospace", fontSize: "0.75rem", margin: 0 }}>
+					Reference: {reference}
+				</p>
+				{!error.digest && (
 					<p
-						style={{ fontFamily: "monospace", fontSize: "0.75rem", margin: 0 }}
+						style={{
+							maxWidth: "28rem",
+							overflowWrap: "anywhere",
+							fontFamily: "monospace",
+							fontSize: "0.75rem",
+							margin: 0,
+						}}
 					>
-						Reference: {error.digest}
+						{error.message}
 					</p>
 				)}
 				<button
-					onClick={retry}
+					onClick={() => window.location.reload()}
 					style={{ padding: "0.5rem 1rem" }}
 					type="button"
 				>
