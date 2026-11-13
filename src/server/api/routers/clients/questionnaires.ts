@@ -532,7 +532,7 @@ export const questionnaireRouter = createTRPCRouter({
 	 * counts happen in the browser against this full list.
 	 */
 	listAll: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "pages:questionnaires");
+		assertPermission(ctx.session.user, "pages:database");
 
 		return ctx.db
 			.select({
