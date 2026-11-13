@@ -16,6 +16,7 @@ import {
 	isNull,
 	like,
 	lt,
+	lte,
 	ne,
 	not,
 	or,
@@ -34,6 +35,7 @@ import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
 	isCharterSchoolUnconfirmed,
+	SCHOOL_RECORDS_ADULT_AGE,
 } from "~/lib/client-blockers";
 import type { ClientCardSummary } from "~/lib/clients/client-card";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
@@ -1600,6 +1602,25 @@ export const clientRouter = createTRPCRouter({
 			});
 
 			return clientsTooOldForBabyNet;
+		});
+	}),
+
+	getAdultClients: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:adult-clients");
+
+		return fetchIssueList(ctx, "getAdultClients", async () => {
+			const adultCutOff = localDateToDateOnly(
+				subYears(new Date(), SCHOOL_RECORDS_ADULT_AGE),
+			) as string;
+
+			return ctx.db.query.clients.findMany({
+				where: and(
+					eq(clients.status, true),
+					not(isNotesOnly),
+					lte(clients.dob, adultCutOff),
+				),
+				orderBy: clients.dob,
+			});
 		});
 	}),
 

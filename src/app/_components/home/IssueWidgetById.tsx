@@ -110,6 +110,8 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <PoorAddressLookupWidget />;
 		case "babynet-ageout":
 			return <BabyNetAgeoutWidget />;
+		case "adult-clients":
+			return <AdultClientsWidget />;
 		case "not-in-ta":
 			return <NotInTAWidget />;
 		case "droplist":
@@ -442,6 +444,26 @@ function BabyNetAgeoutWidget() {
 			onRetry={refetch}
 			permission="issues:babynet-ageout"
 			title="Too Old for BabyNet"
+		/>
+	);
+}
+
+function AdultClientsWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading, isError, refetch } =
+		api.clients.getAdultClients.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:adult-clients"),
+		});
+	return (
+		<SimpleIssueWidget
+			clients={data}
+			description="Active clients who are 22 or older, oldest first."
+			isError={isError}
+			isLoading={isLoading}
+			onRetry={refetch}
+			permission="issues:adult-clients"
+			title="Clients 22 and Over"
 		/>
 	);
 }

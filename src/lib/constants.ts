@@ -338,6 +338,7 @@ export const PERMISSIONS = {
 					{ id: "issues:no-referral-source", title: "No Referral Source" },
 					{ id: "issues:district-issues", title: "District Issues" },
 					{ id: "issues:babynet-ageout", title: "Too Old for BabyNet" },
+					{ id: "issues:adult-clients", title: "Clients 22 and Over" },
 					{ id: "issues:not-in-ta", title: "Not in TA" },
 					{ id: "issues:droplist", title: "Drop List" },
 					{ id: "issues:no-drive-ids", title: "No Drive IDs" },
