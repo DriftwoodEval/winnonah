@@ -10,7 +10,6 @@ import {
 import { EmptyState } from "@components/shared/EmptyState";
 import { ErrorState } from "@components/shared/ErrorState";
 import type { inferRouterOutputs } from "@trpc/server";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
@@ -33,7 +32,13 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { statusLabel } from "~/lib/questionnaires/questionnaire-history";
-import { cn, compareDateOnly, formatShortDate } from "~/lib/utils";
+import {
+	cn,
+	compareDateOnly,
+	formatShortDate,
+	getReminderColorClass,
+	getStatusColorClass,
+} from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 
@@ -46,18 +51,6 @@ const UNSET_STATUS = "PENDING";
 
 // Rows with these statuses are hidden unless the status filter asks for them.
 const HIDDEN_BY_DEFAULT: StatusValue[] = ["ARCHIVED"];
-
-type BadgeVariant = "default" | "secondary" | "success" | "warning";
-
-const STATUS_BADGE_VARIANTS: Partial<Record<StatusValue, BadgeVariant>> = {
-	COMPLETED: "success",
-	EXTERNAL: "success",
-	PENDING: "default",
-	POSTDA_PENDING: "default",
-	POSTEVAL_PENDING: "default",
-	IGNORING: "warning",
-	RESPONDED: "warning",
-};
 
 const CLIENT_STATUS_OPTIONS: FilterOption[] = [
 	{ value: "active", label: "Active" },
@@ -240,37 +233,6 @@ function SortableHead({
 	);
 }
 
-function StatusBadge({ status }: { status: string }) {
-	const variant = STATUS_BADGE_VARIANTS[status as StatusValue] ?? "secondary";
-	return <Badge variant={variant}>{statusLabel(status)}</Badge>;
-}
-
-function SummaryTile({
-	label,
-	count,
-	selected,
-	onClick,
-}: {
-	label: string;
-	count: number;
-	selected: boolean;
-	onClick: () => void;
-}) {
-	return (
-		<button
-			className={cn(
-				"rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:border-primary",
-				selected && "border-primary bg-primary/5",
-			)}
-			onClick={onClick}
-			type="button"
-		>
-			<div className="text-xl font-semibold">{count}</div>
-			<div className="text-xs text-muted-foreground">{label}</div>
-		</button>
-	);
-}
-
 function toggleValue(values: string[], value: string): string[] {
 	return values.includes(value)
 		? values.filter((v) => v !== value)
@@ -397,22 +359,6 @@ export function QuestionnaireDatabase() {
 				</div>
 			) : (
 				<>
-					<div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-						{QUESTIONNAIRE_STATUSES.filter(
-							(status) => (statusCounts[status] ?? 0) > 0,
-						).map((status) => (
-							<SummaryTile
-								count={statusCounts[status] ?? 0}
-								key={status}
-								label={statusLabel(status)}
-								onClick={() =>
-									setFilter("statuses", toggleValue(filters.statuses, status))
-								}
-								selected={filters.statuses.includes(status)}
-							/>
-						))}
-					</div>
-
 					<div className="flex flex-wrap items-center gap-2">
 						<Input
 							className="w-64"
@@ -581,13 +527,15 @@ export function QuestionnaireDatabase() {
 												)}
 											</TableCell>
 											<TableCell>{row.questionnaireType}</TableCell>
-											<TableCell>
-												<StatusBadge status={rowStatus(row)} />
+											<TableCell className={getStatusColorClass(row.status)}>
+												{statusLabel(rowStatus(row))}
 											</TableCell>
 											<TableCell className="text-muted-foreground">
 												{formatShortDate(row.sent, "—")}
 											</TableCell>
-											<TableCell className="text-muted-foreground">
+											<TableCell
+												className={getReminderColorClass(row.reminded)}
+											>
 												{row.reminded ?? 0}
 											</TableCell>
 											<TableCell className="text-muted-foreground">
