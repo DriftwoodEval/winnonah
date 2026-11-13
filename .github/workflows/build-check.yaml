@@ -63,6 +63,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup mise (task runner only)
+        uses: jdx/mise-action@v5
+        with:
+          install: false
+
+      - name: Check Python version matches Dockerfile
+        run: mise run check:python-version
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 

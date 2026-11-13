@@ -16,6 +16,13 @@
 			"description": "Pinned to the abetlen CPU-wheel index, which Renovate cannot resolve; bump manually alongside wheel availability",
 			"matchDepNames": ["llama-cpp-python"],
 			"enabled": false
+		},
+		{
+			"description": "Python minor must match python/Dockerfile (uv image tags lag new Python releases); bump both by hand",
+			"matchManagers": ["mise"],
+			"matchDepNames": ["python"],
+			"matchUpdateTypes": ["major", "minor"],
+			"enabled": false
 		}
 	]
 }
