@@ -7,8 +7,8 @@ import {
 	CalendarPlus,
 	CalendarRange,
 	ClipboardClock,
-	ClipboardList,
 	Clock,
+	Database,
 	Eye,
 	FileText,
 	Home,
@@ -30,7 +30,7 @@ import {
 export type HeaderItemId =
 	| "home"
 	| "directory"
-	| "questionnaires"
+	| "database"
 	| "dashboard"
 	| "day-ahead"
 	| "greeter-schedule"
@@ -119,11 +119,11 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		surfaces: BOTH_SURFACES,
 	},
 	{
-		id: "questionnaires",
-		label: "Questionnaires",
-		icon: ClipboardList,
+		id: "database",
+		label: "Database",
+		icon: Database,
 		area: "nav",
-		href: "/questionnaires",
+		href: "/database",
 		category: "Clients",
 		surfaces: BOTH_SURFACES,
 	},
