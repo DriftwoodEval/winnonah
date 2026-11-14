@@ -192,26 +192,30 @@ class TestGetMessages:
     @pytest.mark.parametrize(
         ("messages", "expected"),
         [
-            ([("outgoing", 9), ("incoming", 10)], True),
-            ([("incoming", 8), ("outgoing", 9)], False),
-            ([("incoming", 8)], True),
-            ([("outgoing", 9)], False),
+            ([("outgoing", 9, ""), ("incoming", 10, "yes")], ["yes"]),
+            ([("incoming", 8, "early"), ("outgoing", 9, "")], []),
+            ([("incoming", 8, "hi")], ["hi"]),
+            ([("outgoing", 9, "")], []),
+            (
+                [("outgoing", 9, ""), ("incoming", 12, "b"), ("incoming", 10, "a")],
+                ["a", "b"],
+            ),
         ],
     )
-    def test_a_reply_only_counts_after_the_last_outgoing_text(self, messages, expected):
+    def test_replies_only_count_after_the_last_outgoing_text(self, messages, expected):
         client, session = make_client()
         session.get.return_value.json.return_value = {
             "data": [
                 {
                     "direction": direction,
+                    "text": text,
                     "createdAt": datetime(2026, 1, 15, hour, tzinfo=UTC).isoformat(),
                 }
-                for direction, hour in messages
+                for direction, hour, text in messages
             ]
         }
         assert (
-            client.has_client_replied_to_last_text("8435550100", date(2026, 1, 15))
-            is expected
+            client.get_replies_to_last_text("8435550100", date(2026, 1, 15)) == expected
         )
 
     def test_a_failed_request_returns_no_messages(self):
