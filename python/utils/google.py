@@ -332,6 +332,28 @@ def list_files_in_folder(
     return results
 
 
+def list_files_recursive(folder_id: str) -> list[dict]:
+    """Like list_files_in_folder, but also includes files in every subfolder.
+    Each file gets a "path" of the subfolder names it sits in ("" at the top)."""
+    service = get_drive_service()
+    results: list[dict] = []
+    pending = [(folder_id, "")]
+    while pending:
+        current, path = pending.pop()
+        results.extend({**f, "path": path} for f in list_files_in_folder(current))
+        subfolders = (
+            service.files()
+            .list(
+                q=f"'{current}' in parents and mimeType = '{_GOOGLE_FOLDER_MIME}' and trashed = false",
+                fields="files(id, name)",
+            )
+            .execute()
+            .get("files", [])
+        )
+        pending.extend((sub["id"], f"{path}{sub['name']}/") for sub in subfolders)
+    return results
+
+
 def find_latest_pdf_containing(folder_id: str, phrases: list[str]) -> dict | None:
     """Return the most recently modified PDF directly inside a Drive folder
     whose text contains every phrase, or None. Matching uses
@@ -475,6 +497,13 @@ def get_file_as_bytes(file: dict) -> bytes:
             .execute()
         )
     return service.files().get_media(fileId=file["id"]).execute()
+
+
+def download_start(file_id: str, max_bytes: int) -> bytes:
+    """Download only the first max_bytes of a Drive file."""
+    request = get_drive_service().files().get_media(fileId=file_id)
+    request.headers["Range"] = f"bytes=0-{max_bytes - 1}"
+    return request.execute()
 
 
 def update_file_content(file_id: str, content: bytes, mime_type: str) -> None:

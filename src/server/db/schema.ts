@@ -943,6 +943,10 @@ export const questionnaires = createTable(
 		status: d.mysqlEnum(QUESTIONNAIRE_STATUSES).default("PENDING"),
 		reminded: d.int().default(0),
 		lastReminded: d.date({ mode: "string" }),
+		// Drive file id of the downloaded PDF, set by the daily PDF check once found.
+		pdfFileId: d.varchar({ length: 255 }),
+		// Last time the daily PDF check looked in the client's Drive folder.
+		pdfCheckedAt: d.timestamp(),
 		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 	}),
 	(t) => [index("questionnaire_client_idx").on(t.clientId)],
