@@ -189,6 +189,31 @@ class TestGetMessages:
         assert params["createdAfter"] == "2026-01-15T14:30:00+00:00"
         assert "direction" not in params
 
+    @pytest.mark.parametrize(
+        ("messages", "expected"),
+        [
+            ([("outgoing", 9), ("incoming", 10)], True),
+            ([("incoming", 8), ("outgoing", 9)], False),
+            ([("incoming", 8)], True),
+            ([("outgoing", 9)], False),
+        ],
+    )
+    def test_a_reply_only_counts_after_the_last_outgoing_text(self, messages, expected):
+        client, session = make_client()
+        session.get.return_value.json.return_value = {
+            "data": [
+                {
+                    "direction": direction,
+                    "createdAt": datetime(2026, 1, 15, hour, tzinfo=UTC).isoformat(),
+                }
+                for direction, hour in messages
+            ]
+        }
+        assert (
+            client.has_client_replied_to_last_text("8435550100", date(2026, 1, 15))
+            is expected
+        )
+
     def test_a_failed_request_returns_no_messages(self):
         client, session = make_client()
         session.get.side_effect = requests.ConnectionError("down")

@@ -206,6 +206,24 @@ class QuoClient:
         """Return True if the client has sent us an incoming message, optionally since a given date."""
         return len(self._get_messages(client_phone, "incoming", since)) > 0
 
+    def has_client_replied_to_last_text(
+        self, client_phone: str, since: date | datetime
+    ) -> bool:
+        """Return True if the client texted us after our most recent text.
+
+        Looks at messages from `since` onward (a business-local date, since a
+        reminder is only recorded by day). Incoming messages from earlier in
+        that day than our last outgoing text don't count. When no outgoing
+        text is found, any incoming message since `since` counts.
+        """
+        messages = self.get_messages(client_phone, since)
+        outgoing = [t for m, t in messages if m.get("direction") == "outgoing"]
+        last_sent = max(outgoing, default=None)
+        return any(
+            m.get("direction") == "incoming" and (last_sent is None or t > last_sent)
+            for m, t in messages
+        )
+
     def get_sent_texts(
         self, client_phone: str, since: date | datetime | None = None
     ) -> list[tuple[str, datetime]]:
