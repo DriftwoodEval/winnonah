@@ -74,6 +74,11 @@ class _State:
     running: bool = False
     total: int = 0
     done: int = 0
+    found: int = 0
+    missing: int = 0
+
+    def detail(self) -> str:
+        return f"{self.found} found, {self.missing} missing"
 
 
 _state = _State()
@@ -153,7 +158,7 @@ def _work() -> None:
         with _lock:
             if not _state.queue:
                 _state.running = False
-                _state.total = _state.done = 0
+                _state.total = _state.done = _state.found = _state.missing = 0
                 return
 
 
@@ -166,9 +171,9 @@ def _drain(task) -> None:
                 if not _state.queue:
                     return
                 request = _state.queue.pop(0)
-                done, total = _state.done, _state.total
+                done, total, detail = _state.done, _state.total, _state.detail()
             # Shown before the slow Drive reads so the bar appears right away.
-            task.progress(done, total)
+            task.progress(done, total, detail=detail)
             try:
                 for row in request.rows:
                     drive_id = row["drive_id"]
@@ -184,6 +189,11 @@ def _drain(task) -> None:
                     if files is not None:
                         file_id = find_pdf(files, row["type"])
                         request.found += file_id is not None
+                        with _lock:
+                            if file_id:
+                                _state.found += 1
+                            else:
+                                _state.missing += 1
                         logger.info(
                             f"[{_state.done + 1}/{_state.total}] Questionnaire {row['id']} "
                             f"({row['type']}): {'PDF found' if file_id else 'no PDF'}"
@@ -208,8 +218,12 @@ def _drain(task) -> None:
                         conn.commit()
                     with _lock:
                         _state.done += 1
-                        done, total = _state.done, _state.total
-                    task.progress(done, total)
+                        done, total, detail = (
+                            _state.done,
+                            _state.total,
+                            _state.detail(),
+                        )
+                    task.progress(done, total, detail=detail)
             except Exception as e:
                 request.fail(e)
                 raise

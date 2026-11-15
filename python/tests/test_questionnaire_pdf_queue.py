@@ -14,7 +14,13 @@ def test_queued_requests_share_one_task_with_growing_total(monkeypatch):
     progress = []
 
     task = MagicMock()
-    task.progress.side_effect = lambda done, total: progress.append((done, total))
+    details = []
+
+    def record_progress(done, total, detail=None):
+        progress.append((done, total))
+        details.append(detail)
+
+    task.progress.side_effect = record_progress
 
     @contextmanager
     def fake_track_task(*_args):
@@ -55,4 +61,5 @@ def test_queued_requests_share_one_task_with_growing_total(monkeypatch):
     assert len(tasks_opened) == 1
     assert progress[0] == (0, 1)  # the bar shows before the first row finishes
     assert progress[-1] == (2, 2)  # the second request grew the total
+    assert details[-1] == "0 found, 2 missing"
     assert results == {"a": (0, 1), "b": (0, 1)}
