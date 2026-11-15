@@ -22,7 +22,7 @@ export interface FilterOption {
 
 // Mirrors NONE_FILTER_VALUE in src/server/api/filters.ts: the sentinel a facet
 // count uses for rows whose underlying field is null/unset. Shown as "None".
-const NONE_FILTER_VALUE = "__none__";
+export const NONE_FILTER_VALUE = "__none__";
 
 export function toFilterOptions(values: readonly string[]): FilterOption[] {
 	return values.map((v) => ({
@@ -50,6 +50,8 @@ interface ColumnFilterProps {
 	columnName: string;
 	options: FilterOption[];
 	selectedValues: string[];
+	/** Selection the view starts with; only a selection that differs from it is shown as an active filter. */
+	defaultValues?: string[];
 	onFilterChange: (values: string[]) => void;
 	counts?: Record<string, number>;
 }
@@ -58,6 +60,7 @@ export function ColumnFilter({
 	columnName,
 	options,
 	selectedValues,
+	defaultValues = [],
 	onFilterChange,
 	counts,
 }: ColumnFilterProps) {
@@ -76,6 +79,10 @@ export function ColumnFilter({
 	const swatchOptions = filteredOptions.filter((option) => option.swatch);
 	const listOptions = filteredOptions.filter((option) => !option.swatch);
 
+	const isModified =
+		selectedValues.length !== defaultValues.length ||
+		!defaultValues.every((v) => selectedValues.includes(v));
+
 	const toggleValue = (value: string) => {
 		const newValues = selectedValues.includes(value)
 			? selectedValues.filter((v) => v !== value)
@@ -89,17 +96,13 @@ export function ColumnFilter({
 				<div className="relative inline-block pt-1 pr-1">
 					<Button
 						aria-label={`Filter by ${columnName}`}
-						className={
-							selectedValues.length > 0
-								? "text-primary"
-								: "text-muted-foreground"
-						}
+						className={isModified ? "text-primary" : "text-muted-foreground"}
 						size="icon-sm"
 						variant="ghost"
 					>
 						<Filter className="h-3.5 w-3.5" />
 					</Button>
-					{selectedValues.length > 0 && (
+					{isModified && (
 						<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
 							{selectedValues.length}
 						</span>
@@ -179,12 +182,12 @@ export function ColumnFilter({
 						);
 					})}
 				</div>
-				{selectedValues.length > 0 && (
+				{isModified && (
 					<>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							className="justify-center text-destructive"
-							onClick={() => onFilterChange([])}
+							onClick={() => onFilterChange(defaultValues)}
 						>
 							Clear Filter
 						</DropdownMenuItem>

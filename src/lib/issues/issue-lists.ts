@@ -15,6 +15,7 @@ import {
 import type { Session } from "next-auth";
 import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
+import { FAILURE_RESOLVED_AT } from "~/lib/failures";
 import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/integrations/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
@@ -563,7 +564,7 @@ export async function getPartialBatteriesList(
 		ctx.db.query.failures.findMany({
 			where: and(
 				inArray(failures.clientId, needyIds),
-				lt(failures.reminded, 100),
+				lt(failures.reminded, FAILURE_RESOLVED_AT),
 			),
 		}),
 		getMostRecentEvalStartTimes(ctx.db, needyIds),

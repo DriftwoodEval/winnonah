@@ -20,6 +20,7 @@ const STATUS_LABELS: Partial<
 > = {
 	POSTEVAL_PENDING: "Post-Eval, Pending",
 	POSTDA_PENDING: "Post-DA, Pending",
+	JUST_ADDED: "Just Added",
 };
 
 export function statusLabel(s: string) {

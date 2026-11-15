@@ -1,0 +1,50 @@
+---
+title: Database
+---
+
+The **Database** link in the nav (under Clients) shows records from across all clients in one table. Use the tabs at the top right to choose which table to look at: **Questionnaires** or **External Records**. You need the Database page permission to see it.
+
+Both tables list only active clients at first. Change the **Client** column filter to include inactive clients. Your filters, sorting, and the List or By client choice are saved for you, so each table opens the way you left it. Use **Clear filters** to start over. To change a record, open the client's page. This page is for viewing only.
+
+## Questionnaires
+
+Use this table to answer questions like "which Conners 4 questionnaires are still pending?" or "who has been reminded three or more times?" without opening each client.
+
+Each row is one questionnaire, oldest sent first. It shows the client, the questionnaire, its status, the date it was sent, how many reminders have gone out, the date of the last reminder, and the client's next appointment, or their most recent one marked "(past)" if none is upcoming. A questionnaire marked **Responded** also shows the text of the reply that caused it. The **PDF** column links to the completed questionnaire's PDF once it is found in the client's Drive folder, shows **Missing** if it is not there, and has a **Folder** link to open the client's Drive folder. PDFs are looked for once a day. When a completed questionnaire has no PDF yet, a small refresh icon next to it looks in the client's Drive folder right now, however long ago it was sent. The status and reminder colors match the questionnaire table on each client's page. Click a client's name to open their page.
+
+### By client
+
+Switch from **List** to **By client** next to the search box to get one row per client. Each row shows how many of the client's questionnaires are done (completed or external), a count of each status, the oldest sent date, and the most reminders any of their questionnaires has had. Clients with the most questionnaires still outstanding are listed first. Click the arrow beside a client's name to see each of their questionnaires.
+
+Each client row shows how many of their completed questionnaires have a PDF, without expanding. When any are missing, a small refresh icon next to that count looks in that client's Drive folder right now, however long ago the questionnaires were sent.
+
+Progress only counts the questionnaires that match your filters. If you filter to a single questionnaire, "1 of 1 done" refers to that questionnaire only.
+
+### Counts
+
+The questionnaire names above the table show how many of each there are. Click one to filter the table to it, and click it again to remove the filter. The line above the table shows how many questionnaires match your filters and how many clients they belong to. Status counts are in the **Status** filter.
+
+### Filtering and sorting
+
+- Search by client name with the search box. Small typos still match.
+- Click the filter icon on the **Client**, **Questionnaire**, **Status**, **Reminders**, or **PDF** column to pick one or more values. Each option shows how many rows it would match given your other filters.
+- Click a column heading to sort by it. Click it again to reverse the order.
+- **Clear filters** resets everything.
+
+## External Records
+
+This table has one row per client who needs school records, has had a records request, or has records notes. It shows where each client's request stands:
+
+- **Not requested**: records are needed but no request has been queued or sent.
+- **Queued**: a request is set up and waiting to be sent.
+- **On hold**: a request is waiting and has a hold date that has not passed.
+- **Requested**: the request has been sent once.
+- **Requested again**: the request has been sent more than once.
+- **Reviewed**: records notes have been entered for the client.
+- **Not needed**: the client's records status is Not Needed. Every status except this one is selected in the Status filter by default, so select **Not needed** there to see these clients.
+
+A yellow badge under the status means a request is not going out yet, and says why. It shows the same reason as the client page and the dashboard: for example a school district that does not match, an unconfirmed charter school, a language that automated requests do not support, or a hold date that has not passed. The badge goes away once a request has been sent.
+
+The other columns show the date of the most recent request, how many requests have been sent, the hold date if there is one, and when the records notes were last updated. Only requests from the client's current session count, so an old request from before a re-referral does not make a client look requested.
+
+Search (by client name), the Client and Status filters, and sorting work the same as in the Questionnaires table. By default the table lists clients that still need action first.

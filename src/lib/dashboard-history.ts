@@ -18,6 +18,7 @@ import {
 	SECTION_ISSUE_UNREVIEWED_RECORDS,
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
+import { FAILURE_RESOLVED_AT } from "~/lib/failures";
 import { redis } from "~/lib/integrations/redis";
 import {
 	getDuplicateNamesList,
@@ -127,7 +128,10 @@ export async function syncDashboardSectionHistory() {
 				driveId: clients.driveId,
 			})
 			.from(clients),
-		db.select().from(failures).where(lt(failures.reminded, 100)),
+		db
+			.select()
+			.from(failures)
+			.where(lt(failures.reminded, FAILURE_RESOLVED_AT)),
 		getUnreviewedRecordsList(db),
 		getUnconfirmedCharterSchoolList(db),
 		getMissingAppointmentsList(db),

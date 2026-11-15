@@ -27,12 +27,10 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	getHoldBlockers,
-	getRecordsBlockerReason,
+	getRecordsBlockers,
 	getUnsupportedLanguageReason,
 	hasQuestionnairesNeeded,
 	isAdhdOnly,
-	isCharterSchoolUnconfirmed,
-	SCHOOL_RECORDS_ADULT_AGE,
 } from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
@@ -314,58 +312,13 @@ export function Client({
 
 	const recordsBlockers = useMemo(() => {
 		if (!client || isNotesOnlyClientId(client.id)) return [];
-
-		const capitalize = (text: string) =>
-			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
-
-		const blockers: string[] = (clientFailures ?? [])
-			.filter((failure) => failure.daEval === "Records")
-			.map((failure) => capitalize(sanitizeFailureReason(failure.reason)));
-
-		if (client.recordsNeeded === null) {
-			blockers.push("Missing records-needed status.");
-			return blockers;
-		}
-
-		// Pause and autism stop also halt records requests, but only matter
-		// while records are actually outstanding.
-		if (client.recordsNeeded === "Needed" && !externalRecordData?.contentJson) {
-			blockers.push(...getHoldBlockers(client));
-			const age = calculateAgeYearsMonths(client.dob)?.years;
-			if (age !== undefined && age >= SCHOOL_RECORDS_ADULT_AGE) {
-				blockers.push(
-					`Records aren't requested for clients ${SCHOOL_RECORDS_ADULT_AGE} or older.`,
-				);
-			}
-		}
-
-		const currentSessionRequests = (externalRecordData?.requests ?? []).filter(
-			(request) =>
-				!client.sessionStartedAt ||
-				request.createdAt >= client.sessionStartedAt,
-		);
-		const requestedDates = currentSessionRequests.map(
-			(request) => request.requestedDate,
-		);
-		const pendingRequest = currentSessionRequests.find(
-			(request) => request.requestedDate === null,
-		);
-
-		const recordsBlockerReason = getRecordsBlockerReason({
-			recordsNeeded: client.recordsNeeded,
-			hasExternalRecordContent: !!externalRecordData?.contentJson,
-			isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(
-				client.referralData,
-			),
-			language: client.language,
-			holdUntil: pendingRequest?.holdUntil,
-			hasPendingRequest: !!pendingRequest,
-			requestedDates,
+		return getRecordsBlockers({
+			client,
+			failures: clientFailures ?? [],
+			hasContent: !!externalRecordData?.contentJson,
+			requests: externalRecordData?.requests ?? [],
 			today: formatInBusinessTime(new Date(), "yyyy-MM-dd"),
 		});
-		if (recordsBlockerReason) blockers.push(capitalize(recordsBlockerReason));
-
-		return blockers;
 	}, [client, clientFailures, externalRecordData]);
 
 	// A pause or autism stop appears in both lists; show it once.

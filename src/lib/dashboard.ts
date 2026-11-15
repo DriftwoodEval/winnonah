@@ -5,6 +5,7 @@ import {
 	isCharterSchoolUnconfirmed,
 	RECORDS_NOT_YET_REQUESTED_REASON,
 } from "./client-blockers";
+import { isActiveFailure, isDropListFailure } from "./failures";
 import type { Client, Failure, FullClientInfo } from "./models";
 import {
 	formatShortInstantDate,
@@ -339,7 +340,7 @@ export const DASHBOARD_CONFIG: {
 			const hasVisibleFailure = (c: FullClientInfo) =>
 				c.failures?.some(
 					(f) =>
-						(f.reminded ?? 0) < 100 &&
+						isActiveFailure(f) &&
 						(f.reason === "docs not signed" ||
 							f.reason === "portal not opened"),
 				)
@@ -611,8 +612,7 @@ export function getDashboardSections(
 			clients: filtered.map((client) => ({
 				...client,
 				failures: client.failures?.filter(
-					(f) =>
-						(f.reminded ?? 0) < 100 && (config.failureFilter?.(f) ?? false),
+					(f) => isActiveFailure(f) && (config.failureFilter?.(f) ?? false),
 				),
 				extraInfo: config.extraInfo?.(client),
 				dangerInfo: config.dangerInfo?.(client),
@@ -629,7 +629,7 @@ export function getDashboardSections(
 				)
 				.map((client) => ({
 					...client,
-					failures: client.failures?.filter((f) => (f.reminded ?? 0) < 100),
+					failures: client.failures?.filter(isActiveFailure),
 				})) ?? [],
 		description: "Clients who don't match any specific filter criteria yet.",
 	};
@@ -655,7 +655,7 @@ export function getDashboardSections(
 				matchedSections: clientMatchedSections.get(client["Client ID"] ?? ""),
 				failures: client.failures?.filter(
 					(f) =>
-						(f.reminded ?? 0) < 100 &&
+						isActiveFailure(f) &&
 						DASHBOARD_CONFIG.some(
 							(config) =>
 								config.failureFilter?.(f) &&
@@ -781,11 +781,7 @@ export function getClientIssueListSections(client: IssueListClient): string[] {
 	}
 	// Same "recurring, unresolved failure" threshold used to derive the drop
 	// list badge on the client page (Client.tsx).
-	if (
-		client.failures?.some(
-			(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
-		)
-	) {
+	if (client.failures?.some(isDropListFailure)) {
 		sections.push(SECTION_ISSUE_DROP_LIST);
 	}
 
@@ -830,12 +826,10 @@ export function getClientIssueListSections(client: IssueListClient): string[] {
 export function getClientFailureSections(
 	failures: Failure[] | undefined,
 ): string[] {
-	return (failures ?? [])
-		.filter((f) => (f.reminded ?? 0) < 100)
-		.map((f) => {
-			const reason = sanitizeFailureReason(f.reason);
-			return `Failure: ${reason.charAt(0).toUpperCase()}${reason.slice(1)}`;
-		});
+	return (failures ?? []).filter(isActiveFailure).map((f) => {
+		const reason = sanitizeFailureReason(f.reason);
+		return `Failure: ${reason.charAt(0).toUpperCase()}${reason.slice(1)}`;
+	});
 }
 
 export function getClientMatchedSections(

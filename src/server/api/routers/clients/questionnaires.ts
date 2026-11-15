@@ -2,8 +2,23 @@ import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNull,
+	lt,
+	max,
+	min,
+	ne,
+	not,
+	or,
+} from "drizzle-orm";
 import { z } from "zod";
+import { env } from "~/env";
 import { fetchIssueList, invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { updatePunchData } from "~/lib/integrations/google";
@@ -389,6 +404,42 @@ export const questionnaireRouter = createTRPCRouter({
 			return types.filter((t) => t.minAge <= age && t.maxAge >= age);
 		}),
 
+	/** Has the Python sidecar look in Drive for completed questionnaires' PDFs now. */
+	checkPdfs: protectedProcedure
+		.input(
+			z
+				.object({
+					clientId: z.number().optional(),
+					questionnaireId: z.number().optional(),
+				})
+				.refine((i) => i.clientId || i.questionnaireId),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const params = new URLSearchParams();
+			if (input.clientId) params.set("client_id", String(input.clientId));
+			if (input.questionnaireId)
+				params.set("questionnaire_id", String(input.questionnaireId));
+
+			const res = await fetch(
+				`${env.PY_API}/questionnaires/check-pdfs?${params}`,
+				{
+					method: "POST",
+					headers: { Cookie: ctx.headers.get("cookie") ?? "" },
+				},
+			);
+			if (!res.ok) {
+				ctx.logger.error(
+					{ status: res.status },
+					"Questionnaire PDF check failed",
+				);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "The PDF check failed.",
+				});
+			}
+			return (await res.json()) as { found: number; missing: number };
+		}),
+
 	getAllTypes: protectedProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.assessmentTypes.findMany({
 			orderBy: [asc(assessmentTypes.name)],
@@ -525,6 +576,89 @@ export const questionnaireRouter = createTRPCRouter({
 				.delete(questionnaireRules)
 				.where(eq(questionnaireRules.id, input.id));
 		}),
+
+	/**
+	 * Every non-archived questionnaire row across all clients, with the owning
+	 * client's display fields, for the Database page. Filtering, sorting, and
+	 * counts happen in the browser against this full list.
+	 */
+	listAll: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "pages:database");
+
+		const now = new Date();
+		// Appointments still on the books, grouped per client: the earliest one
+		// from now on, and the latest one before now.
+		const activeAppointment = and(
+			eq(appointments.cancelled, false),
+			eq(appointments.placeholder, false),
+			eq(appointments.billingOnly, false),
+		);
+		const upcomingQuery = ctx.db
+			.select({
+				clientId: appointments.clientId,
+				startTime: min(appointments.startTime),
+			})
+			.from(appointments)
+			.where(and(gte(appointments.startTime, now), activeAppointment))
+			.groupBy(appointments.clientId);
+		const pastQuery = ctx.db
+			.select({
+				clientId: appointments.clientId,
+				startTime: max(appointments.startTime),
+			})
+			.from(appointments)
+			.where(and(lt(appointments.startTime, now), activeAppointment))
+			.groupBy(appointments.clientId);
+
+		const [rows, upcomingAppointments, pastAppointments] = await Promise.all([
+			ctx.db
+				.select({
+					id: questionnaires.id,
+					clientId: clients.id,
+					clientHash: clients.hash,
+					clientName: clients.fullName,
+					clientActive: clients.status,
+					clientDriveId: clients.driveId,
+					questionnaireType: questionnaires.questionnaireType,
+					status: questionnaires.status,
+					sent: questionnaires.sent,
+					reminded: questionnaires.reminded,
+					lastReminded: questionnaires.lastReminded,
+					pdfFileId: questionnaires.pdfFileId,
+					pdfCheckedAt: questionnaires.pdfCheckedAt,
+					responseText: questionnaires.responseText,
+				})
+				.from(questionnaires)
+				.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+				// A null status counts as active, and plain "!=" would drop those rows.
+				.where(
+					or(
+						isNull(questionnaires.status),
+						ne(questionnaires.status, "ARCHIVED"),
+					),
+				)
+				.orderBy(desc(questionnaires.sent), desc(questionnaires.id)),
+			upcomingQuery,
+			pastQuery,
+		]);
+
+		const upcomingByClient = new Map(
+			upcomingAppointments.map((a) => [a.clientId, a.startTime]),
+		);
+		const pastByClient = new Map(
+			pastAppointments.map((a) => [a.clientId, a.startTime]),
+		);
+		// A client's next appointment, or their most recent one if none is upcoming.
+		return rows.map((row) => {
+			const upcoming = upcomingByClient.get(row.clientId);
+			const past = pastByClient.get(row.clientId);
+			return {
+				...row,
+				appointment: upcoming ?? past ?? null,
+				appointmentIsPast: !upcoming && !!past,
+			};
+		});
+	}),
 
 	getSentQuestionnaires: protectedProcedure
 		.input(z.number())

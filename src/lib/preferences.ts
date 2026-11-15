@@ -22,6 +22,8 @@ export const userPreferencesSchema = z.object({
 		.catch(undefined),
 	issueListOrder: z.array(z.string()).optional().catch(undefined),
 	clientCardFields: z.array(z.string()).optional().catch(undefined),
+	// Filters and sorts last used on each Database page table: JSON text keyed by table.
+	databaseViews: z.record(z.string(), z.string()).optional().catch(undefined),
 });
 
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;

@@ -17,6 +17,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from api import appointment_reminders, greeter_proxy
+from cron.questionnaire_pdf_check import check_questionnaire_pdfs
 from utils.appointments import (
     DAEvalType,
     build_placeholder_description,
@@ -1497,3 +1498,17 @@ async def office_drive_times(
         (drive_time for drive_time, _ in resolved),
         key=lambda r: (r.duration_minutes is None, r.duration_minutes or 0),
     )
+
+
+@app.post("/questionnaires/check-pdfs")
+def run_questionnaire_pdf_check(
+    client_id: int | None = None,
+    questionnaire_id: int | None = None,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    """Look for completed questionnaires' PDFs in Drive now, instead of waiting
+    for the daily cron, for one client or questionnaire when its id is given.
+    Requests queue behind each other and run as one task, and wait if the daily
+    cron is mid-run."""
+    found, missing = check_questionnaire_pdfs(client_id, questionnaire_id)
+    return {"found": found, "missing": missing}

@@ -36,7 +36,7 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
         if col in df.columns:
-            df[col] = df[col].apply(_restore_apostrophes)
+            df[col] = df[col].map(_restore_apostrophes)
 
     for col in ["LASTNAME", "FIRSTNAME"]:
         if col in df.columns:

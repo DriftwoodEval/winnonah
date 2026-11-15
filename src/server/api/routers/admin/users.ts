@@ -528,6 +528,26 @@ export const userRouter = createTRPCRouter({
 			.where(eq(users.id, ctx.session.user.id));
 	}),
 
+	getDatabaseViews: protectedProcedure.query(async ({ ctx }) => {
+		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+		return prefs.databaseViews ?? {};
+	}),
+
+	// A view is saved as a JSON string so a new save replaces the old one
+	// instead of merging into it key by key.
+	setDatabaseView: protectedProcedure
+		.input(
+			z.object({
+				table: z.enum(["questionnaires", "externalRecords"]),
+				view: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			await patchPreferences(ctx.db, ctx.session.user.id, {
+				databaseViews: { [input.table]: input.view },
+			});
+		}),
+
 	getHeaderPreferences: protectedProcedure.query(async ({ ctx }) => {
 		const prefs = await readPreferences(ctx.db, ctx.session.user.id);
 		return {

@@ -38,8 +38,13 @@ import {
 	SCHOOL_RECORDS_ADULT_AGE,
 } from "~/lib/client-blockers";
 import type { ClientCardSummary } from "~/lib/clients/client-card";
+import {
+	fuzzyNameRowMatches,
+	nameSearchWords,
+} from "~/lib/clients/name-search";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
+import { FAILURE_RESOLVED_AT, isDropListFailure } from "~/lib/failures";
 import { appendMissingLines } from "~/lib/insurance-notes-merge";
 import {
 	renameDriveFolder,
@@ -162,14 +167,6 @@ function buildClientIdPrefixCondition(trimmedSearch: string) {
 	return like(clients.id, `${numericId}%`);
 }
 
-// Split the user's input into words, dropping punctuation.
-function nameSearchWords(trimmedSearch: string) {
-	return trimmedSearch
-		.replace(/[^\w ]/g, " ")
-		.split(" ")
-		.filter(Boolean);
-}
-
 // fullName with punctuation stripped, matching how search words are cleaned.
 // The doubled escaping is deliberate: the backslash has to survive both JS and
 // SQL string parsing.
@@ -210,15 +207,6 @@ function buildFuzzyNameWordsCondition(searchWords: string[]) {
 		);
 	});
 	return and(...perWord);
-}
-
-// JS confirmation that every search word is within one edit of some name token.
-function fuzzyNameRowMatches(searchWords: string[], fullName: string) {
-	const tokens = nameSearchWords(fullName.toLowerCase());
-	return searchWords.every((raw) => {
-		const word = raw.toLowerCase();
-		return tokens.some((t) => t.includes(word) || levDistance(word, t) <= 1);
-	});
 }
 
 const directoryFilterSchema = z.object({
@@ -604,7 +592,7 @@ export const clientRouter = createTRPCRouter({
 					ctx.db
 						.select({ clientId: failures.clientId, reason: failures.reason })
 						.from(failures)
-						.where(lt(failures.reminded, 100)),
+						.where(lt(failures.reminded, FAILURE_RESOLVED_AT)),
 					ctx.db.query.offices.findMany({
 						where: (o, { eq }) => eq(o.archived, false),
 					}),
@@ -1172,9 +1160,7 @@ export const clientRouter = createTRPCRouter({
 					(q.reminded ?? 0) > 3,
 			);
 
-			const dropListFailures = syncedClient.failures.filter(
-				(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
-			);
+			const dropListFailures = syncedClient.failures.filter(isDropListFailure);
 
 			let dropListReason: string | null = null;
 			let initialFailureDate: string | undefined;
@@ -1427,7 +1413,10 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			const clientFailures = await ctx.db.query.failures.findMany({
-				where: and(eq(failures.clientId, input), lt(failures.reminded, 100)),
+				where: and(
+					eq(failures.clientId, input),
+					lt(failures.reminded, FAILURE_RESOLVED_AT),
+				),
 			});
 
 			return clientFailures;
@@ -1497,7 +1486,7 @@ export const clientRouter = createTRPCRouter({
 
 			await ctx.db
 				.update(failures)
-				.set({ reminded: sql`reminded + 100` })
+				.set({ reminded: sql`reminded + ${FAILURE_RESOLVED_AT}` })
 				.where(
 					and(
 						eq(failures.clientId, input.clientId),
@@ -1738,7 +1727,10 @@ export const clientRouter = createTRPCRouter({
 					where: eq(clients.status, true),
 					with: {
 						failures: {
-							where: and(gt(failures.reminded, 3), lt(failures.reminded, 100)),
+							where: and(
+								gt(failures.reminded, 3),
+								lt(failures.reminded, FAILURE_RESOLVED_AT),
+							),
 						},
 					},
 				});

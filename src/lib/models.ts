@@ -40,7 +40,10 @@ export type FullClientInfo = PUNCH_SCHEMA &
 
 export type InsertingQuestionnaire = Pick<
 	typeof questionnaires.$inferSelect,
-	Exclude<keyof typeof questionnaires.$inferSelect, "id" | "updatedAt">
+	Exclude<
+		keyof typeof questionnaires.$inferSelect,
+		"id" | "updatedAt" | "pdfFileId" | "pdfCheckedAt" | "responseText"
+	>
 >;
 
 type UserSchema = typeof users.$inferSelect;
