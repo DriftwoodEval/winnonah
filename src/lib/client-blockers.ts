@@ -1,4 +1,9 @@
-import { compareDateOnly, formatShortDate } from "~/lib/utils";
+import {
+	calculateAgeYearsMonths,
+	compareDateOnly,
+	formatShortDate,
+	sanitizeFailureReason,
+} from "~/lib/utils";
 
 export type RecordsBlockerInput = {
 	recordsNeeded: "Needed" | "Not Needed" | null;
@@ -154,4 +159,77 @@ export const SCHOOL_RECORDS_ADULT_AGE = 22;
  */
 export function isAdhdOnly(asdAdhd: string | null | undefined): boolean {
 	return !!asdAdhd?.includes("ADHD") && !asdAdhd.includes("ASD");
+}
+
+/**
+ * Every reason a client's external records aren't being requested, as the
+ * client page lists them: records failures (such as a school district that
+ * doesn't match), a missing records-needed status, pause or autism stop, age,
+ * and the getRecordsBlockerReason result. Shared by the client page and the
+ * Database page's External Records table.
+ */
+export function getRecordsBlockers(input: {
+	client: {
+		recordsNeeded: "Needed" | "Not Needed" | null;
+		pause: boolean;
+		autismStop: boolean;
+		dob: string | null;
+		language: string | null;
+		referralData: Parameters<typeof isCharterSchoolUnconfirmed>[0];
+		sessionStartedAt: Date | null;
+	};
+	failures: { reason: string; daEval: string | null }[];
+	hasContent: boolean;
+	requests: {
+		requestedDate: string | null;
+		holdUntil: string | null;
+		createdAt: Date;
+	}[];
+	today: string;
+}): string[] {
+	const { client, hasContent } = input;
+	const sentence = (text: string) =>
+		`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+
+	const blockers = input.failures
+		.filter((failure) => failure.daEval === "Records")
+		.map((failure) => sentence(sanitizeFailureReason(failure.reason)));
+
+	if (client.recordsNeeded === null) {
+		blockers.push("Missing records-needed status.");
+		return blockers;
+	}
+
+	// Pause and autism stop also halt records requests, but only matter
+	// while records are actually outstanding.
+	if (client.recordsNeeded === "Needed" && !hasContent) {
+		blockers.push(...getHoldBlockers(client));
+		const age = calculateAgeYearsMonths(client.dob)?.years;
+		if (age !== undefined && age >= SCHOOL_RECORDS_ADULT_AGE) {
+			blockers.push(
+				`Records aren't requested for clients ${SCHOOL_RECORDS_ADULT_AGE} or older.`,
+			);
+		}
+	}
+
+	const currentSessionRequests = input.requests.filter(
+		(request) =>
+			!client.sessionStartedAt || request.createdAt >= client.sessionStartedAt,
+	);
+	const pendingRequest = currentSessionRequests.find(
+		(request) => request.requestedDate === null,
+	);
+	const reason = getRecordsBlockerReason({
+		recordsNeeded: client.recordsNeeded,
+		hasExternalRecordContent: hasContent,
+		isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(client.referralData),
+		language: client.language,
+		holdUntil: pendingRequest?.holdUntil,
+		hasPendingRequest: !!pendingRequest,
+		requestedDates: currentSessionRequests.map((r) => r.requestedDate),
+		today: input.today,
+	});
+	if (reason) blockers.push(sentence(reason));
+
+	return blockers;
 }

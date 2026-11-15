@@ -22,7 +22,7 @@ export interface FilterOption {
 
 // Mirrors NONE_FILTER_VALUE in src/server/api/filters.ts: the sentinel a facet
 // count uses for rows whose underlying field is null/unset. Shown as "None".
-const NONE_FILTER_VALUE = "__none__";
+export const NONE_FILTER_VALUE = "__none__";
 
 export function toFilterOptions(values: readonly string[]): FilterOption[] {
 	return values.map((v) => ({

@@ -2,6 +2,7 @@ import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { getRecordsBlockers } from "~/lib/client-blockers";
 import { summarizeRecords } from "~/lib/records/records-status";
 import { formatInBusinessTime } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -216,36 +217,50 @@ export const externalRecordRouter = createTRPCRouter({
 	listAll: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "pages:database");
 
-		const [clientRows, recordRows, requestRows] = await Promise.all([
-			ctx.db
-				.select({
-					id: clients.id,
-					hash: clients.hash,
-					fullName: clients.fullName,
-					active: clients.status,
-					recordsNeeded: clients.recordsNeeded,
-					sessionStartedAt: clients.sessionStartedAt,
-				})
-				.from(clients),
-			ctx.db
-				.select({
-					clientId: externalRecords.clientId,
-					hasContent:
-						sql<number>`${externalRecords.content} IS NOT NULL`.mapWith(
-							Boolean,
-						),
-					updatedAt: externalRecords.updatedAt,
-				})
-				.from(externalRecords),
-			ctx.db
-				.select({
-					clientId: externalRecordRequests.clientId,
-					requestedDate: externalRecordRequests.requestedDate,
-					holdUntil: externalRecordRequests.holdUntil,
-					createdAt: externalRecordRequests.createdAt,
-				})
-				.from(externalRecordRequests),
-		]);
+		const [clientRows, recordRows, requestRows, failureRows] =
+			await Promise.all([
+				ctx.db
+					.select({
+						id: clients.id,
+						hash: clients.hash,
+						fullName: clients.fullName,
+						active: clients.status,
+						recordsNeeded: clients.recordsNeeded,
+						sessionStartedAt: clients.sessionStartedAt,
+						dob: clients.dob,
+						pause: clients.pause,
+						autismStop: clients.autismStop,
+						language: clients.language,
+						referralData: clients.referralData,
+					})
+					.from(clients),
+				ctx.db
+					.select({
+						clientId: externalRecords.clientId,
+						hasContent:
+							sql<number>`${externalRecords.content} IS NOT NULL`.mapWith(
+								Boolean,
+							),
+						updatedAt: externalRecords.updatedAt,
+					})
+					.from(externalRecords),
+				ctx.db
+					.select({
+						clientId: externalRecordRequests.clientId,
+						requestedDate: externalRecordRequests.requestedDate,
+						holdUntil: externalRecordRequests.holdUntil,
+						createdAt: externalRecordRequests.createdAt,
+					})
+					.from(externalRecordRequests),
+				ctx.db
+					.select({
+						clientId: failures.clientId,
+						reason: failures.reason,
+						daEval: failures.daEval,
+					})
+					.from(failures)
+					.where(eq(failures.daEval, "Records")),
+			]);
 
 		const recordsByClientId = new Map(recordRows.map((r) => [r.clientId, r]));
 		const requestsByClientId = new Map<number, typeof requestRows>();
@@ -253,6 +268,13 @@ export const externalRecordRouter = createTRPCRouter({
 			const group = requestsByClientId.get(request.clientId);
 			if (group) group.push(request);
 			else requestsByClientId.set(request.clientId, [request]);
+		}
+
+		const failuresByClientId = new Map<number, typeof failureRows>();
+		for (const failure of failureRows) {
+			const group = failuresByClientId.get(failure.clientId);
+			if (group) group.push(failure);
+			else failuresByClientId.set(failure.clientId, [failure]);
 		}
 
 		const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
@@ -288,6 +310,13 @@ export const externalRecordRouter = createTRPCRouter({
 					latestRequestedDate: summary.latestRequestedDate,
 					requestCount: summary.requestCount,
 					holdUntil: summary.holdUntil,
+					blockers: getRecordsBlockers({
+						client,
+						failures: failuresByClientId.get(client.id) ?? [],
+						hasContent,
+						requests: requestsByClientId.get(client.id) ?? [],
+						today,
+					}),
 					notesUpdatedAt: hasContent ? (record?.updatedAt ?? null) : null,
 				},
 			];
