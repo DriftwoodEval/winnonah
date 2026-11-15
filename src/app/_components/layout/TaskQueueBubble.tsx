@@ -11,6 +11,7 @@ import { api } from "~/trpc/react";
 
 const PROGRESS_UNIT_LABELS: Record<string, string> = {
 	appointment_reminders: "templates checked",
+	questionnaire_pdf_check: "questionnaires checked",
 };
 
 function relativeTime(date: Date) {

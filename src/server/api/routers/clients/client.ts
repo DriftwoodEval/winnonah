@@ -38,6 +38,10 @@ import {
 	SCHOOL_RECORDS_ADULT_AGE,
 } from "~/lib/client-blockers";
 import type { ClientCardSummary } from "~/lib/clients/client-card";
+import {
+	fuzzyNameRowMatches,
+	nameSearchWords,
+} from "~/lib/clients/name-search";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { appendMissingLines } from "~/lib/insurance-notes-merge";
@@ -162,14 +166,6 @@ function buildClientIdPrefixCondition(trimmedSearch: string) {
 	return like(clients.id, `${numericId}%`);
 }
 
-// Split the user's input into words, dropping punctuation.
-function nameSearchWords(trimmedSearch: string) {
-	return trimmedSearch
-		.replace(/[^\w ]/g, " ")
-		.split(" ")
-		.filter(Boolean);
-}
-
 // fullName with punctuation stripped, matching how search words are cleaned.
 // The doubled escaping is deliberate: the backslash has to survive both JS and
 // SQL string parsing.
@@ -210,15 +206,6 @@ function buildFuzzyNameWordsCondition(searchWords: string[]) {
 		);
 	});
 	return and(...perWord);
-}
-
-// JS confirmation that every search word is within one edit of some name token.
-function fuzzyNameRowMatches(searchWords: string[], fullName: string) {
-	const tokens = nameSearchWords(fullName.toLowerCase());
-	return searchWords.every((raw) => {
-		const word = raw.toLowerCase();
-		return tokens.some((t) => t.includes(word) || levDistance(word, t) <= 1);
-	});
 }
 
 const directoryFilterSchema = z.object({

@@ -947,6 +947,8 @@ export const questionnaires = createTable(
 		pdfFileId: d.varchar({ length: 255 }),
 		// Last time the daily PDF check looked in the client's Drive folder.
 		pdfCheckedAt: d.timestamp(),
+		// What the client texted back, set when reminders stop because they replied.
+		responseText: d.text(),
 		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 	}),
 	(t) => [index("questionnaire_client_idx").on(t.clientId)],

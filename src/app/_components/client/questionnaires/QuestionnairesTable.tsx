@@ -29,7 +29,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { CheckCircle2, ClipboardList, Copy, Info } from "lucide-react";
+import {
+	CheckCircle2,
+	ClipboardList,
+	Copy,
+	Info,
+	RefreshCw,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -48,6 +54,7 @@ import {
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
+import { PdfStatus } from "./PdfStatus";
 import { QuestionnaireHistoryButton } from "./QuestionnaireHistory";
 import { QuestionnaireReminderOverridesSummary } from "./QuestionnaireReminderOverride";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
@@ -153,6 +160,16 @@ export function QuestionnairesTable({
 			}),
 	});
 
+	const checkPdfs = api.questionnaires.checkPdfs.useMutation({
+		onSuccess: ({ found }) => {
+			void utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
+			toast.success(
+				found > 0 ? "PDF found in Drive." : "No PDF found in Drive yet.",
+			);
+		},
+		onError: (err) => toast.error(err.message),
+	});
+
 	const bulkUpdate = api.questionnaires.bulkUpdateStatus.useMutation({
 		onSuccess: () => {
 			void utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
@@ -171,6 +188,11 @@ export function QuestionnairesTable({
 
 	const visibleQs =
 		questionnairesSent?.filter((q) => q.status !== "ARCHIVED") ?? [];
+	// Only completed questionnaires have a PDF to find, so the recheck button
+	// goes away once every one of them has its PDF.
+	const needsPdfCheck = visibleQs.some(
+		(q) => q.status === "COMPLETED" && !q.pdfFileId,
+	);
 
 	const allSentDates = [
 		...new Set(visibleQs.map((q) => q.sent).filter((s): s is string => !!s)),
@@ -419,6 +441,28 @@ export function QuestionnairesTable({
 									Reminded
 								</TableHead>
 								<TableHead className="w-12 sm:w-20">Status</TableHead>
+								<TableHead className="hidden w-12 sm:table-cell">
+									<span className="flex items-center gap-1">
+										PDF
+										{clientId && needsPdfCheck && (
+											<button
+												aria-label="Check Drive for PDFs now"
+												className="text-muted-foreground hover:text-primary disabled:opacity-50"
+												disabled={checkPdfs.isPending}
+												onClick={() => checkPdfs.mutate({ clientId })}
+												title="Check Drive for PDFs now"
+												type="button"
+											>
+												<RefreshCw
+													className={cn(
+														"h-3 w-3",
+														checkPdfs.isPending && "animate-spin",
+													)}
+												/>
+											</button>
+										)}
+									</span>
+								</TableHead>
 								<TableHead className="w-20">As Of</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -426,7 +470,7 @@ export function QuestionnairesTable({
 							{isLoadingQuestionnaires &&
 								["sk-q1", "sk-q2", "sk-q3"].map((k) => (
 									<TableRow key={k}>
-										<TableCell colSpan={7}>
+										<TableCell colSpan={8}>
 											<Skeleton className="h-4 w-full" />
 										</TableCell>
 									</TableRow>
@@ -505,8 +549,16 @@ export function QuestionnairesTable({
 											{questionnaire.status ? questionnaire.status[0] : "U"}
 										</span>
 										<span className="hidden sm:inline">
-											{questionnaire.status}
+											{questionnaire.status
+												? statusLabel(questionnaire.status)
+												: null}
 										</span>
+									</TableCell>
+									<TableCell className="hidden sm:table-cell">
+										<PdfStatus
+											pdfCheckedAt={questionnaire.pdfCheckedAt}
+											pdfFileId={questionnaire.pdfFileId}
+										/>
 									</TableCell>
 									<TableCell className="w-20">
 										{questionnaire.link ? (
