@@ -6,6 +6,7 @@ checked again; the rest are rechecked every run, since staff download PDFs by
 hand.
 """
 
+import argparse
 import threading
 import time
 from dataclasses import dataclass, field
@@ -77,21 +78,28 @@ class _State:
 _state = _State()
 
 
-def select_rows(client_id: int | None, questionnaire_id: int | None) -> list[dict]:
+def select_rows(
+    client_id: int | None, questionnaire_id: int | None, all_time: bool = False
+) -> list[dict]:
     """Completed questionnaires still missing a PDF, for one questionnaire, one
-    client, or (with neither) everything sent within LOOKBACK_DAYS."""
+    client, or (with neither) everything sent within LOOKBACK_DAYS, or every
+    questionnaire ever sent when all_time is set."""
     with db_session() as conn, conn.cursor() as cur:
         if questionnaire_id is not None:
             cur.execute(QUERY + " AND q.id = %s", (questionnaire_id,))
         elif client_id is not None:
             cur.execute(QUERY + " AND c.id = %s", (client_id,))
+        elif all_time:
+            cur.execute(QUERY)
         else:
             cur.execute(QUERY + LOOKBACK_FILTER, (LOOKBACK_DAYS,))
         return [r for r in cur.fetchall() if r["type"] in FINGERPRINTS]
 
 
 def check_questionnaire_pdfs(
-    client_id: int | None = None, questionnaire_id: int | None = None
+    client_id: int | None = None,
+    questionnaire_id: int | None = None,
+    all_time: bool = False,
 ) -> tuple[int, int]:
     """Queue a check for one questionnaire, one client, or all (the cron's
     30-day window), wait for it, and return (found, missing) counts.
@@ -99,7 +107,7 @@ def check_questionnaire_pdfs(
 
     If the cron is mid-run in another process, the request waits for it to
     finish and then runs as its own task."""
-    rows = select_rows(client_id, questionnaire_id)
+    rows = select_rows(client_id, questionnaire_id, all_time)
     if not rows:
         return 0, 0
     request = _Request(rows)
@@ -198,4 +206,10 @@ if __name__ == "__main__":
         rotation="50 MB",
     )
     load_dotenv()
-    check_questionnaire_pdfs()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help=f"check every questionnaire, not just the last {LOOKBACK_DAYS} days",
+    )
+    check_questionnaire_pdfs(all_time=parser.parse_args().all)

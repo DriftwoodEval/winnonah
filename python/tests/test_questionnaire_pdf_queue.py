@@ -30,7 +30,7 @@ def test_queued_requests_share_one_task_with_growing_total(monkeypatch):
         1: [{"id": 1, "type": "ASQ", "drive_id": "d1"}],
         2: [{"id": 2, "type": "ASQ", "drive_id": "d2"}],
     }
-    monkeypatch.setattr(check, "select_rows", lambda _client, qid: rows[qid])
+    monkeypatch.setattr(check, "select_rows", lambda _client, qid, _all_time: rows[qid])
     monkeypatch.setattr(check, "track_task", fake_track_task)
     monkeypatch.setattr(check, "db_session", MagicMock())
     monkeypatch.setattr(check, "list_files_recursive", fake_list_files)
