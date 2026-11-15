@@ -204,11 +204,12 @@ def _drain(task) -> None:
                                     "pdfFileId": file_id,
                                 },
                             )
+                        # Per row, so progress is visible and survives a crash.
+                        conn.commit()
                     with _lock:
                         _state.done += 1
                         done, total = _state.done, _state.total
                     task.progress(done, total)
-                conn.commit()
             except Exception as e:
                 request.fail(e)
                 raise
