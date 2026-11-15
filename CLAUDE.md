@@ -91,3 +91,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## User Preferences
 
 Per-user display preferences (home widgets, header items, issue list order, client hover card fields) live in one JSON column, `users.preferences`, typed by `userPreferencesSchema` in `src/lib/preferences.ts`. To add one: add an optional key to that schema, read it with `readPreferences` and write it with `patchPreferences` (`src/server/api/preferences.ts`, which merges atomically so concurrent saves don't clobber each other), then expose it in a hook and in `src/app/_components/settings/MyPreferencesSettings.tsx`. Don't add a column per preference. App-written state (recent clients, changelog marker, saved places, pinned list, list filters) stays in its own columns.
+
+## Large Tables
+
+Pick the pattern by where the data lives. Never cap rows behind a "Show more" button.
+
+- Whole list already on the client: virtualize with `@tanstack/react-virtual`. For a `<Table>`, use `useVirtualRows` and `SpacerRow` from `src/app/_components/database/shared.tsx` (see `ExternalRecordsDataView.tsx`): the table's own wrapper scrolls with a pinned header, and a row with variable height (an expanded group is a `<tbody>`) is measured via `measureElement`. List-style div rows follow `ClientsList.tsx` and `SchedulingTable.tsx`.
+- List too big to load or filtered server-side: server pagination with `limit`/`offset` and a `PAGE_SIZE` (see `AuditLogTable.tsx`, `RunLogsTable.tsx`).
+- For a big filtered list, drive the rows and facet counts from `useDeferredValue(filters)` so typing stays responsive.
+
+Client name search everywhere uses `fuzzyNameRowMatches(nameSearchWords(text), name)` from `src/lib/clients/name-search.ts` (substring or one typo per word), never a bare `includes`.
