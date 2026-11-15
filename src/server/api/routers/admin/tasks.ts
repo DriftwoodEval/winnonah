@@ -1,4 +1,4 @@
-import { desc, eq, gte, inArray, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -31,6 +31,54 @@ const activeTasksWhere = () =>
 
 type Task = typeof tasks.$inferSelect;
 
+/**
+ * Marks 'running' rows whose process has died as failed. A live run holds a
+ * MySQL named lock on its own row (`task-run:<id>`), and an exclusive run also
+ * holds one for its type (`task:<type>`). MySQL frees a named lock as soon as
+ * the connection holding it closes, so a running row with both locks free has
+ * no process behind it. See `driftwood_common.task_tracker`.
+ */
+async function failOrphanedTasks(database: typeof db) {
+	const orphaned = await database
+		.select({ id: tasks.id })
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.status, "running"),
+				sql`IS_FREE_LOCK(CONCAT('task:', ${tasks.type})) = 1`,
+				sql`IS_FREE_LOCK(CONCAT('task-run:', ${tasks.id})) = 1`,
+			),
+		);
+	if (orphaned.length === 0) return;
+	await database
+		.update(tasks)
+		.set({
+			status: "failed",
+			completedAt: new Date(),
+			error:
+				"Orphaned: the process running this task stopped without closing it",
+		})
+		.where(
+			and(
+				eq(tasks.status, "running"),
+				inArray(
+					tasks.id,
+					orphaned.map((t) => t.id),
+				),
+			),
+		);
+}
+
+async function getActiveTasks(database: typeof db) {
+	await failOrphanedTasks(database);
+	const active = await database.query.tasks.findMany({
+		where: activeTasksWhere(),
+		orderBy: [desc(tasks.startedAt)],
+		limit: 50,
+	});
+	return dedupeByType(active);
+}
+
 // Frequently-run task types (e.g. AI fax categorization) would otherwise
 // flood the list with repeat entries, so only the most recent of each
 // non-running type is kept. Running tasks are always shown.
@@ -50,14 +98,7 @@ function dedupeByType(items: Task[]) {
 }
 
 export const taskRouter = createTRPCRouter({
-	getActive: protectedProcedure.query(async ({ ctx }) => {
-		const active = await ctx.db.query.tasks.findMany({
-			where: activeTasksWhere(),
-			orderBy: [desc(tasks.startedAt)],
-			limit: 50,
-		});
-		return dedupeByType(active);
-	}),
+	getActive: protectedProcedure.query(({ ctx }) => getActiveTasks(ctx.db)),
 
 	getRunSummaries: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "clients:download");
@@ -83,13 +124,7 @@ export const taskRouter = createTRPCRouter({
 		let lastSnapshot = "";
 
 		while (!signal?.aborted) {
-			const active = dedupeByType(
-				await db.query.tasks.findMany({
-					where: activeTasksWhere(),
-					orderBy: [desc(tasks.startedAt)],
-					limit: 50,
-				}),
-			);
+			const active = await getActiveTasks(db);
 
 			const snapshot = JSON.stringify(active);
 			if (snapshot !== lastSnapshot) {

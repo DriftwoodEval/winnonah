@@ -198,6 +198,30 @@ class TestTaskHandleSetSummary:
         assert task_id == 42
 
 
+class TestTrackTaskRunLock:
+    def test_holds_its_row_lock_from_insert_to_close(self):
+        conn = FakeConnection(lock_acquired=True)
+        with track_task(lambda: conn, "fax_categorization", "Fax categorization"):
+            pass
+        queries = [q for q, _ in conn.executed]
+        insert = next(i for i, q in enumerate(queries) if "INSERT INTO" in q)
+        run_lock = [
+            i for i, (q, p) in enumerate(conn.executed) if p == ("task-run:42",)
+        ]
+        assert len(run_lock) == 2
+        assert "GET_LOCK" in queries[run_lock[0]]
+        assert run_lock[0] == insert + 1
+        assert "RELEASE_LOCK" in queries[run_lock[1]]
+        completed = next(i for i, q in enumerate(queries) if "'completed'" in q)
+        assert completed < run_lock[1]
+
+    def test_no_row_lock_when_skipped(self):
+        conn = FakeConnection(lock_acquired=False)
+        with track_task(lambda: conn, "fax_categorization", "Fax categorization"):
+            pass
+        assert not [p for _, p in conn.executed if p == ("task-run:42",)]
+
+
 class TestTrackTaskNonExclusive:
     def test_takes_no_lock_and_still_records_the_run(self):
         conn = FakeConnection(lock_acquired=False)
@@ -206,8 +230,10 @@ class TestTrackTaskNonExclusive:
         ) as handle:
             assert handle is not None
             assert handle.task_id == 42
-        assert not _queries_matching(conn, "GET_LOCK")
-        assert not _queries_matching(conn, "RELEASE_LOCK")
+        locks = [p for q, p in conn.executed if "GET_LOCK" in q]
+        releases = [p for q, p in conn.executed if "RELEASE_LOCK" in q]
+        assert locks == [("task-run:42",)]  # its own row's lock, no type lock
+        assert releases == [("task-run:42",)]
         assert _queries_matching(conn, "INSERT INTO emr_task")
         assert conn.closed
 

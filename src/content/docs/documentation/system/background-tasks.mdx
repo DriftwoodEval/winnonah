@@ -14,4 +14,5 @@ A task only shows up here at all while it's running, or for 15 minutes after it 
 ## Edge cases
 
 - **This complements, but is different from, [Downloads & Script Status](/docs/documentation/system/downloads-and-script-status)'s "Last Script Run Times" panel.** That panel is a static timestamp check, good for confirming a script ran at all sometime recently. This bubble is real-time and only covers roughly the last 15 minutes, useful for watching something in progress, not for auditing whether last night's run happened.
+- **A task whose program stops partway** (for example, because the server restarted or an update was installed mid-run) is marked failed within a few seconds, rather than sitting on "running" with a progress bar that never moves.
 - **A failed task still only shows for that same 15-minute window**, then it disappears from here the same as a successful one, this isn't where to look for a historical record of failures.
