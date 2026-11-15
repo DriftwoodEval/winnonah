@@ -13,6 +13,7 @@ from utils.appointments import (
     find_matching_placeholder,
     format_age_at,
     is_shadow_title,
+    is_unmoved_reschedule_hold,
     parse_location_and_type,
     real_title_for_placeholder_event,
     replace_placeholder_with_real_appointment,
@@ -542,3 +543,40 @@ class TestFormatAgeAt:
             7, date(2024, 1, 15), None, date(2026, 5, 20)
         )
         assert description == "Age: 2 years, 4 months\nClient ID: 7"
+
+
+class TestIsUnmovedRescheduleHold:
+    HOLD_START = REAL_START + timedelta(hours=1)
+
+    @pytest.mark.parametrize(
+        ("hold", "appointment_id", "start_time", "expected"),
+        [
+            # Not a reschedule hold at all.
+            (None, "ta-1", REAL_START, False),
+            # Another appointment's reschedule hold.
+            (
+                {"replacesAppointmentId": "ta-2", "startTime": HOLD_START},
+                "ta-1",
+                REAL_START,
+                False,
+            ),
+            # Its own hold, but TA still has the old time: leave it alone.
+            (
+                {"replacesAppointmentId": "ta-1", "startTime": HOLD_START},
+                "ta-1",
+                REAL_START,
+                True,
+            ),
+            # TA moved the appointment to the hold's time: it can take the hold.
+            (
+                {"replacesAppointmentId": "ta-1", "startTime": HOLD_START},
+                "ta-1",
+                HOLD_START,
+                False,
+            ),
+        ],
+    )
+    def test_only_blocks_its_own_hold_before_ta_moves_it(
+        self, hold, appointment_id, start_time, expected
+    ):
+        assert is_unmoved_reschedule_hold(hold, appointment_id, start_time) is expected

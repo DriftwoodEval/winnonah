@@ -156,7 +156,7 @@ export function ClientAppointments({
 										className="h-4 px-1 text-[9px] uppercase"
 										title={
 											appt.cancelledPendingSyncAt
-												? "Cancelled in the scheduling helper. The next TherapyAppointment sync replaces this with what TA shows."
+												? "Cancelled in the Scheduling Helper and taken off the evaluator's calendar. TherapyAppointment takes over once it shows the appointment as cancelled or moved."
 												: undefined
 										}
 										variant="destructive"

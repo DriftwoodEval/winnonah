@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
-import { and, asc, eq, gte, inArray, isNotNull, lte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
@@ -15,7 +15,6 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import type { db } from "~/server/db";
 import {
 	appointmentCheckins,
 	appointments,
@@ -34,48 +33,22 @@ async function parsePyApiError(response: Response): Promise<string> {
 
 const SCHEDULING_HELPER_PERMISSION = "pages:scheduling-helper";
 
-type Db = typeof db;
-
 /**
- * Cancels a real appointment in the app only, ahead of TherapyAppointment, so
- * its time frees up for rescheduling right away. The next TA sync that
- * includes the appointment clears the marker and writes TA's own state (see
- * put_appointment_in_db in the Python sidecar), so TA stays the source of
- * truth. Placeholders, billing-only rows and already cancelled appointments
- * are refused.
+ * Cancels a real appointment ahead of TherapyAppointment so its time frees up
+ * for rescheduling right away. The Python API takes the appointment's event
+ * off the evaluator's Google Calendar and marks the row cancelled until a TA
+ * sync replaces that with TA's own state. Placeholders, billing-only rows and
+ * already cancelled appointments are refused. Throws with the API's reason on
+ * failure.
  */
-async function cancelPendingSync(db: Db, appointmentId: string) {
-	const appt = await db.query.appointments.findFirst({
-		where: eq(appointments.id, appointmentId),
-		columns: {
-			id: true,
-			placeholder: true,
-			billingOnly: true,
-			cancelled: true,
-		},
-	});
-	if (!appt) {
-		throw new TRPCError({
-			code: "NOT_FOUND",
-			message: "Appointment not found",
-		});
+async function cancelPendingSync(cookieHeader: string, appointmentId: string) {
+	const response = await fetch(
+		`${env.PY_API}/appointments/${encodeURIComponent(appointmentId)}/cancel-pending-sync`,
+		{ method: "POST", headers: { Cookie: cookieHeader } },
+	);
+	if (!response.ok) {
+		throw new Error(await parsePyApiError(response));
 	}
-	if (appt.placeholder || appt.billingOnly) {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: "Only real appointments can be cancelled this way",
-		});
-	}
-	if (appt.cancelled) {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: "This appointment is already cancelled",
-		});
-	}
-	await db
-		.update(appointments)
-		.set({ cancelled: true, cancelledPendingSyncAt: new Date() })
-		.where(eq(appointments.id, appointmentId));
 }
 
 export const schedulingHelperRouter = createTRPCRouter({
@@ -390,44 +363,53 @@ export const schedulingHelperRouter = createTRPCRouter({
 					.update(appointments)
 					.set({ replacesAppointmentId: input.replacesAppointmentId })
 					.where(eq(appointments.id, created.id));
-				// Already cancelled (in TA or here) needs nothing more.
-				if (input.cancelReplaced && !replaced?.cancelled) {
-					await cancelPendingSync(ctx.db, input.replacesAppointmentId);
+			}
+
+			// The placeholder exists by now, so a failed cancel is reported
+			// alongside it rather than failing the whole request. Already
+			// cancelled (in TA or here) needs nothing more.
+			let cancelError: string | null = null;
+			if (
+				input.replacesAppointmentId &&
+				input.cancelReplaced &&
+				!replaced?.cancelled
+			) {
+				try {
+					await cancelPendingSync(cookieHeader, input.replacesAppointmentId);
+				} catch (err) {
+					cancelError = err instanceof Error ? err.message : String(err);
 				}
 			}
 
-			return created;
+			return { ...created, cancelError };
 		}),
 
 	cancelAppointmentPendingSync: protectedProcedure
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
-			await cancelPendingSync(ctx.db, input.appointmentId);
+			await cancelPendingSync(
+				ctx.headers.get("cookie") ?? "",
+				input.appointmentId,
+			);
 			return { status: "ok" as const };
 		}),
 
 	// Undoes cancelAppointmentPendingSync, as long as no TA sync has replaced
-	// it yet.
+	// it yet, bringing the calendar event back too.
 	restoreAppointmentPendingSync: protectedProcedure
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
-			const [result] = await ctx.db
-				.update(appointments)
-				.set({ cancelled: false, cancelledPendingSyncAt: null })
-				.where(
-					and(
-						eq(appointments.id, input.appointmentId),
-						isNotNull(appointments.cancelledPendingSyncAt),
-					),
-				);
-			if (result.affectedRows === 0) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message:
-						"This appointment isn't waiting on TherapyAppointment anymore",
-				});
+			const response = await fetch(
+				`${env.PY_API}/appointments/${encodeURIComponent(input.appointmentId)}/restore-pending-sync`,
+				{
+					method: "POST",
+					headers: { Cookie: ctx.headers.get("cookie") ?? "" },
+				},
+			);
+			if (!response.ok) {
+				throw new Error(await parsePyApiError(response));
 			}
 			return { status: "ok" as const };
 		}),

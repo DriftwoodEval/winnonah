@@ -9,7 +9,12 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 from driftwood_common.log_format import json_log_format
-from driftwood_common.timezone import business_to_utc, now_business, now_utc
+from driftwood_common.timezone import (
+    business_to_utc,
+    now_business,
+    now_utc,
+    utc_to_business,
+)
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
@@ -37,8 +42,10 @@ from utils.constants import (
     TABLE_USER,
 )
 from utils.database import (
+    clear_appointment_pending_cancel,
     delete_appointment,
     get_appointment_calendar_title,
+    get_appointment_for_pending_cancel,
     get_client_dob,
     get_client_drive_id,
     get_client_eligibility_debug,
@@ -54,6 +61,7 @@ from utils.database import (
     reconcile_pool_report_queue_state,
     rematch_client,
     rematch_evaluator,
+    set_appointment_pending_cancel,
 )
 from utils.dds_fax import build_request_fax_pdf, get_dds_request
 from utils.forms import fill_select_health_form
@@ -67,6 +75,7 @@ from utils.google import (
     list_calendar_events_batch,
     list_gmail_messages,
     mark_gmail_message_read,
+    restore_calendar_event,
     send_gmail,
     update_gcal_event_title,
 )
@@ -1162,6 +1171,97 @@ async def delete_placeholder_appointment(
 
     delete_appointment(appointment_id)
     return {"status": "ok"}
+
+
+@app.post("/appointments/{appointment_id}/cancel-pending-sync")
+async def cancel_appointment_pending_sync(
+    appointment_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Cancel a real appointment in the app ahead of TherapyAppointment: its
+    event comes off the evaluator's calendar and the row is marked cancelled
+    until a TA sync replaces that with TA's own state."""
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    appointment = get_appointment_for_pending_cancel(appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    if appointment["placeholder"] or appointment["billingOnly"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Only real appointments can be cancelled this way",
+        )
+    if appointment["cancelled"]:
+        raise HTTPException(
+            status_code=400, detail="This appointment is already cancelled"
+        )
+
+    # Calendar first: if Google refuses, the appointment is left as it was.
+    if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
+        delete_calendar_event(
+            appointment["evaluatorEmail"],
+            appointment["calendarEventId"],
+            client_id=appointment["clientId"],
+            reason="appointment_cancelled_pending_sync",
+            appointment_id=appointment_id,
+            actor=_audit_actor(current_user),
+        )
+    set_appointment_pending_cancel(appointment_id)
+    return {"status": "ok"}
+
+
+@app.post("/appointments/{appointment_id}/restore-pending-sync")
+async def restore_appointment_pending_sync(
+    appointment_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Undo cancel_appointment_pending_sync before a TA sync has replaced it:
+    the calendar event comes back (recreated if Google no longer has it) and
+    the row is no longer cancelled."""
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    appointment = get_appointment_for_pending_cancel(appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    if appointment["cancelledPendingSyncAt"] is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This appointment isn't waiting on TherapyAppointment anymore",
+        )
+
+    client_id = appointment["clientId"]
+    calendar_id = appointment["evaluatorEmail"]
+    event_id = appointment["calendarEventId"]
+    if calendar_id:
+        restored = bool(event_id) and restore_calendar_event(
+            calendar_id,
+            event_id,
+            client_id=client_id,
+            reason="appointment_cancel_undone",
+            appointment_id=appointment_id,
+            actor=_audit_actor(current_user),
+        )
+        if not restored:
+            start_business = utc_to_business(appointment["startTime"])
+            event_id = create_placeholder_event(
+                calendar_id,
+                appointment["calendarEventTitle"] or get_client_name(client_id) or "",
+                start_business,
+                utc_to_business(appointment["endTime"]),
+                build_placeholder_description(
+                    client_id,
+                    get_client_dob(client_id),
+                    get_client_drive_id(client_id),
+                    start_business.date(),
+                ),
+                client_id=client_id,
+                reason="appointment_cancel_undone",
+                appointment_id=appointment_id,
+                actor=_audit_actor(current_user),
+            )
+
+    clear_appointment_pending_cancel(appointment_id, event_id)
+    return {"status": "ok", "calendarEventId": event_id}
 
 
 @app.patch("/appointments/placeholder/{appointment_id}")

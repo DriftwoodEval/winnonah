@@ -10,12 +10,14 @@ from pywaze.route_calculator import CalcRoutesResponse
 from api.app import (
     _apply_confirmed_marker,
     _find_duplicates,
+    cancel_appointment_pending_sync,
     col_num_to_letter,
     find_drive_folder,
     get_current_user,
     get_user_folder,
     get_writer_id,
     office_drive_times,
+    restore_appointment_pending_sync,
 )
 
 
@@ -561,3 +563,153 @@ class TestOfficeDriveTimes:
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))
         assert exc_info.value.status_code == 422
+
+
+SCHEDULER = {
+    "user_id": "u1",
+    "email": "scheduler@example.com",
+    "permissions": {"pages:scheduling-helper": True},
+}
+
+
+def _pending_cancel_row(**overrides) -> dict:
+    row = {
+        "id": "ta-1",
+        "clientId": 7,
+        "placeholder": False,
+        "billingOnly": False,
+        "cancelled": False,
+        "cancelledPendingSyncAt": None,
+        "calendarEventId": "evt1",
+        "calendarEventTitle": "Jane Doe EVAL [COL-E]",
+        # Naive UTC, as pymysql returns it: 10:00 business time in November.
+        "startTime": datetime(2026, 11, 18, 15, 0),
+        "endTime": datetime(2026, 11, 18, 17, 0),
+        "evaluatorEmail": "eval@example.com",
+    }
+    row.update(overrides)
+    return row
+
+
+class TestCancelAppointmentPendingSync:
+    def _run(self, row):
+        calls: list[str] = []
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch("api.app.get_appointment_for_pending_cancel", return_value=row),
+            patch(
+                "api.app.delete_calendar_event",
+                side_effect=lambda *_a, **_k: calls.append("delete_event"),
+            ) as delete_event,
+            patch(
+                "api.app.set_appointment_pending_cancel",
+                side_effect=lambda *_a: calls.append("mark_cancelled"),
+            ) as mark,
+        ):
+            asyncio.run(cancel_appointment_pending_sync("ta-1", SCHEDULER))
+        return calls, delete_event, mark
+
+    def test_deletes_calendar_event_then_marks_cancelled(self):
+        calls, delete_event, mark = self._run(_pending_cancel_row())
+
+        assert calls == ["delete_event", "mark_cancelled"]
+        assert delete_event.call_args.args == ("eval@example.com", "evt1")
+        assert delete_event.call_args.kwargs["client_id"] == 7
+        assert delete_event.call_args.kwargs["actor"] == (
+            "u1",
+            "scheduler@example.com",
+        )
+        mark.assert_called_once_with("ta-1")
+
+    def test_calendar_failure_leaves_appointment_untouched(self):
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch(
+                "api.app.get_appointment_for_pending_cancel",
+                return_value=_pending_cancel_row(),
+            ),
+            patch("api.app.delete_calendar_event", side_effect=RuntimeError("down")),
+            patch("api.app.set_appointment_pending_cancel") as mark,
+            pytest.raises(RuntimeError),
+        ):
+            asyncio.run(cancel_appointment_pending_sync("ta-1", SCHEDULER))
+        mark.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("row", "status"),
+        [
+            (None, 404),
+            (_pending_cancel_row(placeholder=True), 400),
+            (_pending_cancel_row(billingOnly=True), 400),
+            (_pending_cancel_row(cancelled=True), 400),
+        ],
+    )
+    def test_refuses_what_cannot_be_cancelled(self, row, status):
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch("api.app.get_appointment_for_pending_cancel", return_value=row),
+            patch("api.app.delete_calendar_event") as delete_event,
+            patch("api.app.set_appointment_pending_cancel") as mark,
+            pytest.raises(HTTPException) as exc,
+        ):
+            asyncio.run(cancel_appointment_pending_sync("ta-1", SCHEDULER))
+        assert exc.value.status_code == status
+        delete_event.assert_not_called()
+        mark.assert_not_called()
+
+
+class TestRestoreAppointmentPendingSync:
+    PENDING = datetime(2026, 11, 17, 12, 0)
+
+    def test_restores_the_deleted_event(self):
+        row = _pending_cancel_row(cancelled=True, cancelledPendingSyncAt=self.PENDING)
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch("api.app.get_appointment_for_pending_cancel", return_value=row),
+            patch("api.app.restore_calendar_event", return_value=True) as restore,
+            patch("api.app.create_placeholder_event") as create,
+            patch("api.app.clear_appointment_pending_cancel") as clear,
+        ):
+            result = asyncio.run(restore_appointment_pending_sync("ta-1", SCHEDULER))
+
+        assert restore.call_args.args == ("eval@example.com", "evt1")
+        create.assert_not_called()
+        clear.assert_called_once_with("ta-1", "evt1")
+        assert result["calendarEventId"] == "evt1"
+
+    def test_recreates_the_event_when_google_no_longer_has_it(self):
+        row = _pending_cancel_row(cancelled=True, cancelledPendingSyncAt=self.PENDING)
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch("api.app.get_appointment_for_pending_cancel", return_value=row),
+            patch("api.app.restore_calendar_event", return_value=False),
+            patch("api.app.create_placeholder_event", return_value="evt2") as create,
+            patch("api.app.get_client_dob", return_value=None),
+            patch("api.app.get_client_drive_id", return_value=None),
+            patch("api.app.build_placeholder_description", return_value="desc"),
+            patch("api.app.clear_appointment_pending_cancel") as clear,
+        ):
+            asyncio.run(restore_appointment_pending_sync("ta-1", SCHEDULER))
+
+        calendar_id, title, start, end, description = create.call_args.args
+        assert calendar_id == "eval@example.com"
+        assert title == "Jane Doe EVAL [COL-E]"
+        # Business-local wall clock, as the calendar insert expects.
+        assert start == datetime(2026, 11, 18, 10, 0)
+        assert end == datetime(2026, 11, 18, 12, 0)
+        assert description == "desc"
+        clear.assert_called_once_with("ta-1", "evt2")
+
+    def test_refuses_when_not_pending(self):
+        with (
+            patch("api.app.has_permission", return_value=True),
+            patch(
+                "api.app.get_appointment_for_pending_cancel",
+                return_value=_pending_cancel_row(cancelled=True),
+            ),
+            patch("api.app.clear_appointment_pending_cancel") as clear,
+            pytest.raises(HTTPException) as exc,
+        ):
+            asyncio.run(restore_appointment_pending_sync("ta-1", SCHEDULER))
+        assert exc.value.status_code == 400
+        clear.assert_not_called()

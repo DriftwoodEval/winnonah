@@ -1251,12 +1251,19 @@ function SchedulingHelperGrid({
 	const utils = api.useUtils();
 
 	const createPlaceholder = api.schedulingHelper.createPlaceholder.useMutation({
-		onSuccess: (_data, variables) => {
-			toast.success(
-				variables.cancelReplaced
-					? "Placeholder created and the original appointment cancelled until TA syncs"
-					: "Placeholder appointment created",
-			);
+		onSuccess: (data, variables) => {
+			if (data.cancelError) {
+				toast.warning(
+					"Placeholder created, but the original appointment wasn't cancelled",
+					{ description: data.cancelError },
+				);
+			} else {
+				toast.success(
+					variables.cancelReplaced
+						? "Placeholder created and the original appointment cancelled until TA syncs"
+						: "Placeholder appointment created",
+				);
+			}
 			setSelectedSlot(null);
 			setRescheduling(null);
 			void utils.appointments.getByClientId.invalidate();
@@ -2744,11 +2751,12 @@ function SchedulingHelperGrid({
 										)}{" "}
 										appointment with{" "}
 										<Redact>{pendingCancel.evaluatorName}</Redact> will show as
-										cancelled here right away, freeing its time. This doesn't
-										change TherapyAppointment: cancel or reschedule it there
-										too. The next TA sync replaces this with whatever
-										TherapyAppointment shows, so if it's still booked there it
-										comes back.
+										cancelled here right away and its event comes off{" "}
+										<Redact>{pendingCancel.evaluatorName}</Redact>'s Google
+										Calendar, freeing its time. This doesn't change
+										TherapyAppointment: cancel or reschedule it there too. Until
+										you do, the appointment sync reports it as having no
+										calendar event.
 									</>
 								)}
 							</AlertDialogDescription>

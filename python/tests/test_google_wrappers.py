@@ -5,7 +5,11 @@ import pytest
 from googleapiclient.errors import HttpError
 
 from utils import google
-from utils.google import delete_calendar_event, update_gcal_event_title
+from utils.google import (
+    delete_calendar_event,
+    restore_calendar_event,
+    update_gcal_event_title,
+)
 
 
 def http_error() -> HttpError:
@@ -128,6 +132,43 @@ class TestCalendarAudit:
         assert detail["reason"] == "planned_office_cleared"
         assert detail["alreadyDeleted"] is False
         assert actor is None
+
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google.build_google_service")
+    @patch("utils.google.google_authenticate")
+    def test_restore_confirms_the_deleted_event(self, _auth, build, record):
+        events = build.return_value.events.return_value
+        events.patch.return_value.execute.return_value = {"summary": "Jane EVAL"}
+
+        restored = restore_calendar_event(
+            "eval@example.com", "evt1", client_id=7, reason="appointment_cancel_undone"
+        )
+
+        assert restored
+        assert events.patch.call_args.kwargs == {
+            "calendarId": "eval@example.com",
+            "eventId": "evt1",
+            "body": {"status": "confirmed"},
+        }
+        action, client_id, detail, _actor = record.call_args.args
+        assert action == "python.gcal.event_restored"
+        assert client_id == 7
+        assert detail["title"] == "Jane EVAL"
+
+    @pytest.mark.parametrize("status", [404, 410])
+    @patch("utils.google.utils.database.record_gcal_event_change")
+    @patch("utils.google.build_google_service")
+    @patch("utils.google.google_authenticate")
+    def test_restore_reports_an_event_google_no_longer_has(
+        self, _auth, build, record, status
+    ):
+        events = build.return_value.events.return_value
+        events.patch.return_value.execute.side_effect = HttpError(
+            resp=MagicMock(status=status, reason="gone"), content=b"{}"
+        )
+
+        assert not restore_calendar_event("eval@example.com", "evt1")
+        record.assert_not_called()
 
     @patch("utils.google.utils.database.record_gcal_event_change")
     @patch("utils.google._patch_gcal_event")

@@ -29,6 +29,7 @@ from utils.database import (
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
+    get_reschedule_hold_events,
     get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
@@ -439,6 +440,23 @@ _PLACEHOLDER_VARIANTS = (
 def _is_placeholder_title(title: str) -> bool:
     letters = re.sub(r"[^a-z]", "", title.lower())
     return any(variant in letters for variant in _PLACEHOLDER_VARIANTS)
+
+
+def is_unmoved_reschedule_hold(
+    hold: dict | None, appointment_id: str, start_time: datetime
+) -> bool:
+    """Whether a matched calendar event is the hold of a placeholder made to
+    reschedule this same appointment while TA still has the appointment at a
+    different time than the hold. The appointment must not take over that
+    event then: the reschedule isn't in TA yet. `hold` is the
+    get_reschedule_hold_events entry for the event, if any; start_time and its
+    startTime are naive UTC.
+    """
+    return (
+        hold is not None
+        and hold["replacesAppointmentId"] == appointment_id
+        and hold["startTime"] != start_time
+    )
 
 
 def find_matching_placeholder(
@@ -1249,6 +1267,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         hash_map = get_client_id_to_hash_map()
         drive_id_map = get_client_id_to_drive_id_map()
         battery_rules = get_questionnaire_rules_with_in_person()
+        reschedule_holds = get_reschedule_hold_events()
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
         appointments_synced = 0
@@ -1290,6 +1309,19 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             evaluator_npi = None
             gcal_location = None
             gcal_daeval = None
+
+            if gcal_event_id and is_unmoved_reschedule_hold(
+                reschedule_holds.get(gcal_event_id),
+                appointment_id,
+                start_time.replace(tzinfo=None),
+            ):
+                # Its own event was removed when it was cancelled ahead of TA,
+                # so the only match left is the new placeholder's hold.
+                logger.info(
+                    f"Appointment {appointment_id} only matched its own reschedule "
+                    "placeholder; leaving both as they are until TA has the new time"
+                )
+                continue
 
             if gcal_calendar_id:
                 evaluator_npi = npi_cache.get(gcal_calendar_id)

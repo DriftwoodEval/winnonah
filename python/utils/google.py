@@ -1429,6 +1429,57 @@ def delete_calendar_event(
     )
 
 
+def restore_calendar_event(
+    calendar_id: str,
+    event_id: str,
+    *,
+    client_id: int | None = None,
+    reason: str | None = None,
+    appointment_id: str | None = None,
+    actor: tuple[str, str] | None = None,
+) -> bool:
+    """Bring back an event deleted with delete_calendar_event. Google keeps a
+    deleted event (with its title, description and attendees) under the same
+    id for a while, so setting its status back to confirmed restores it as it
+    was. Returns False when Google no longer has it.
+
+    client_id, reason, and appointment_id only add context to the audit entry.
+    actor is the (user id, email) behind the change; omitted means a system job.
+    """
+    creds = google_authenticate()
+    service = build_google_service("calendar", "v3", creds)
+    try:
+        event = (
+            service.events()
+            .patch(
+                calendarId=calendar_id,
+                eventId=event_id,
+                body={"status": "confirmed"},
+            )
+            .execute()
+        )
+    except HttpError as e:
+        if e.resp.status in (404, 410):
+            logger.warning(f"Calendar event {event_id} can no longer be restored")
+            return False
+        raise
+
+    logger.info(f"Restored calendar event {event_id} on calendar {calendar_id}")
+    _audit_gcal_change(
+        "python.gcal.event_restored",
+        client_id,
+        {
+            "calendarEventId": event_id,
+            "calendarId": calendar_id,
+            "title": event.get("summary"),
+            "reason": reason,
+            "appointmentId": appointment_id,
+        },
+        actor,
+    )
+    return True
+
+
 PLANNED_OFFICE_TITLE_PREFIX = "Planned: "
 
 

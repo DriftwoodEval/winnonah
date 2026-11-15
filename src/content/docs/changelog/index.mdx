@@ -5,7 +5,7 @@ title: Changelog
 ## 2026-11-15
 
 **New**
-- In the Scheduling Helper, an appointment can be cancelled right away with "Cancel until TA syncs", so its time frees up for rescheduling before TherapyAppointment catches up. It shows as cancelled everywhere in the app (with "until TA syncs" on the client's page) and reminders stop. The next TherapyAppointment sync replaces this with whatever TherapyAppointment shows, so remember to cancel or reschedule it there too. You can undo it from the message that appears, or with "Undo Cancellation" on the client's page.
+- In the Scheduling Helper, an appointment can be cancelled right away with "Cancel until TA syncs", so its time frees up for rescheduling before TherapyAppointment catches up. Its event is removed from the evaluator's Google Calendar, it shows as cancelled everywhere in the app (with "until TA syncs" on the client's page), and reminders stop. Remember to cancel or reschedule it in TherapyAppointment too: until you do, the appointment sync reports it as having no calendar event. Once TherapyAppointment shows it cancelled or moved, that takes over. You can undo it from the message that appears, or with "Undo Cancellation" on the client's page, which puts the calendar event back.
 - "Reschedule with a placeholder" on an appointment in the Scheduling Helper picks that client, type, and office for you, so you only need to choose the new time. The new placeholder can also cancel the original appointment until TherapyAppointment syncs (on by default). The placeholder stays until TherapyAppointment has the new time, even if a sync runs before you've moved the appointment there.
 - In the calendar view, click an appointment to find both options. In the other views, use the "..." button on the appointment.
 

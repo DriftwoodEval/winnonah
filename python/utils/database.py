@@ -2475,6 +2475,90 @@ def delete_appointment(appointment_id: str, connection: Connection[DictCursor]) 
 
 
 @provide_connection
+def get_appointment_for_pending_cancel(
+    appointment_id: str, connection: Connection[DictCursor]
+) -> dict | None:
+    """Returns what cancelling an appointment ahead of TA (or undoing that)
+    needs: clientId, placeholder, billingOnly, cancelled, cancelledPendingSyncAt,
+    calendarEventId, calendarEventTitle, startTime/endTime (naive UTC), and the
+    evaluator's email (their calendar id). None if there's no such appointment.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT a.id, a.clientId, a.placeholder, a.billingOnly, a.cancelled,
+                   a.cancelledPendingSyncAt, a.calendarEventId, a.calendarEventTitle,
+                   a.startTime, a.endTime, e.email AS evaluatorEmail
+            FROM `{TABLE_APPOINTMENT}` a
+            LEFT JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
+            WHERE a.id = %s
+            """,
+            (appointment_id,),
+        )
+        return cursor.fetchone()
+
+
+@provide_connection
+def set_appointment_pending_cancel(
+    appointment_id: str, connection: Connection[DictCursor]
+) -> None:
+    """Marks an appointment cancelled in the app until the next TA sync replaces
+    that with TA's own state (see put_appointment_in_db)."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""UPDATE `{TABLE_APPOINTMENT}`
+                SET cancelled = 1, cancelledPendingSyncAt = %s
+                WHERE id = %s""",
+            (now_utc().replace(tzinfo=None), appointment_id),
+        )
+        connection.commit()
+
+
+@provide_connection
+def clear_appointment_pending_cancel(
+    appointment_id: str,
+    calendar_event_id: str | None,
+    connection: Connection[DictCursor],
+) -> None:
+    """Undoes set_appointment_pending_cancel, pointing the appointment at its
+    restored (or recreated) calendar event."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""UPDATE `{TABLE_APPOINTMENT}`
+                SET cancelled = 0, cancelledPendingSyncAt = NULL,
+                    calendarEventId = %s
+                WHERE id = %s AND cancelledPendingSyncAt IS NOT NULL""",
+            (calendar_event_id, appointment_id),
+        )
+        connection.commit()
+
+
+@provide_connection
+def get_reschedule_hold_events(
+    connection: Connection[DictCursor],
+) -> dict[str, dict]:
+    """Calendar event id -> {replacesAppointmentId, startTime} for each
+    placeholder made to reschedule an appointment. startTime is naive UTC."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT calendarEventId, replacesAppointmentId, startTime
+            FROM `{TABLE_APPOINTMENT}`
+            WHERE placeholder = 1
+              AND replacesAppointmentId IS NOT NULL
+              AND calendarEventId IS NOT NULL
+            """
+        )
+        return {
+            row["calendarEventId"]: {
+                "replacesAppointmentId": row["replacesAppointmentId"],
+                "startTime": row["startTime"],
+            }
+            for row in cursor.fetchall()
+        }
+
+
+@provide_connection
 def get_evaluators_with_blocked_locations(
     connection: Connection[DictCursor],
     npi: int | None = None,
