@@ -278,6 +278,10 @@ async function buildDirectoryConditions(
 		if (matchNames.length) {
 			subConditions.push(inArray(clients.primaryInsurance, matchNames));
 		}
+		// Clients flagged BabyNet count as BabyNet even when no insurance field says so.
+		if (values.some((v) => v.toLowerCase() === "babynet")) {
+			subConditions.push(eq(clients.babyNet, true));
+		}
 		if (includeNone) subConditions.push(isNull(clients.primaryInsurance));
 		const combined = or(...subConditions);
 		if (combined) conditions.push(combined);
