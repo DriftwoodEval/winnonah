@@ -15,6 +15,16 @@ from ratelimit import RateLimitException
 
 
 @pytest.fixture(autouse=True)
+def no_rate_limit(monkeypatch):
+    """The client's rate limiter is shared module state, so a fast run of many
+    tests would otherwise trip it. Report an elapsed window on every call."""
+    monkeypatch.setattr(
+        "ratelimit.decorators.RateLimitDecorator._RateLimitDecorator__period_remaining",
+        lambda _self: 0,
+    )
+
+
+@pytest.fixture(autouse=True)
 def no_retry_backoff(monkeypatch):
     """Skip tenacity backoff sleeps so retry paths run instantly."""
     monkeypatch.setattr("tenacity.nap.time.sleep", lambda _: None)
