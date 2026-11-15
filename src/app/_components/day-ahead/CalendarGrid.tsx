@@ -5,7 +5,7 @@ import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
-import { DoorOpen, LogIn, LogOut, X } from "lucide-react";
+import { DoorOpen, Eye, LogIn, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
@@ -325,6 +325,7 @@ export function ApptBlock({
 	draggable = false,
 	onDragStart,
 	onDelete,
+	onShadow,
 }: {
 	appt: CalAppt;
 	colorClass: string;
@@ -341,6 +342,8 @@ export function ApptBlock({
 	onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 	/** Shows a small delete button on the block - only meaningful for placeholders. */
 	onDelete?: () => void;
+	/** Shows a button to add a shadowing event for this appointment on another evaluator's calendar. */
+	onShadow?: () => void;
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -476,6 +479,22 @@ export function ApptBlock({
 							<X className="h-3 w-3" />
 						</button>
 					)}
+					{!appt.isPreview && onShadow && (
+						<button
+							aria-label="Add shadowing event"
+							className={cn(
+								"absolute top-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-foreground",
+								appt.placeholder && onDelete ? "right-5" : "right-0.5",
+							)}
+							onClick={(e) => {
+								e.stopPropagation();
+								onShadow();
+							}}
+							type="button"
+						>
+							<Eye className="h-3 w-3" />
+						</button>
+					)}
 					{canCheckin &&
 						!isVirtualAppointment(appt.locationKey) &&
 						checkinDateGate(apptDateKey(appt.startTime)) && (
@@ -537,6 +556,7 @@ export function CalendarDayView({
 	onSlotClick,
 	onMovePlaceholder,
 	onDeletePlaceholder,
+	onShadowAppointment,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
@@ -577,6 +597,8 @@ export function CalendarDayView({
 	) => void;
 	/** Shows a delete button on placeholder blocks, called with the appointment id. */
 	onDeletePlaceholder?: (appointmentId: string) => void;
+	/** Shows a shadowing button on each block, called with that appointment. */
+	onShadowAppointment?: (appt: CalAppt) => void;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -749,6 +771,11 @@ export function CalendarDayView({
 													);
 													e.dataTransfer.effectAllowed = "move";
 												}
+											: undefined
+									}
+									onShadow={
+										onShadowAppointment
+											? () => onShadowAppointment(appt)
 											: undefined
 									}
 									showMessages={showMessages}

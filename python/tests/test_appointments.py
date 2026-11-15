@@ -12,6 +12,7 @@ from utils.appointments import (
     build_placeholder_title,
     find_matching_placeholder,
     format_age_at,
+    is_shadow_title,
     parse_location_and_type,
     real_title_for_placeholder_event,
     replace_placeholder_with_real_appointment,
@@ -117,6 +118,15 @@ def make_calendar_event(event_id: str, start_time: str, client_id: int) -> dict:
         "start": {"dateTime": start_time},
         "description": f"Client ID: {client_id}",
     }
+
+
+class TestIsShadowTitle:
+    def test_matches_shadow_and_shadowing_any_case(self):
+        assert is_shadow_title("Shadowing Dr. Lee") is True
+        assert is_shadow_title("SHADOW John Smith") is True
+
+    def test_ignores_other_titles(self):
+        assert is_shadow_title("John Smith [COL-E]") is False
 
 
 class TestBatchSearchCalendarEvents:

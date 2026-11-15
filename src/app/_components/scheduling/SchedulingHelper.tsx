@@ -21,6 +21,14 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@ui/dialog";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Popover, PopoverAnchor, PopoverContent } from "@ui/popover";
@@ -1265,6 +1273,26 @@ function SchedulingHelperGrid({
 
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+	// The appointment a shadowing event is being created for, and which
+	// evaluator's calendar it goes on.
+	const [shadowAppt, setShadowAppt] = useState<CalAppt | null>(null);
+	const [shadowNpi, setShadowNpi] = useState<string>("");
+
+	const createShadowEvent = api.schedulingHelper.createShadowEvent.useMutation({
+		onSuccess: () => {
+			toast.success("Shadowing event added");
+			setShadowAppt(null);
+			setShadowNpi("");
+			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+			void utils.schedulingHelper.getAvailability.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to add shadowing event", {
+				description: error.message,
+			});
+		},
+	});
+
 	const deletePlaceholder = api.schedulingHelper.deletePlaceholder.useMutation({
 		onSuccess: () => {
 			toast.success("Placeholder deleted");
@@ -2337,6 +2365,7 @@ function SchedulingHelperGrid({
 										messagesLoading={false}
 										onDeletePlaceholder={setPendingDeleteId}
 										onMovePlaceholder={handleMovePlaceholderDrop}
+										onShadowAppointment={setShadowAppt}
 										onSlotClick={(npi, minutes) => {
 											if (npi === selectedCell.npi) {
 												handleCalendarSlotClick(minutes);
@@ -2382,6 +2411,56 @@ function SchedulingHelperGrid({
 						)}
 					</div>
 				)}
+				<Dialog
+					onOpenChange={(open) => {
+						if (!open) {
+							setShadowAppt(null);
+							setShadowNpi("");
+						}
+					}}
+					open={!!shadowAppt}
+				>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Add shadowing event</DialogTitle>
+							<DialogDescription>
+								{shadowAppt &&
+									`Copies this appointment to the evaluator's calendar, marked "(Shadowing ${shadowAppt.evaluatorName})", for ${formatInBusinessTime(shadowAppt.startTime, "h:mm a")} - ${formatInBusinessTime(shadowAppt.endTime, "h:mm a")}.`}
+							</DialogDescription>
+						</DialogHeader>
+						<Select onValueChange={setShadowNpi} value={shadowNpi}>
+							<SelectTrigger>
+								<SelectValue placeholder="Who is shadowing?" />
+							</SelectTrigger>
+							<SelectContent>
+								{evaluators
+									?.filter((e) => e.npi !== shadowAppt?.evaluatorNpi)
+									.map((e) => (
+										<SelectItem key={e.npi} value={String(e.npi)}>
+											{e.providerName}
+										</SelectItem>
+									))}
+							</SelectContent>
+						</Select>
+						<DialogFooter>
+							<Button
+								disabled={!shadowNpi || createShadowEvent.isPending}
+								onClick={() =>
+									shadowAppt &&
+									createShadowEvent.mutate({
+										appointmentId: shadowAppt.id,
+										sourceEvaluatorNpi: shadowAppt.evaluatorNpi,
+										shadowingEvaluatorNpi: Number(shadowNpi),
+										startTime: toBusinessWallClockString(shadowAppt.startTime),
+										endTime: toBusinessWallClockString(shadowAppt.endTime),
+									})
+								}
+							>
+								{createShadowEvent.isPending ? "Adding..." : "Add event"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 				<AlertDialog
 					onOpenChange={(open) => !open && setPendingMove(null)}
 					open={!!pendingMove}

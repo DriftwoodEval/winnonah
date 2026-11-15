@@ -2337,6 +2337,21 @@ def get_client_drive_id(
 
 
 @provide_connection
+def get_appointment_calendar_title(
+    appointment_id: str, connection: Connection[DictCursor]
+) -> str | None:
+    """Returns the title of an appointment's Google Calendar event, or None if
+    the appointment is missing or has no recorded title."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT calendarEventTitle FROM `{TABLE_APPOINTMENT}` WHERE id = %s",
+            (appointment_id,),
+        )
+        row = cursor.fetchone()
+    return row["calendarEventTitle"] if row else None
+
+
+@provide_connection
 def get_placeholder_appointment(
     appointment_id: str, connection: Connection[DictCursor]
 ) -> dict | None:

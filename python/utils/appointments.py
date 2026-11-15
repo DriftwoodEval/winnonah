@@ -611,6 +611,12 @@ def _is_close_name_match(name: str, title: str, cutoff: float = 0.8) -> bool:
     return close_matches / len(name_words) >= 0.5
 
 
+def is_shadow_title(title: str) -> bool:
+    """Shadowing events (an evaluator observing another's appointment) are
+    calendar-only holds, never appointments. Matches 'shadow' and 'shadowing'."""
+    return "shadow" in title.lower()
+
+
 def _clean_appointment_name(appointment: pd.Series) -> str:
     """Strips the CPT code and parens off the CSV's NAME field, leaving just
     the client's name."""
@@ -745,6 +751,8 @@ def batch_search_calendar_events(
 
                 # Iterate only the events for this specific day
                 for event_dt, event in day_events:
+                    if is_shadow_title(event.get("summary") or ""):
+                        continue
                     description = event.get("description", "")
 
                     # Check Client ID

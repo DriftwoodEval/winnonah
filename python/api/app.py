@@ -38,6 +38,7 @@ from utils.constants import (
 )
 from utils.database import (
     delete_appointment,
+    get_appointment_calendar_title,
     get_client_dob,
     get_client_drive_id,
     get_client_eligibility_debug,
@@ -45,6 +46,7 @@ from utils.database import (
     get_db,
     get_evaluator_email,
     get_evaluator_emails,
+    get_npi_to_name_map,
     get_placeholder_appointment,
     get_possible_private_pay_reasons,
     get_python_config,
@@ -162,6 +164,14 @@ class CreatePlaceholderAppointmentRequest(BaseModel):
     end_time: datetime
     da_eval: DAEvalType
     location_key: str
+
+
+class CreateShadowEventRequest(BaseModel):
+    appointment_id: str
+    source_evaluator_npi: int
+    shadowing_evaluator_npi: int
+    start_time: datetime
+    end_time: datetime
 
 
 class MovePlaceholderAppointmentRequest(BaseModel):
@@ -1092,6 +1102,41 @@ async def create_placeholder_appointment(
         "calendarEventId": calendar_event_id,
         "calendarEventTitle": title,
     }
+
+
+@app.post("/appointments/shadow")
+async def create_shadow_event(
+    request: CreateShadowEventRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Copy an appointment's calendar event onto another evaluator's calendar,
+    titled "<original title> (Shadowing <evaluator>)".
+
+    Calendar only: no appointment row, and no client ID in the description, and
+    the appointment import ignores it by title (see is_shadow_title).
+    """
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    calendar_id = get_evaluator_email(request.shadowing_evaluator_npi)
+    source_name = get_npi_to_name_map().get(request.source_evaluator_npi)
+    if calendar_id is None or source_name is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    # Same title as the appointment's own event, plus the shadowing suffix.
+    base_title = get_appointment_calendar_title(request.appointment_id) or "Appointment"
+
+    # Naive business-local wall-clock values, as in create_placeholder_appointment.
+    event_id = create_placeholder_event(
+        calendar_id,
+        f"{base_title} (Shadowing {source_name})",
+        request.start_time.replace(tzinfo=None),
+        request.end_time.replace(tzinfo=None),
+        "Created from the scheduling helper.",
+        reason="shadow_created",
+        actor=_audit_actor(current_user),
+    )
+    return {"calendarEventId": event_id}
 
 
 @app.delete("/appointments/placeholder/{appointment_id}")

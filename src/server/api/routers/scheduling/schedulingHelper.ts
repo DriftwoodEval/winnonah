@@ -309,6 +309,42 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}>;
 		}),
 
+	createShadowEvent: protectedProcedure
+		.input(
+			z.object({
+				appointmentId: z.string(),
+				sourceEvaluatorNpi: z.number(),
+				shadowingEvaluatorNpi: z.number(),
+				// Naive business-local wall-clock strings, see createPlaceholder.
+				startTime: z.string(),
+				endTime: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+			const response = await fetch(`${env.PY_API}/appointments/shadow`, {
+				method: "POST",
+				headers: {
+					Cookie: ctx.headers.get("cookie") ?? "",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					appointment_id: input.appointmentId,
+					source_evaluator_npi: input.sourceEvaluatorNpi,
+					shadowing_evaluator_npi: input.shadowingEvaluatorNpi,
+					start_time: input.startTime,
+					end_time: input.endTime,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(await parsePyApiError(response));
+			}
+
+			return response.json() as Promise<{ calendarEventId: string }>;
+		}),
+
 	deletePlaceholder: protectedProcedure
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
