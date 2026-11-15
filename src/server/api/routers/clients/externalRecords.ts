@@ -1,8 +1,9 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getRecordsBlockers } from "~/lib/client-blockers";
+import { FAILURE_RESOLVED_AT } from "~/lib/failures";
 import { summarizeRecords } from "~/lib/records/records-status";
 import { formatInBusinessTime } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -259,7 +260,12 @@ export const externalRecordRouter = createTRPCRouter({
 						daEval: failures.daEval,
 					})
 					.from(failures)
-					.where(eq(failures.daEval, "Records")),
+					.where(
+						and(
+							eq(failures.daEval, "Records"),
+							lt(failures.reminded, FAILURE_RESOLVED_AT),
+						),
+					),
 			]);
 
 		const recordsByClientId = new Map(recordRows.map((r) => [r.clientId, r]));
@@ -310,13 +316,17 @@ export const externalRecordRouter = createTRPCRouter({
 					latestRequestedDate: summary.latestRequestedDate,
 					requestCount: summary.requestCount,
 					holdUntil: summary.holdUntil,
-					blockers: getRecordsBlockers({
-						client,
-						failures: failuresByClientId.get(client.id) ?? [],
-						hasContent,
-						requests: requestsByClientId.get(client.id) ?? [],
-						today,
-					}),
+					// Reasons for not sending only matter until a request goes out.
+					blockers:
+						summary.requestCount > 0
+							? []
+							: getRecordsBlockers({
+									client,
+									failures: failuresByClientId.get(client.id) ?? [],
+									hasContent,
+									requests: requestsByClientId.get(client.id) ?? [],
+									today,
+								}),
 					notesUpdatedAt: hasContent ? (record?.updatedAt ?? null) : null,
 				},
 			];
@@ -463,7 +473,7 @@ export const externalRecordRouter = createTRPCRouter({
 			if (input.requestedDate !== null) {
 				await ctx.db
 					.update(failures)
-					.set({ reminded: sql`reminded + 100` })
+					.set({ reminded: sql`reminded + ${FAILURE_RESOLVED_AT}` })
 					.where(
 						and(
 							eq(failures.clientId, input.clientId),

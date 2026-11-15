@@ -3,12 +3,11 @@
 import {
 	ColumnFilter,
 	type FilterOption,
-	NONE_FILTER_VALUE,
-	toFilterOptions,
 } from "@components/shared/ColumnFilter";
 import { EmptyState } from "@components/shared/EmptyState";
 import { ErrorState } from "@components/shared/ErrorState";
 import type { inferRouterOutputs } from "@trpc/server";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
@@ -50,8 +49,6 @@ import {
 type RecordsRow =
 	inferRouterOutputs<AppRouter>["externalRecords"]["listAll"][number];
 
-// Hidden unless the status filter asks for them.
-
 const STATUS_COLOR_CLASSES: Record<RecordsStatus, string> = {
 	"Not requested": "text-error",
 	Queued: "",
@@ -73,27 +70,19 @@ type SortKey =
 	| "lastRequested"
 	| "requests"
 	| "holdUntil"
-	| "notesUpdated"
-	| "blockers";
+	| "notesUpdated";
 
 interface Filters {
 	search: string;
 	statuses: string[];
 	clientStatuses: string[];
-	blockers: string[];
 }
 
 const EMPTY_FILTERS: Filters = {
 	search: "",
 	statuses: [],
 	clientStatuses: [],
-	blockers: [],
 };
-
-// A row has one value per reason, or NONE_FILTER_VALUE when nothing blocks the request.
-function blockerValues(row: RecordsRow): string[] {
-	return row.blockers.length > 0 ? row.blockers : [NONE_FILTER_VALUE];
-}
 
 // Active clients, and every records status except Not needed, until the viewer
 // changes those filters.
@@ -132,14 +121,6 @@ function matchesFilters(
 		return false;
 	}
 
-	if (
-		except !== "blockers" &&
-		filters.blockers.length > 0 &&
-		!blockerValues(row).some((b) => filters.blockers.includes(b))
-	) {
-		return false;
-	}
-
 	return true;
 }
 
@@ -161,8 +142,6 @@ function compareRows(a: RecordsRow, b: RecordsRow, sort: SortKey): number {
 			return (
 				(a.notesUpdatedAt?.getTime() ?? 0) - (b.notesUpdatedAt?.getTime() ?? 0)
 			);
-		case "blockers":
-			return a.blockers.join(" ").localeCompare(b.blockers.join(" "));
 	}
 }
 
@@ -205,7 +184,6 @@ export function ExternalRecordsDataView() {
 		filters.search !== "" ||
 		filters.statuses.length !== DEFAULT_STATUSES.length ||
 		!DEFAULT_STATUSES.every((s) => filters.statuses.includes(s)) ||
-		filters.blockers.length > 0 ||
 		clientStatusFilterChanged(filters.clientStatuses);
 
 	const visibleRows = useMemo(() => {
@@ -234,21 +212,6 @@ export function ExternalRecordsDataView() {
 					matchesFilters(row, deferredFilters, "clientStatuses"),
 				),
 				clientStatusValue,
-			),
-		[rows, deferredFilters],
-	);
-
-	const blockerOptions = useMemo(
-		() => toFilterOptions([...new Set(rows.flatMap(blockerValues))]),
-		[rows],
-	);
-	const blockerCounts = useMemo(
-		() =>
-			countBy(
-				rows
-					.filter((row) => matchesFilters(row, deferredFilters, "blockers"))
-					.flatMap(blockerValues),
-				(value) => value,
 			),
 		[rows, deferredFilters],
 	);
@@ -303,7 +266,7 @@ export function ExternalRecordsDataView() {
 					classNameWrapper={VIRTUAL_TABLE_HEIGHT}
 					ref={scrollRef}
 				>
-					<FixedCols widths={[20, 11, 12, 8, 11, 12, 26]} />
+					<FixedCols widths={[18, 34, 14, 10, 12, 12]} />
 					<TableHeader className={VIRTUAL_TABLE_HEADER}>
 						<TableRow>
 							<SortableHead
@@ -358,26 +321,12 @@ export function ExternalRecordsDataView() {
 								label="Notes Updated"
 								sortKey="notesUpdated"
 							/>
-							<SortableHead
-								{...sortProps}
-								filter={
-									<ColumnFilter
-										columnName="Why not sent"
-										counts={blockerCounts}
-										onFilterChange={(values) => setFilter("blockers", values)}
-										options={blockerOptions}
-										selectedValues={filters.blockers}
-									/>
-								}
-								label="Why not sent"
-								sortKey="blockers"
-							/>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{visibleRows.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={7}>
+								<TableCell colSpan={6}>
 									<EmptyState
 										description={
 											hasActiveFilters ? "Try removing a filter." : undefined
@@ -389,7 +338,7 @@ export function ExternalRecordsDataView() {
 							</TableRow>
 						) : (
 							<>
-								<SpacerRow colSpan={7} height={paddingTop} />
+								<SpacerRow colSpan={6} height={paddingTop} />
 								{items.map((item) => {
 									const row = visibleRows[item.index];
 									if (!row) return null;
@@ -408,6 +357,19 @@ export function ExternalRecordsDataView() {
 											</TableCell>
 											<TableCell className={STATUS_COLOR_CLASSES[row.status]}>
 												{row.status}
+												{row.blockers.length > 0 && (
+													<div className="mt-1 flex flex-col items-start gap-1">
+														{row.blockers.map((reason) => (
+															<Badge
+																className="h-auto rounded-md py-1 whitespace-normal"
+																key={reason}
+																variant="warning"
+															>
+																{reason}
+															</Badge>
+														))}
+													</div>
+												)}
 											</TableCell>
 											<TableCell className="text-muted-foreground">
 												{formatShortDate(row.latestRequestedDate, "—")}
@@ -423,13 +385,10 @@ export function ExternalRecordsDataView() {
 													? formatShortInstantDate(row.notesUpdatedAt)
 													: "—"}
 											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{row.blockers.length > 0 ? row.blockers.join(" ") : "—"}
-											</TableCell>
 										</TableRow>
 									);
 								})}
-								<SpacerRow colSpan={7} height={paddingBottom} />
+								<SpacerRow colSpan={6} height={paddingBottom} />
 							</>
 						)}
 					</TableBody>
