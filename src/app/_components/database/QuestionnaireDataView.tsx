@@ -1,5 +1,7 @@
 "use client";
 
+import { PdfStatus } from "@components/client/questionnaires/PdfStatus";
+import { Redact } from "@components/redaction/Redact";
 import {
 	ColumnFilter,
 	type FilterOption,
@@ -20,14 +22,26 @@ import {
 	TableRow,
 } from "@ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
-import { ChevronDown, ChevronRight, ClipboardList, X } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import {
+	ChevronDown,
+	ChevronRight,
+	ClipboardList,
+	RefreshCw,
+	X,
+} from "lucide-react";
+import { Fragment, useDeferredValue, useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+	fuzzyNameRowMatches,
+	nameSearchWords,
+} from "~/lib/clients/name-search";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { statusLabel } from "~/lib/questionnaires/questionnaire-history";
 import {
 	cn,
 	compareDateOnly,
 	formatShortDate,
+	formatShortInstantDate,
 	getReminderColorClass,
 	getStatusColorClass,
 } from "~/lib/utils";
@@ -36,11 +50,18 @@ import { api } from "~/trpc/react";
 import {
 	CLIENT_STATUS_OPTIONS,
 	ClientLink,
+	clientStatusFilterChanged,
 	clientStatusValue,
 	countBy,
+	FIXED_TABLE,
+	FixedCols,
 	SortableHead,
 	type SortDir,
-	toggleValue,
+	SpacerRow,
+	useSavedView,
+	useVirtualRows,
+	VIRTUAL_TABLE_HEADER,
+	VIRTUAL_TABLE_HEIGHT,
 } from "./shared";
 
 type QuestionnaireRow =
@@ -60,13 +81,38 @@ const REMINDED_OPTIONS: FilterOption[] = [
 	{ value: "3+", label: "3 or more" },
 ];
 
+type PdfState = "found" | "missing" | "unchecked";
+
+type AppointmentState = "upcoming" | "past" | "none";
+
+const APPOINTMENT_OPTIONS: FilterOption[] = [
+	{ value: "upcoming", label: "Upcoming" },
+	{ value: "past", label: "Past only" },
+	{ value: "none", label: "None" },
+];
+
+const PDF_OPTIONS: FilterOption[] = [
+	{ value: "found", label: "Found" },
+	{ value: "missing", label: "Missing" },
+	{ value: "unchecked", label: "Not checked" },
+];
+
+// Sorting by PDF puts the ones that need attention first.
+const PDF_RANK: Record<PdfState, number> = {
+	missing: 0,
+	unchecked: 1,
+	found: 2,
+};
+
 type RowSortKey =
 	| "client"
 	| "type"
 	| "status"
 	| "sent"
 	| "reminded"
-	| "lastReminded";
+	| "lastReminded"
+	| "pdf"
+	| "appointment";
 
 type GroupSortKey = "client" | "progress" | "oldestSent" | "maxReminded";
 
@@ -78,6 +124,8 @@ interface Filters {
 	types: string[];
 	clientStatuses: string[];
 	reminded: string[];
+	pdfs: string[];
+	appointments: string[];
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -86,6 +134,14 @@ const EMPTY_FILTERS: Filters = {
 	types: [],
 	clientStatuses: [],
 	reminded: [],
+	pdfs: [],
+	appointments: [],
+};
+
+// Only active clients are shown until the viewer changes the client status filter.
+const DEFAULT_FILTERS: Filters = {
+	...EMPTY_FILTERS,
+	clientStatuses: ["active"],
 };
 
 interface ClientGroup {
@@ -100,6 +156,95 @@ interface ClientGroup {
 	maxReminded: number;
 }
 
+/** What the client texted back, shown under a Responded status. */
+function ResponseText({ row }: { row: QuestionnaireRow }) {
+	if (!row.responseText) return null;
+	return (
+		<span className="line-clamp-2 block max-w-xs text-xs font-normal text-muted-foreground">
+			<Redact>{row.responseText}</Redact>
+		</span>
+	);
+}
+
+/** PDF status plus a link to the client's Drive folder. */
+function PdfCell({
+	row,
+	onCheck,
+	checking,
+}: {
+	row: QuestionnaireRow;
+	onCheck: () => void;
+	/** This row is the one being checked, so its icon spins. */
+	checking: boolean;
+}) {
+	return (
+		<span className="flex items-center gap-2">
+			<PdfStatus pdfCheckedAt={row.pdfCheckedAt} pdfFileId={row.pdfFileId} />
+			{row.status === "COMPLETED" && !row.pdfFileId && (
+				<button
+					aria-label="Check Drive for this PDF now"
+					className="text-muted-foreground hover:text-primary disabled:opacity-50"
+					onClick={onCheck}
+					title="Check Drive for this PDF now"
+					type="button"
+				>
+					<RefreshCw className={cn("h-3 w-3", checking && "animate-spin")} />
+				</button>
+			)}
+			{row.clientDriveId && (
+				<a
+					className="text-primary hover:underline"
+					href={`https://drive.google.com/drive/folders/${row.clientDriveId}`}
+					rel="noreferrer"
+					target="_blank"
+				>
+					Folder
+				</a>
+			)}
+		</span>
+	);
+}
+
+/** PDFs found out of the completed questionnaires, with a refresh icon while any are missing. */
+function GroupPdfSummary({
+	group,
+	onCheck,
+	checking,
+}: {
+	group: ClientGroup;
+	onCheck: () => void;
+	checking: boolean;
+}) {
+	const completed = group.rows.filter((r) => r.status === "COMPLETED");
+	if (completed.length === 0)
+		return <span className="text-muted-foreground">—</span>;
+	const found = completed.filter((r) => r.pdfFileId).length;
+	return (
+		<span
+			className={cn(
+				"flex items-center gap-2",
+				found === completed.length ? "text-success" : "text-warning",
+			)}
+		>
+			{found} of {completed.length} found
+			{found < completed.length && (
+				<button
+					aria-label={`Check Drive for ${group.clientName}'s PDFs now`}
+					className="text-muted-foreground hover:text-primary"
+					onClick={(e) => {
+						e.stopPropagation();
+						onCheck();
+					}}
+					title="Check Drive for PDFs now"
+					type="button"
+				>
+					<RefreshCw className={cn("h-3 w-3", checking && "animate-spin")} />
+				</button>
+			)}
+		</span>
+	);
+}
+
 function rowStatus(row: QuestionnaireRow): string {
 	return row.status ?? UNSET_STATUS;
 }
@@ -109,6 +254,16 @@ function remindedBucket(row: QuestionnaireRow): string {
 	return count >= 3 ? "3+" : String(count);
 }
 
+function pdfState(row: QuestionnaireRow): PdfState {
+	if (row.pdfFileId) return "found";
+	return row.pdfCheckedAt ? "missing" : "unchecked";
+}
+
+function appointmentState(row: QuestionnaireRow): AppointmentState {
+	if (!row.appointment) return "none";
+	return row.appointmentIsPast ? "past" : "upcoming";
+}
+
 // Each filter is skipped when `except` names it, so a facet's own counts
 // reflect every other active filter but not its own selection.
 function matchesFilters(
@@ -116,10 +271,11 @@ function matchesFilters(
 	filters: Filters,
 	except?: keyof Filters,
 ): boolean {
-	const search = filters.search.trim().toLowerCase();
-	if (except !== "search" && search) {
-		const haystack = `${row.clientName} ${row.questionnaireType}`.toLowerCase();
-		if (!haystack.includes(search)) return false;
+	if (
+		except !== "search" &&
+		!fuzzyNameRowMatches(nameSearchWords(filters.search.trim()), row.clientName)
+	) {
+		return false;
 	}
 
 	if (except !== "statuses") {
@@ -153,6 +309,21 @@ function matchesFilters(
 		return false;
 	}
 
+	if (
+		except !== "pdfs" &&
+		filters.pdfs.length > 0 &&
+		!filters.pdfs.includes(pdfState(row))
+	) {
+		if (
+			except !== "appointments" &&
+			filters.appointments.length > 0 &&
+			!filters.appointments.includes(appointmentState(row))
+		) {
+			return false;
+		}
+		return false;
+	}
+
 	return true;
 }
 
@@ -172,6 +343,14 @@ function compareRows(
 			return compareDateOnly(a.sent, b.sent);
 		case "reminded":
 			return (a.reminded ?? 0) - (b.reminded ?? 0);
+		case "appointment":
+			// Clients with no appointment at all sort last when ascending.
+			return (
+				(a.appointment?.getTime() ?? Number.POSITIVE_INFINITY) -
+				(b.appointment?.getTime() ?? Number.POSITIVE_INFINITY)
+			);
+		case "pdf":
+			return PDF_RANK[pdfState(a)] - PDF_RANK[pdfState(b)];
 		case "lastReminded":
 			return compareDateOnly(a.lastReminded, b.lastReminded);
 	}
@@ -247,16 +426,65 @@ function StatusSummary({ counts }: { counts: [string, number][] }) {
 export function QuestionnaireDataView() {
 	const { data, isLoading, isError, refetch } =
 		api.questionnaires.listAll.useQuery();
+	const utils = api.useUtils();
+	const checkPdfs = api.questionnaires.checkPdfs.useMutation({
+		onSuccess: ({ found, missing }) => {
+			toast.success(`PDF check done: ${found} found, ${missing} still missing`);
+			void utils.questionnaires.listAll.invalidate();
+		},
+		onError: (error) => toast.error(error.message),
+	});
 
-	const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+	// Checks queue on the server and run one at a time, so several can be pending.
+	// Keys are "q<questionnaireId>" or "c<clientId>".
+	const [pendingChecks, setPendingChecks] = useState<Set<string>>(new Set());
+	const runCheck = async (input: {
+		clientId?: number;
+		questionnaireId?: number;
+	}) => {
+		const key = input.questionnaireId
+			? `q${input.questionnaireId}`
+			: `c${input.clientId}`;
+		setPendingChecks((prev) => new Set(prev).add(key));
+		try {
+			await checkPdfs.mutateAsync(input);
+		} catch {
+			// The mutation's onError already shows the message.
+		} finally {
+			setPendingChecks((prev) => {
+				const next = new Set(prev);
+				next.delete(key);
+				return next;
+			});
+		}
+	};
+
+	const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 	const [viewMode, setViewMode] = useState<ViewMode>("rows");
 	const [rowSort, setRowSort] = useState<RowSortKey>("sent");
-	const [rowSortDir, setRowSortDir] = useState<SortDir>("desc");
+	const [rowSortDir, setRowSortDir] = useState<SortDir>("asc");
 	const [groupSort, setGroupSort] = useState<GroupSortKey>("progress");
 	const [groupSortDir, setGroupSortDir] = useState<SortDir>("desc");
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
+	useSavedView(
+		"questionnaires",
+		{ filters, viewMode, rowSort, rowSortDir, groupSort, groupSortDir },
+		(saved) => {
+			if (saved.filters) setFilters({ ...DEFAULT_FILTERS, ...saved.filters });
+			if (saved.viewMode) setViewMode(saved.viewMode);
+			if (saved.rowSort) setRowSort(saved.rowSort);
+			if (saved.rowSortDir) setRowSortDir(saved.rowSortDir);
+			if (saved.groupSort) setGroupSort(saved.groupSort);
+			if (saved.groupSortDir) setGroupSortDir(saved.groupSortDir);
+		},
+	);
+
 	const rows = useMemo(() => data ?? [], [data]);
+
+	// The list and counts follow the deferred filters, so typing in the search
+	// box stays responsive while the table catches up.
+	const deferredFilters = useDeferredValue(filters);
 
 	const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
 		setFilters((prev) => ({ ...prev, [key]: value }));
@@ -293,12 +521,14 @@ export function QuestionnaireDataView() {
 		filters.search !== "" ||
 		filters.statuses.length > 0 ||
 		filters.types.length > 0 ||
-		filters.clientStatuses.length > 0 ||
-		filters.reminded.length > 0;
+		clientStatusFilterChanged(filters.clientStatuses) ||
+		filters.reminded.length > 0 ||
+		filters.pdfs.length > 0 ||
+		filters.appointments.length > 0;
 
 	const filteredRows = useMemo(
-		() => rows.filter((row) => matchesFilters(row, filters)),
-		[rows, filters],
+		() => rows.filter((row) => matchesFilters(row, deferredFilters)),
+		[rows, deferredFilters],
 	);
 
 	const visibleRows = useMemo(() => {
@@ -313,39 +543,66 @@ export function QuestionnaireDataView() {
 		);
 	}, [filteredRows, groupSort, groupSortDir]);
 
+	// Only the rows in view are mounted; the rest are spacer rows.
+	const { scrollRef, items, measureElement, paddingTop, paddingBottom } =
+		useVirtualRows(
+			viewMode === "rows" ? visibleRows.length : visibleGroups.length,
+			49,
+		);
+
 	// Facet counts ignore the facet's own selection so the other options in
 	// its dropdown still show how many rows they would add.
 	const statusCounts = useMemo(
 		() =>
 			countBy(
-				rows.filter((row) => matchesFilters(row, filters, "statuses")),
+				rows.filter((row) => matchesFilters(row, deferredFilters, "statuses")),
 				rowStatus,
 			),
-		[rows, filters],
+		[rows, deferredFilters],
 	);
 	const typeCounts = useMemo(
 		() =>
 			countBy(
-				rows.filter((row) => matchesFilters(row, filters, "types")),
+				rows.filter((row) => matchesFilters(row, deferredFilters, "types")),
 				(row) => row.questionnaireType,
 			),
-		[rows, filters],
+		[rows, deferredFilters],
 	);
 	const clientStatusCounts = useMemo(
 		() =>
 			countBy(
-				rows.filter((row) => matchesFilters(row, filters, "clientStatuses")),
+				rows.filter((row) =>
+					matchesFilters(row, deferredFilters, "clientStatuses"),
+				),
 				clientStatusValue,
 			),
-		[rows, filters],
+		[rows, deferredFilters],
 	);
 	const remindedCounts = useMemo(
 		() =>
 			countBy(
-				rows.filter((row) => matchesFilters(row, filters, "reminded")),
+				rows.filter((row) => matchesFilters(row, deferredFilters, "reminded")),
 				remindedBucket,
 			),
-		[rows, filters],
+		[rows, deferredFilters],
+	);
+	const pdfCounts = useMemo(
+		() =>
+			countBy(
+				rows.filter((row) => matchesFilters(row, deferredFilters, "pdfs")),
+				pdfState,
+			),
+		[rows, deferredFilters],
+	);
+	const appointmentCounts = useMemo(
+		() =>
+			countBy(
+				rows.filter((row) =>
+					matchesFilters(row, deferredFilters, "appointments"),
+				),
+				appointmentState,
+			),
+		[rows, deferredFilters],
 	);
 
 	const statusOptions = useMemo(
@@ -364,10 +621,6 @@ export function QuestionnaireDataView() {
 				[...new Set(rows.map((row) => row.questionnaireType))].sort(),
 			),
 		[rows],
-	);
-	const typeBreakdown = useMemo(
-		() => Object.entries(typeCounts).sort(([, a], [, b]) => b - a),
-		[typeCounts],
 	);
 
 	const clientCount = useMemo(
@@ -411,6 +664,24 @@ export function QuestionnaireDataView() {
 			selectedValues={filters.reminded}
 		/>
 	);
+	const pdfFilter = (
+		<ColumnFilter
+			columnName="PDF"
+			counts={pdfCounts}
+			onFilterChange={(values) => setFilter("pdfs", values)}
+			options={PDF_OPTIONS}
+			selectedValues={filters.pdfs}
+		/>
+	);
+	const appointmentFilter = (
+		<ColumnFilter
+			columnName="Appointment"
+			counts={appointmentCounts}
+			onFilterChange={(values) => setFilter("appointments", values)}
+			options={APPOINTMENT_OPTIONS}
+			selectedValues={filters.appointments}
+		/>
+	);
 
 	if (isError) {
 		return (
@@ -448,7 +719,7 @@ export function QuestionnaireDataView() {
 				<Input
 					className="w-64"
 					onChange={(e) => setFilter("search", e.target.value)}
-					placeholder="Search client or questionnaire..."
+					placeholder="Search clients..."
 					value={filters.search}
 				/>
 				<ToggleGroup
@@ -464,7 +735,7 @@ export function QuestionnaireDataView() {
 				</ToggleGroup>
 				{hasActiveFilters && (
 					<Button
-						onClick={() => setFilters(EMPTY_FILTERS)}
+						onClick={() => setFilters(DEFAULT_FILTERS)}
 						size="sm"
 						variant="ghost"
 					>
@@ -477,31 +748,15 @@ export function QuestionnaireDataView() {
 				</p>
 			</div>
 
-			{typeBreakdown.length > 0 && (
-				<div className="flex flex-wrap gap-1.5">
-					{typeBreakdown.map(([type, count]) => (
-						<button
-							className={cn(
-								"rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:border-primary",
-								filters.types.includes(type) &&
-									"border-primary bg-primary/10 text-primary",
-							)}
-							key={type}
-							onClick={() =>
-								setFilter("types", toggleValue(filters.types, type))
-							}
-							type="button"
-						>
-							{type}: {count}
-						</button>
-					))}
-				</div>
-			)}
-
 			<div className="rounded-lg border">
 				{viewMode === "rows" ? (
-					<Table>
-						<TableHeader>
+					<Table
+						className={FIXED_TABLE}
+						classNameWrapper={VIRTUAL_TABLE_HEIGHT}
+						ref={scrollRef}
+					>
+						<FixedCols widths={[18, 14, 14, 8, 8, 10, 16, 12]} />
+						<TableHeader className={VIRTUAL_TABLE_HEADER}>
 							<TableRow>
 								<SortableHead
 									filter={clientFilter}
@@ -549,42 +804,101 @@ export function QuestionnaireDataView() {
 									sortDir={rowSortDir}
 									sortKey="lastReminded"
 								/>
+								<SortableHead
+									filter={pdfFilter}
+									label="PDF"
+									onSort={handleRowSort}
+									sort={rowSort}
+									sortDir={rowSortDir}
+									sortKey="pdf"
+								/>
+								<SortableHead
+									filter={appointmentFilter}
+									label="Appointment"
+									onSort={handleRowSort}
+									sort={rowSort}
+									sortDir={rowSortDir}
+									sortKey="appointment"
+								/>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{visibleRows.length === 0
-								? emptyState
-								: visibleRows.map((row) => (
-										<TableRow key={row.id}>
-											<TableCell>
-												<ClientLink
-													active={row.clientActive}
-													hash={row.clientHash}
-													name={row.clientName}
-												/>
-											</TableCell>
-											<TableCell>{row.questionnaireType}</TableCell>
-											<TableCell className={getStatusColorClass(row.status)}>
-												{statusLabel(rowStatus(row))}
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{formatShortDate(row.sent, "—")}
-											</TableCell>
-											<TableCell
-												className={getReminderColorClass(row.reminded)}
+							{visibleRows.length === 0 ? (
+								emptyState
+							) : (
+								<>
+									<SpacerRow colSpan={8} height={paddingTop} />
+									{items.map((item) => {
+										const row = visibleRows[item.index];
+										if (!row) return null;
+										return (
+											<TableRow
+												data-index={item.index}
+												key={row.id}
+												ref={measureElement}
 											>
-												{row.reminded ?? 0}
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{formatShortDate(row.lastReminded, "—")}
-											</TableCell>
-										</TableRow>
-									))}
+												<TableCell>
+													<ClientLink
+														active={row.clientActive}
+														hash={row.clientHash}
+														name={row.clientName}
+													/>
+												</TableCell>
+												<TableCell>{row.questionnaireType}</TableCell>
+												<TableCell className={getStatusColorClass(row.status)}>
+													{statusLabel(rowStatus(row))}
+													<ResponseText row={row} />
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													{formatShortDate(row.sent, "—")}
+												</TableCell>
+												<TableCell
+													className={getReminderColorClass(row.reminded)}
+												>
+													{row.reminded ?? 0}
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													{formatShortDate(row.lastReminded, "—")}
+												</TableCell>
+												<TableCell>
+													<PdfCell
+														checking={
+															pendingChecks.has(`q${row.id}`) ||
+															pendingChecks.has(`c${row.clientId}`)
+														}
+														onCheck={() =>
+															runCheck({ questionnaireId: row.id })
+														}
+														row={row}
+													/>
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													{row.appointment ? (
+														<>
+															{" "}
+															{formatShortInstantDate(row.appointment)}{" "}
+															{row.appointmentIsPast && " (past)"}{" "}
+														</>
+													) : (
+														"—"
+													)}
+												</TableCell>
+											</TableRow>
+										);
+									})}
+									<SpacerRow colSpan={8} height={paddingBottom} />
+								</>
+							)}
 						</TableBody>
 					</Table>
 				) : (
-					<Table>
-						<TableHeader>
+					<Table
+						className={FIXED_TABLE}
+						classNameWrapper={VIRTUAL_TABLE_HEIGHT}
+						ref={scrollRef}
+					>
+						<FixedCols widths={[24, 14, 16, 22, 12, 12]} />
+						<TableHeader className={VIRTUAL_TABLE_HEADER}>
 							<TableRow>
 								<SortableHead
 									filter={clientFilter}
@@ -601,6 +915,7 @@ export function QuestionnaireDataView() {
 									sortDir={groupSortDir}
 									sortKey="progress"
 								/>
+								<TableHead>PDFs</TableHead>
 								<TableHead>
 									<div className="flex items-center gap-1">
 										Statuses
@@ -624,106 +939,154 @@ export function QuestionnaireDataView() {
 								/>
 							</TableRow>
 						</TableHeader>
-						<TableBody>
-							{visibleGroups.length === 0
-								? emptyState
-								: visibleGroups.map((group) => {
-										const isOpen = expanded.has(group.clientId);
-										const Chevron = isOpen ? ChevronDown : ChevronRight;
-										return (
-											<Fragment key={group.clientId}>
-												<TableRow>
-													<TableCell>
-														<div className="flex items-center gap-1">
-															<button
-																aria-expanded={isOpen}
-																aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.clientName}`}
-																className="text-muted-foreground hover:text-foreground"
-																onClick={() => toggleExpanded(group.clientId)}
-																type="button"
-															>
-																<Chevron className="h-4 w-4 shrink-0" />
-															</button>
+						{visibleGroups.length === 0 ? (
+							<TableBody>{emptyState}</TableBody>
+						) : (
+							<>
+								<tbody>
+									<SpacerRow colSpan={6} height={paddingTop} />
+								</tbody>
+								{items.map((item) => {
+									const group = visibleGroups[item.index];
+									if (!group) return null;
+									const isOpen = expanded.has(group.clientId);
+									const Chevron = isOpen ? ChevronDown : ChevronRight;
+									return (
+										<tbody
+											data-index={item.index}
+											key={group.clientId}
+											ref={measureElement}
+										>
+											<TableRow
+												className="cursor-pointer"
+												onClick={() => toggleExpanded(group.clientId)}
+											>
+												<TableCell>
+													<div className="flex items-center gap-1">
+														<button
+															aria-expanded={isOpen}
+															aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.clientName}`}
+															className="text-muted-foreground hover:text-foreground"
+															onClick={(e) => {
+																e.stopPropagation();
+																toggleExpanded(group.clientId);
+															}}
+															type="button"
+														>
+															<Chevron className="h-4 w-4 shrink-0" />
+														</button>
+														{/* Clicking the client link opens the client, not the row. */}
+														{/* biome-ignore lint/a11y/noStaticElementInteractions: only stops the click reaching the row */}
+														{/* biome-ignore lint/a11y/useKeyWithClickEvents: only stops the click reaching the row */}
+														<span onClick={(e) => e.stopPropagation()}>
 															<ClientLink
 																active={group.clientActive}
 																hash={group.clientHash}
 																name={group.clientName}
 															/>
+														</span>
+													</div>
+												</TableCell>
+												<TableCell
+													className={
+														group.done === group.rows.length
+															? "text-success"
+															: undefined
+													}
+												>
+													{group.done} of {group.rows.length} done
+												</TableCell>
+												<TableCell>
+													<GroupPdfSummary
+														checking={pendingChecks.has(`c${group.clientId}`)}
+														group={group}
+														onCheck={() =>
+															runCheck({ clientId: group.clientId })
+														}
+													/>
+												</TableCell>
+												<TableCell>
+													<StatusSummary counts={group.statusCounts} />
+												</TableCell>
+												<TableCell className="text-muted-foreground">
+													{formatShortDate(group.oldestSent, "—")}
+												</TableCell>
+												<TableCell
+													className={getReminderColorClass(group.maxReminded)}
+												>
+													{group.maxReminded}
+												</TableCell>
+											</TableRow>
+											{isOpen && (
+												<TableRow className="bg-muted/40 hover:bg-muted/40">
+													<TableCell className="pl-9" colSpan={6}>
+														<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_5rem_6rem_minmax(10rem,auto)] gap-x-4 gap-y-1 text-sm">
+															<span className="text-xs text-muted-foreground">
+																Questionnaire
+															</span>
+															<span className="text-xs text-muted-foreground">
+																Status
+															</span>
+															<span className="text-xs text-muted-foreground">
+																Sent
+															</span>
+															<span className="text-xs text-muted-foreground">
+																Reminders
+															</span>
+															<span className="text-xs text-muted-foreground">
+																Last Reminded
+															</span>
+															<span className="text-xs text-muted-foreground">
+																PDF
+															</span>
+															{group.rows.map((row) => (
+																<Fragment key={row.id}>
+																	<span>{row.questionnaireType}</span>
+																	<span
+																		className={getStatusColorClass(row.status)}
+																	>
+																		{statusLabel(rowStatus(row))}
+																		<ResponseText row={row} />
+																	</span>
+																	<span className="text-muted-foreground">
+																		{formatShortDate(row.sent, "—")}
+																	</span>
+																	<span
+																		className={getReminderColorClass(
+																			row.reminded,
+																		)}
+																	>
+																		{row.reminded ?? 0}
+																	</span>
+																	<span className="text-muted-foreground">
+																		{formatShortDate(row.lastReminded, "—")}
+																	</span>
+																	<PdfCell
+																		checking={
+																			pendingChecks.has(`q${row.id}`) ||
+																			pendingChecks.has(`c${row.clientId}`)
+																		}
+																		onCheck={() =>
+																			runCheck({
+																				questionnaireId: row.id,
+																			})
+																		}
+																		row={row}
+																	/>
+																</Fragment>
+															))}
 														</div>
 													</TableCell>
-													<TableCell
-														className={
-															group.done === group.rows.length
-																? "text-success"
-																: undefined
-														}
-													>
-														{group.done} of {group.rows.length} done
-													</TableCell>
-													<TableCell>
-														<StatusSummary counts={group.statusCounts} />
-													</TableCell>
-													<TableCell className="text-muted-foreground">
-														{formatShortDate(group.oldestSent, "—")}
-													</TableCell>
-													<TableCell
-														className={getReminderColorClass(group.maxReminded)}
-													>
-														{group.maxReminded}
-													</TableCell>
 												</TableRow>
-												{isOpen && (
-													<TableRow className="bg-muted/40 hover:bg-muted/40">
-														<TableCell className="pl-9" colSpan={5}>
-															<div className="grid grid-cols-[1fr_1fr_6rem_5rem_6rem] gap-x-4 gap-y-1 text-sm">
-																<span className="text-xs text-muted-foreground">
-																	Questionnaire
-																</span>
-																<span className="text-xs text-muted-foreground">
-																	Status
-																</span>
-																<span className="text-xs text-muted-foreground">
-																	Sent
-																</span>
-																<span className="text-xs text-muted-foreground">
-																	Reminders
-																</span>
-																<span className="text-xs text-muted-foreground">
-																	Last Reminded
-																</span>
-																{group.rows.map((row) => (
-																	<Fragment key={row.id}>
-																		<span>{row.questionnaireType}</span>
-																		<span
-																			className={getStatusColorClass(
-																				row.status,
-																			)}
-																		>
-																			{statusLabel(rowStatus(row))}
-																		</span>
-																		<span className="text-muted-foreground">
-																			{formatShortDate(row.sent, "—")}
-																		</span>
-																		<span
-																			className={getReminderColorClass(
-																				row.reminded,
-																			)}
-																		>
-																			{row.reminded ?? 0}
-																		</span>
-																		<span className="text-muted-foreground">
-																			{formatShortDate(row.lastReminded, "—")}
-																		</span>
-																	</Fragment>
-																))}
-															</div>
-														</TableCell>
-													</TableRow>
-												)}
-											</Fragment>
-										);
-									})}
-						</TableBody>
+											)}
+										</tbody>
+									);
+								})}
+								<tbody>
+									<SpacerRow colSpan={6} height={paddingBottom} />
+								</tbody>
+							</>
+						)}
 					</Table>
 				)}
 			</div>

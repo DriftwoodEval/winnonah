@@ -3,10 +3,13 @@
 import { ClientHoverCard } from "@components/client/ClientHoverCard";
 import { Redact } from "@components/redaction/Redact";
 import type { FilterOption } from "@components/shared/ColumnFilter";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { TableHead } from "@ui/table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "~/lib/utils";
+import { api } from "~/trpc/react";
 
 export type SortDir = "asc" | "desc";
 
@@ -15,14 +18,13 @@ export const CLIENT_STATUS_OPTIONS: FilterOption[] = [
 	{ value: "inactive", label: "Inactive" },
 ];
 
-export function clientStatusValue(row: { clientActive: boolean }): string {
-	return row.clientActive ? "active" : "inactive";
+/** True unless the client status filter is the default of active clients only. */
+export function clientStatusFilterChanged(selected: string[]): boolean {
+	return selected.length !== 1 || selected[0] !== "active";
 }
 
-export function toggleValue(values: string[], value: string): string[] {
-	return values.includes(value)
-		? values.filter((v) => v !== value)
-		: [...values, value];
+export function clientStatusValue(row: { clientActive: boolean }): string {
+	return row.clientActive ? "active" : "inactive";
 }
 
 export function countBy<T>(
@@ -106,5 +108,108 @@ export function ClientLink({
 				<span className="ml-2 text-xs text-muted-foreground">Inactive</span>
 			)}
 		</>
+	);
+}
+
+/** Max height of a virtualized table's scroll area. The table's own wrapper
+ * scrolls, with the header pinned, so only the rows in view are mounted. */
+export const VIRTUAL_TABLE_HEIGHT = "max-h-[calc(100dvh-16rem)]";
+
+/** Pinned header for a virtualized table. */
+export const VIRTUAL_TABLE_HEADER = "sticky top-0 z-10 bg-background";
+
+/**
+ * Windowed rows for a `<Table>`. Attach `scrollRef` to the Table (its wrapper
+ * scrolls), render a SpacerRow of `paddingTop` height, then one element per
+ * virtual item with `data-index={item.index}` and `ref={measureElement}`, then
+ * a SpacerRow of `paddingBottom`. Rows are measured, so they may vary in height.
+ */
+export function useVirtualRows(count: number, estimateSize: number) {
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const virtualizer = useVirtualizer({
+		count,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: () => estimateSize,
+		overscan: 10,
+	});
+	const items = virtualizer.getVirtualItems();
+	const first = items[0];
+	const last = items[items.length - 1];
+	return {
+		scrollRef,
+		items,
+		measureElement: virtualizer.measureElement,
+		paddingTop: first?.start ?? 0,
+		paddingBottom: last ? virtualizer.getTotalSize() - last.end : 0,
+	};
+}
+
+/** Empty row standing in for the rows scrolled out of view. */
+export function SpacerRow({
+	height,
+	colSpan,
+}: {
+	height: number;
+	colSpan: number;
+}) {
+	if (height <= 0) return null;
+	return (
+		<tr aria-hidden>
+			<td colSpan={colSpan} style={{ height, padding: 0 }} />
+		</tr>
+	);
+}
+
+/**
+ * Saves a Database table's filters and sorts per user and restores them on the
+ * next visit. `snapshot` is the current view state, `restore` applies a saved
+ * one (it must tolerate missing or extra keys). Changes are saved after a short
+ * pause, and nothing is saved until the saved view has been restored.
+ */
+export function useSavedView<T extends object>(
+	table: "questionnaires" | "externalRecords",
+	snapshot: T,
+	restore: (saved: Partial<T>) => void,
+) {
+	const { data } = api.users.getDatabaseViews.useQuery(undefined, {
+		refetchOnWindowFocus: false,
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+	const save = api.users.setDatabaseView.useMutation();
+	const [restored, setRestored] = useState(false);
+
+	useEffect(() => {
+		if (restored || !data) return;
+		try {
+			const saved = JSON.parse(data[table] ?? "null");
+			if (saved && typeof saved === "object") restore(saved as Partial<T>);
+		} catch {
+			// An unreadable saved view is ignored and the defaults stay.
+		}
+		setRestored(true);
+	}, [data, restored, table, restore]);
+
+	const key = JSON.stringify(snapshot);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` is the serialized snapshot
+	useEffect(() => {
+		if (!restored) return;
+		const timer = setTimeout(() => save.mutate({ table, view: key }), 500);
+		return () => clearTimeout(timer);
+	}, [key, restored, table]);
+}
+
+/** Fixed column widths (percentages summing to 100) so a virtualized table's
+ * columns don't resize as different rows scroll into view. Pass `FIXED_TABLE`
+ * as the Table's `className`. */
+export const FIXED_TABLE = "table-fixed";
+
+export function FixedCols({ widths }: { widths: number[] }) {
+	return (
+		<colgroup>
+			{widths.map((w, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: static list that never reorders
+				<col key={i} style={{ width: `${w}%` }} />
+			))}
+		</colgroup>
 	);
 }

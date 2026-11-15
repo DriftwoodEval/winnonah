@@ -9,8 +9,7 @@ const TABLES = [
 	{
 		id: "questionnaires",
 		label: "Questionnaires",
-		description:
-			"Every questionnaire sent to a client. Archived questionnaires are not shown.",
+		description: "Every questionnaire sent to a client.",
 	},
 	{
 		id: "external-records",
