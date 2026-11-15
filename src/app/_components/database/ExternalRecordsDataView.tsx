@@ -312,6 +312,7 @@ export function ExternalRecordsDataView() {
 									<ColumnFilter
 										columnName="Client Status"
 										counts={clientStatusCounts}
+										defaultValues={DEFAULT_FILTERS.clientStatuses}
 										onFilterChange={(values) =>
 											setFilter("clientStatuses", values)
 										}
@@ -328,6 +329,7 @@ export function ExternalRecordsDataView() {
 									<ColumnFilter
 										columnName="Status"
 										counts={statusCounts}
+										defaultValues={DEFAULT_FILTERS.statuses}
 										onFilterChange={(values) => setFilter("statuses", values)}
 										options={STATUS_OPTIONS}
 										selectedValues={filters.statuses}

@@ -103,7 +103,8 @@ def leading_pages_lines(pdf_bytes: bytes) -> list[str] | None:
             lines: list[str] = []
             for i in range(min(LEADING_PAGES, doc.page_count)):
                 page_lines = (
-                    " ".join(line.split()) for line in doc[i].get_text().splitlines()
+                    " ".join(line.split())
+                    for line in str(doc[i].get_text()).splitlines()
                 )
                 lines += [line[:MAX_LINE_CHARS] for line in page_lines if line][
                     :HEADER_LINES

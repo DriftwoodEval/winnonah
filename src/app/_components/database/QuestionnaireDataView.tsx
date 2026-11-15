@@ -641,6 +641,7 @@ export function QuestionnaireDataView() {
 		<ColumnFilter
 			columnName="Client Status"
 			counts={clientStatusCounts}
+			defaultValues={DEFAULT_FILTERS.clientStatuses}
 			onFilterChange={(values) => setFilter("clientStatuses", values)}
 			options={CLIENT_STATUS_OPTIONS}
 			selectedValues={filters.clientStatuses}

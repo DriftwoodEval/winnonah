@@ -14,8 +14,7 @@ const TABLES = [
 	{
 		id: "external-records",
 		label: "External Records",
-		description:
-			"Where each client's school records request stands. Clients who don't need records are hidden unless you filter for them.",
+		description: "Where each client's school records request stands.",
 	},
 ] as const;
 

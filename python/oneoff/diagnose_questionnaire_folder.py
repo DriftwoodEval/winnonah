@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from typing import Any, cast
 
 import pymupdf
 from loguru import logger
@@ -73,9 +74,10 @@ def log_raw_listing(folder: str) -> None:
 def extraction_variants(page: pymupdf.Page) -> dict[str, str]:
     """Page text pulled out in several ways, since the same text layer can read
     cleanly in one mode and scrambled in another."""
+    rawdict = cast(dict[str, Any], page.get_text("rawdict"))
     raw_chars = "".join(
         char["c"]
-        for block in page.get_text("rawdict")["blocks"]
+        for block in rawdict["blocks"]
         if block["type"] == 0
         for line in block["lines"]
         for span in line["spans"]
