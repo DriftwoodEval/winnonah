@@ -4,6 +4,11 @@ Tracks background job runs in emr_task so the frontend can show a live
 runs (e.g. a cron firing again before a slow job finishes) using a MySQL named
 lock.
 
+Every run also holds a MySQL named lock for its own row, `task-run:<id>`, for as
+long as it runs. MySQL drops a named lock when its connection dies, so the app
+treats a 'running' row whose locks are all free as orphaned and marks it failed
+(see `failOrphanedTasks` in winnonah's tasks router).
+
 Both winnonah and questionnaires record runs in the same table. Each project
 wraps `track_task` with its own way of opening a database connection.
 """
@@ -21,6 +26,12 @@ from driftwood_common.constants import TABLE_TASK
 
 # Opens a PyMySQL connection that returns rows as dicts (a DictCursor).
 ConnectionFactory = Callable[[], Any]
+
+
+def run_lock_name(task_id: int) -> str:
+    """Named lock a run holds on its own emr_task row while it is running."""
+    return f"task-run:{task_id}"
+
 
 # How long a non-exclusive task run may take before we assume the process
 # that owns it died without closing its row (kill -9, OOM, host crash).
@@ -153,6 +164,7 @@ def track_task(
     else:
         _clear_orphaned_rows(connection, task_type, older_than_hours=STALE_TASK_HOURS)
 
+    task_id: int | None = None
     try:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -162,11 +174,15 @@ def track_task(
                 """,
                 (task_type, label),
             )
-            task_id = cursor.lastrowid
+            inserted_id: int = cursor.lastrowid
+            task_id = inserted_id
+            # Taken before the commit, so no other connection sees the row
+            # without its lock already held.
+            cursor.execute("SELECT GET_LOCK(%s, 0)", (run_lock_name(inserted_id),))
         connection.commit()
 
         try:
-            yield TaskHandle(connection, task_id)
+            yield TaskHandle(connection, inserted_id)
         except Exception as e:
             connection.ping(reconnect=True)
             with connection.cursor() as cursor:
@@ -193,8 +209,10 @@ def track_task(
                 )
             connection.commit()
     finally:
-        if exclusive:
-            connection.ping(reconnect=True)
-            with connection.cursor() as cursor:
+        connection.ping(reconnect=True)
+        with connection.cursor() as cursor:
+            if task_id is not None:
+                cursor.execute("SELECT RELEASE_LOCK(%s)", (run_lock_name(task_id),))
+            if exclusive:
                 cursor.execute("SELECT RELEASE_LOCK(%s)", (lock_name,))
         connection.close()

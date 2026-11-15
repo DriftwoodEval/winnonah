@@ -76,3 +76,6 @@ kimai/local.yaml
 
 # Authorized signature image for DDS faxes; keep out of the repo
 python/forms/dds_signature.png
+
+# driftwood-common is locked by the projects that use it, never on its own.
+python/common/uv.lock

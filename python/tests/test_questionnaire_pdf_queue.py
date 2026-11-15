@@ -40,7 +40,7 @@ def test_queued_requests_share_one_task_with_growing_total(monkeypatch):
     monkeypatch.setattr(check, "track_task", fake_track_task)
     monkeypatch.setattr(check, "db_session", MagicMock())
     monkeypatch.setattr(check, "list_files_recursive", fake_list_files)
-    monkeypatch.setattr(check, "find_pdf", lambda _files, _type: None)
+    monkeypatch.setattr(check, "find_pdf", lambda _files, _type, _matcher: None)
 
     results = {}
     t1 = threading.Thread(

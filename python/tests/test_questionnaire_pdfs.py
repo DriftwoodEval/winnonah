@@ -1,6 +1,8 @@
 import pymupdf
 
+from utils import questionnaire_pdfs
 from utils.questionnaire_pdfs import (
+    DrivePdfMatcher,
     leading_pages_text,
     matching_types,
     pdfs_hinted_first,
@@ -59,3 +61,44 @@ def test_name_hint_only_changes_read_order():
     names = [f["name"] for f in pdfs_hinted_first(files, "ABAS 3")]
     assert names == ["ABAS3_report.pdf", "scan.pdf"]
     assert matching_types("ABAS3_report") == set()
+
+
+def _count_downloads(monkeypatch, start: bytes, full: bytes) -> list[str]:
+    calls: list[str] = []
+
+    def fake_start(_file_id, _max_bytes):
+        calls.append("start")
+        return start
+
+    def fake_full(_file):
+        calls.append("full")
+        return full
+
+    monkeypatch.setattr(questionnaire_pdfs, "download_start", fake_start)
+    monkeypatch.setattr(questionnaire_pdfs, "get_file_as_bytes", fake_full)
+    return calls
+
+
+def test_matcher_reads_a_small_file_once_for_every_type(monkeypatch):
+    pdf = _pdf("Adult Form (Self-Report) Ages 16-89")
+    calls = _count_downloads(monkeypatch, start=pdf, full=pdf)
+    matcher = DrivePdfMatcher()
+    file = {"id": "f1"}
+    assert matcher.matches(file, "ABAS 3")
+    assert not matcher.matches(file, "SRS-2")
+    assert not matcher.matches(file, "Vineland")
+    assert calls == ["start"]
+
+
+def test_matcher_downloads_the_whole_file_once_when_the_start_is_not_enough(
+    monkeypatch,
+):
+    pdf = _pdf("Adult Form (Self-Report) Ages 16-89")
+    start = b"x" * questionnaire_pdfs.PARTIAL_BYTES  # a cut-off start with no text
+    calls = _count_downloads(monkeypatch, start=start, full=pdf)
+    matcher = DrivePdfMatcher()
+    file = {"id": "f1"}
+    assert not matcher.matches(file, "SRS-2")
+    assert matcher.matches(file, "ABAS 3")
+    assert not matcher.matches(file, "Vineland")
+    assert calls == ["start", "full"]

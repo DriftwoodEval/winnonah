@@ -9,7 +9,7 @@ like "|" or "(" in the PDF text don't matter.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pymupdf
 
@@ -123,6 +123,41 @@ def drive_leading_pages_text(file: dict, qtype: str | None = None) -> str | None
         if text is not None and qtype in matching_types(text):
             return text
     return leading_pages_text(get_file_as_bytes(file), qtype)
+
+
+@dataclass
+class _FileMatches:
+    types: set[str] = field(default_factory=set)
+    complete: bool = False  # read from the whole file, not just its start
+
+
+class DrivePdfMatcher:
+    """Matches Drive PDFs to questionnaire types, downloading each file at most
+    once in full. A file's start is read first; the whole file is downloaded
+    only when a lookup needs a type its start didn't match. A partial download
+    can lose characters but never invents a match, so types found in the start
+    are kept. Results are remembered per file id for the life of the matcher,
+    so one matcher should cover one run."""
+
+    def __init__(self) -> None:
+        self._files: dict[str, _FileMatches] = {}
+
+    def matches(self, file: dict, qtype: str) -> bool:
+        entry = self._files.get(file["id"])
+        if entry is None:
+            start = download_start(file["id"], PARTIAL_BYTES)
+            entry = _FileMatches(
+                types=matching_types(leading_pages_text(start) or ""),
+                # Drive returns the whole file when it's smaller than the range.
+                complete=len(start) < PARTIAL_BYTES,
+            )
+            self._files[file["id"]] = entry
+        if qtype in entry.types or entry.complete:
+            return qtype in entry.types
+        full_text = leading_pages_text(get_file_as_bytes(file)) or ""
+        entry.types |= matching_types(full_text)
+        entry.complete = True
+        return qtype in entry.types
 
 
 def matching_types(page_text: str) -> set[str]:
