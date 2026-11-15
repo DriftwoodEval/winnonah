@@ -174,14 +174,15 @@ def track_task(
                 """,
                 (task_type, label),
             )
-            task_id = cursor.lastrowid
+            inserted_id: int = cursor.lastrowid
+            task_id = inserted_id
             # Taken before the commit, so no other connection sees the row
             # without its lock already held.
-            cursor.execute("SELECT GET_LOCK(%s, 0)", (run_lock_name(task_id),))
+            cursor.execute("SELECT GET_LOCK(%s, 0)", (run_lock_name(inserted_id),))
         connection.commit()
 
         try:
-            yield TaskHandle(connection, task_id)
+            yield TaskHandle(connection, inserted_id)
         except Exception as e:
             connection.ping(reconnect=True)
             with connection.cursor() as cursor:
