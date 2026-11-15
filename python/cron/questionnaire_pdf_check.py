@@ -16,7 +16,7 @@ from driftwood_common.log_format import json_log_format
 from googleapiclient.errors import HttpError
 from loguru import logger
 
-from utils.database import db_session
+from utils.database import SYSTEM_ACTOR, db_session, record_audit_log
 from utils.google import list_files_recursive
 from utils.questionnaire_pdfs import (
     FINGERPRINTS,
@@ -32,7 +32,8 @@ BUSY_RETRY_SECONDS = 5
 LOOKBACK_FILTER = " AND q.sent >= CURDATE() - INTERVAL %s DAY"
 
 QUERY = """
-    SELECT q.id, q.questionnaireType AS type, c.driveId AS drive_id
+    SELECT q.id, q.clientId AS client_id, q.questionnaireType AS type,
+           c.driveId AS drive_id
     FROM emr_questionnaire q
     JOIN emr_client c ON c.id = q.clientId
     WHERE q.status = 'COMPLETED' AND c.driveId IS NOT NULL
@@ -183,10 +184,26 @@ def _drain(task) -> None:
                     if files is not None:
                         file_id = find_pdf(files, row["type"])
                         request.found += file_id is not None
+                        logger.info(
+                            f"[{_state.done + 1}/{_state.total}] Questionnaire {row['id']} "
+                            f"({row['type']}): {'PDF found' if file_id else 'no PDF'}"
+                        )
                         cur.execute(
                             "UPDATE emr_questionnaire SET pdfFileId = %s, pdfCheckedAt = NOW() WHERE id = %s",
                             (file_id, row["id"]),
                         )
+                        if file_id:
+                            record_audit_log(
+                                conn,
+                                "python.questionnaire.pdfFound",
+                                row["client_id"],
+                                *SYSTEM_ACTOR,
+                                detail={
+                                    "questionnaireId": row["id"],
+                                    "type": row["type"],
+                                    "pdfFileId": file_id,
+                                },
+                            )
                     with _lock:
                         _state.done += 1
                         done, total = _state.done, _state.total
