@@ -20,8 +20,7 @@ from utils.database import SYSTEM_ACTOR, db_session, record_audit_log
 from utils.google import list_files_recursive
 from utils.questionnaire_pdfs import (
     FINGERPRINTS,
-    drive_leading_pages_text,
-    matching_types,
+    DrivePdfMatcher,
     pdfs_hinted_first,
 )
 from utils.task_tracker import track_task
@@ -41,12 +40,11 @@ QUERY = """
 """
 
 
-def find_pdf(files: list[dict], qtype: str) -> str | None:
+def find_pdf(files: list[dict], qtype: str, matcher: DrivePdfMatcher) -> str | None:
     """Drive file id of the first PDF matching qtype's fingerprint, else None.
     Files with a name hint for qtype are read first."""
     for f in pdfs_hinted_first(files, qtype):
-        text = drive_leading_pages_text(f, qtype)
-        if text and qtype in matching_types(text):
+        if matcher.matches(f, qtype):
             return f["id"]
     return None
 
@@ -165,6 +163,9 @@ def _work() -> None:
 def _drain(task) -> None:
     # None marks a folder that can't be listed (deleted or not shared).
     folder_files: dict[str, list[dict] | None] = {}
+    # Shared by every questionnaire in the run, so a client's PDFs are each
+    # downloaded once no matter how many of their questionnaires are checked.
+    matcher = DrivePdfMatcher()
     with db_session() as conn, conn.cursor() as cur:
         while True:
             with _lock:
@@ -187,7 +188,7 @@ def _drain(task) -> None:
                             folder_files[drive_id] = None
                     files = folder_files[drive_id]
                     if files is not None:
-                        file_id = find_pdf(files, row["type"])
+                        file_id = find_pdf(files, row["type"], matcher)
                         request.found += file_id is not None
                         with _lock:
                             if file_id:
