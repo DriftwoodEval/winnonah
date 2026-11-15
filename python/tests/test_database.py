@@ -742,6 +742,35 @@ class TestPutAppointmentInDb:
         actions = [params[2] for params in self._audit_inserts(cursor)]
         assert "python.appointments.uncancel" in actions
 
+    @pytest.mark.parametrize("cancelled_in_ta", [True, False])
+    def test_logs_resolution_of_pending_cancel(self, cancelled_in_ta):
+        existing = self._existing_row(
+            cancelled=True, cancelledPendingSyncAt=dt.datetime(2025, 1, 1, 12, 0)
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, cancelled=cancelled_in_ta)
+
+        resolved = [
+            json.loads(p[4])
+            for p in self._audit_inserts(cursor)
+            if p[2] == "python.appointments.pending_cancel_resolved"
+        ]
+        assert resolved == [
+            {"appointmentId": "appt1", "cancelledInTA": cancelled_in_ta}
+        ]
+
+    def test_upsert_clears_pending_cancel(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row()))
+        conn = FakeConnection(cursor)
+
+        self._call(conn)
+
+        upserts = [q for q, _ in cursor.executed if "ON DUPLICATE KEY UPDATE" in q]
+        assert len(upserts) == 1
+        assert "cancelledPendingSyncAt = NULL" in upserts[0]
+
     def test_logs_update_for_other_field_change(self):
         cursor = _RoutingCursor(self._routes(self._existing_row(evaluatorNpi=999)))
         conn = FakeConnection(cursor)

@@ -380,12 +380,14 @@ def _placeholder(
     start_time: datetime,
     event_id: str | None = "hold-event",
     email: str | None = "eval@example.com",
+    replaces: str | None = None,
 ) -> dict:
     return {
         "id": placeholder_id,
         "daEval": da_eval,
         "startTime": start_time,
         "calendarEventId": event_id,
+        "replacesAppointmentId": replaces,
         "evaluatorEmail": email,
     }
 
@@ -411,6 +413,35 @@ class TestFindMatchingPlaceholder:
     )
     def test_picks_same_type_closest_in_time(self, placeholders, da_eval, expected_id):
         match = find_matching_placeholder(placeholders, da_eval, REAL_START)
+
+        assert (match["id"] if match else None) == expected_id
+
+    @pytest.mark.parametrize(
+        ("appointment_id", "moved", "expected_id"),
+        [
+            # The appointment being rescheduled, still at its old time in TA.
+            ("ta-1", False, "other"),
+            # TA moved that appointment, so the reschedule has landed.
+            ("ta-1", True, "linked"),
+            # Any other appointment can still take the linked hold.
+            ("ta-2", False, "linked"),
+        ],
+    )
+    def test_reschedule_hold_waits_for_its_appointment_to_move(
+        self, appointment_id, moved, expected_id
+    ):
+        placeholders = [
+            _placeholder("linked", "EVAL", REAL_START, replaces="ta-1"),
+            _placeholder("other", "EVAL", REAL_START + timedelta(days=5)),
+        ]
+
+        match = find_matching_placeholder(
+            placeholders,
+            "EVAL",
+            REAL_START,
+            appointment_id=appointment_id,
+            moved=moved,
+        )
 
         assert (match["id"] if match else None) == expected_id
 

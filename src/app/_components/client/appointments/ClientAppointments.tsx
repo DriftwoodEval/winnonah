@@ -54,6 +54,7 @@ export function ClientAppointments({
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
 	const canCopyInfo = can("clients:appointments:copyinfo");
+	const canUseSchedulingHelper = can("pages:scheduling-helper");
 	const checkinDateGate = useCheckinDateGate();
 	const { data: session } = useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
@@ -75,6 +76,16 @@ export function ClientAppointments({
 		onSuccess: () =>
 			void utils.appointments.getByClientId.invalidate({ clientId }),
 	});
+
+	const restoreAppointment =
+		api.schedulingHelper.restoreAppointmentPendingSync.useMutation({
+			onSuccess: () =>
+				void utils.appointments.getByClientId.invalidate({ clientId }),
+			onError: (error) =>
+				toast.error("Failed to restore appointment", {
+					description: error.message,
+				}),
+		});
 
 	const copyInfoBlock = async (appointmentId: string) => {
 		try {
@@ -143,9 +154,16 @@ export function ClientAppointments({
 								{appt.cancelled && (
 									<Badge
 										className="h-4 px-1 text-[9px] uppercase"
+										title={
+											appt.cancelledPendingSyncAt
+												? "Cancelled in the scheduling helper. The next TherapyAppointment sync replaces this with what TA shows."
+												: undefined
+										}
 										variant="destructive"
 									>
-										Cancelled
+										{appt.cancelledPendingSyncAt
+											? "Cancelled (until TA syncs)"
+											: "Cancelled"}
 									</Badge>
 								)}
 								{appt.rescheduled && (
@@ -246,6 +264,21 @@ export function ClientAppointments({
 											>
 												Stop Reminders
 											</DropdownMenuItem>
+										)}
+										{appt.cancelledPendingSyncAt && canUseSchedulingHelper && (
+											<>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem
+													disabled={restoreAppointment.isPending}
+													onClick={() =>
+														restoreAppointment.mutate({
+															appointmentId: appt.id,
+														})
+													}
+												>
+													Undo Cancellation
+												</DropdownMenuItem>
+											</>
 										)}
 										{appt.placeholder && (
 											<>

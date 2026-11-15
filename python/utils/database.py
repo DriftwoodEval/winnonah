@@ -2127,7 +2127,7 @@ def put_appointment_in_db(
         cursor.execute(
             f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
                        asdAdhd, locationKey, calendarEventId, cpt, calendarEventTitle,
-                       billingOnly
+                       billingOnly, cancelledPendingSyncAt
                 FROM `{TABLE_APPOINTMENT}` WHERE id = %s""",
             (appointment_id,),
         )
@@ -2186,6 +2186,20 @@ def put_appointment_in_db(
             # value, mirroring the CASE logic in the UPDATE below.
             effective_cancelled = False if rescheduled else bool(cancelled)
             existing_cancelled = bool(existing["cancelled"])
+            # Staff cancelled this in the app ahead of TA (scheduling helper). TA's
+            # state replaces that temporary cancellation from here on.
+            if existing["cancelledPendingSyncAt"] is not None:
+                record_audit_log(
+                    connection,
+                    "python.appointments.pending_cancel_resolved",
+                    client_id,
+                    "system:csv-sync",
+                    "TA import",
+                    detail={
+                        "appointmentId": appointment_id,
+                        "cancelledInTA": effective_cancelled,
+                    },
+                )
             if effective_cancelled != existing_cancelled:
                 record_audit_log(
                     connection,
@@ -2251,7 +2265,8 @@ def put_appointment_in_db(
             calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
             confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN confirmedAt IS NOT NULL THEN confirmedAt WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE NULL END,
             billingOnly = VALUES(billingOnly),
-            placeholder = VALUES(placeholder);
+            placeholder = VALUES(placeholder),
+            cancelledPendingSyncAt = NULL;
     """
     params = (
         appointment_id,
@@ -2378,14 +2393,14 @@ def get_client_placeholder_appointments(
     client_id: int, connection: Connection[DictCursor]
 ) -> list[dict]:
     """Returns a client's placeholder appointments (id, daEval, startTime,
-    calendarEventId, and the evaluator's email, which is their calendar id).
-    startTime is a naive datetime representing UTC.
+    calendarEventId, replacesAppointmentId, and the evaluator's email, which is
+    their calendar id). startTime is a naive datetime representing UTC.
     """
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
             SELECT a.id, a.daEval, a.startTime, a.calendarEventId,
-                   e.email AS evaluatorEmail
+                   a.replacesAppointmentId, e.email AS evaluatorEmail
             FROM `{TABLE_APPOINTMENT}` a
             LEFT JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
             WHERE a.clientId = %s AND a.placeholder = 1

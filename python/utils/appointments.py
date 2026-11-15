@@ -446,6 +446,8 @@ def find_matching_placeholder(
     da_eval: DAEvalType | None,
     start_time: datetime,
     event_id: str | None = None,
+    appointment_id: str | None = None,
+    moved: bool = False,
 ) -> dict | None:
     """Pick the placeholder a newly imported real appointment replaces.
 
@@ -455,6 +457,11 @@ def find_matching_placeholder(
     the right hold can't be told apart. Evaluator and date may differ from the
     hold (the real booking can land on another day or evaluator), so the
     placeholder closest in time wins.
+
+    A placeholder made to reschedule an appointment (its replacesAppointmentId)
+    is skipped for that same appointment until TA moves it (`moved`): before
+    then the appointment is still at its old time, so the reschedule isn't in TA
+    yet and the hold has to stay.
     start_time and each placeholder's startTime must both be naive UTC.
     """
     if event_id:
@@ -463,7 +470,16 @@ def find_matching_placeholder(
                 return placeholder
     if da_eval is None:
         return None
-    same_type = [p for p in placeholders if p["daEval"] == da_eval]
+    same_type = [
+        p
+        for p in placeholders
+        if p["daEval"] == da_eval
+        and (
+            moved
+            or appointment_id is None
+            or p.get("replacesAppointmentId") != appointment_id
+        )
+    ]
     return min(
         same_type,
         key=lambda p: abs(p["startTime"] - start_time),
@@ -478,17 +494,24 @@ def replace_placeholder_with_real_appointment(
     start_time: datetime,
     real_gcal_event_id: str | None,
     real_gcal_event_title: str | None = None,
+    moved: bool = False,
 ) -> bool:
     """Remove the client's placeholder that a real appointment supersedes: its DB
     row, and its hold event on the evaluator's calendar unless that event is the
     real appointment's own (a promoted hold). The real event's title is only
-    recorded in the audit log.
+    recorded in the audit log. `moved` is whether this sync changed the
+    appointment's start time (see find_matching_placeholder).
 
     start_time must be naive UTC. Returns whether a placeholder was removed.
     """
     placeholders = get_client_placeholder_appointments(client_id)
     placeholder = find_matching_placeholder(
-        placeholders, da_eval, start_time, real_gcal_event_id
+        placeholders,
+        da_eval,
+        start_time,
+        real_gcal_event_id,
+        appointment_id=appointment_id,
+        moved=moved,
     )
     if placeholder is None:
         return False
@@ -1427,6 +1450,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         start_time=start_time.replace(tzinfo=None),
                         real_gcal_event_id=gcal_event_id,
                         real_gcal_event_title=gcal_event_title,
+                        moved=rescheduled,
                     )
                 except Exception:
                     logger.exception(

@@ -1,5 +1,6 @@
+import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
-import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
@@ -14,6 +15,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import type { db } from "~/server/db";
 import {
 	appointmentCheckins,
 	appointments,
@@ -31,6 +33,50 @@ async function parsePyApiError(response: Response): Promise<string> {
 }
 
 const SCHEDULING_HELPER_PERMISSION = "pages:scheduling-helper";
+
+type Db = typeof db;
+
+/**
+ * Cancels a real appointment in the app only, ahead of TherapyAppointment, so
+ * its time frees up for rescheduling right away. The next TA sync that
+ * includes the appointment clears the marker and writes TA's own state (see
+ * put_appointment_in_db in the Python sidecar), so TA stays the source of
+ * truth. Placeholders, billing-only rows and already cancelled appointments
+ * are refused.
+ */
+async function cancelPendingSync(db: Db, appointmentId: string) {
+	const appt = await db.query.appointments.findFirst({
+		where: eq(appointments.id, appointmentId),
+		columns: {
+			id: true,
+			placeholder: true,
+			billingOnly: true,
+			cancelled: true,
+		},
+	});
+	if (!appt) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Appointment not found",
+		});
+	}
+	if (appt.placeholder || appt.billingOnly) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Only real appointments can be cancelled this way",
+		});
+	}
+	if (appt.cancelled) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "This appointment is already cancelled",
+		});
+	}
+	await db
+		.update(appointments)
+		.set({ cancelled: true, cancelledPendingSyncAt: new Date() })
+		.where(eq(appointments.id, appointmentId));
+}
 
 export const schedulingHelperRouter = createTRPCRouter({
 	getSchedulingQueueInfo: protectedProcedure
@@ -212,6 +258,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					daEval: appointments.daEval,
 					asdAdhd: appointments.asdAdhd,
 					confirmedAt: appointments.confirmedAt,
+					clientId: appointments.clientId,
 					clientName: clients.fullName,
 					clientHash: clients.hash,
 					clientPhone: clients.phoneNumber,
@@ -270,10 +317,40 @@ export const schedulingHelperRouter = createTRPCRouter({
 				endTime: z.string(),
 				daEval: z.enum(["EVAL", "DA", "DAEVAL"]),
 				locationKey: z.string(),
+				// The client's existing appointment this placeholder reschedules.
+				replacesAppointmentId: z.string().optional(),
+				// Also cancel that appointment in the app until TA syncs.
+				cancelReplaced: z.boolean().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+			// Checked before the placeholder exists, so a bad link can't leave a
+			// placeholder behind with the request reported as failed.
+			const replaced = input.replacesAppointmentId
+				? await ctx.db.query.appointments.findFirst({
+						where: eq(appointments.id, input.replacesAppointmentId),
+						columns: {
+							clientId: true,
+							placeholder: true,
+							billingOnly: true,
+							cancelled: true,
+						},
+					})
+				: null;
+			if (
+				input.replacesAppointmentId &&
+				(!replaced ||
+					replaced.placeholder ||
+					replaced.billingOnly ||
+					replaced.clientId !== input.clientId)
+			) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "The appointment being rescheduled wasn't found",
+				});
+			}
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(`${env.PY_API}/appointments/placeholder`, {
@@ -296,7 +373,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(await parsePyApiError(response));
 			}
 
-			return response.json() as Promise<{
+			const created = (await response.json()) as {
 				id: string;
 				clientId: number;
 				evaluatorNpi: number;
@@ -306,7 +383,53 @@ export const schedulingHelperRouter = createTRPCRouter({
 				locationKey: string;
 				calendarEventId: string;
 				calendarEventTitle: string;
-			}>;
+			};
+
+			if (input.replacesAppointmentId) {
+				await ctx.db
+					.update(appointments)
+					.set({ replacesAppointmentId: input.replacesAppointmentId })
+					.where(eq(appointments.id, created.id));
+				// Already cancelled (in TA or here) needs nothing more.
+				if (input.cancelReplaced && !replaced?.cancelled) {
+					await cancelPendingSync(ctx.db, input.replacesAppointmentId);
+				}
+			}
+
+			return created;
+		}),
+
+	cancelAppointmentPendingSync: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+			await cancelPendingSync(ctx.db, input.appointmentId);
+			return { status: "ok" as const };
+		}),
+
+	// Undoes cancelAppointmentPendingSync, as long as no TA sync has replaced
+	// it yet.
+	restoreAppointmentPendingSync: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+			const [result] = await ctx.db
+				.update(appointments)
+				.set({ cancelled: false, cancelledPendingSyncAt: null })
+				.where(
+					and(
+						eq(appointments.id, input.appointmentId),
+						isNotNull(appointments.cancelledPendingSyncAt),
+					),
+				);
+			if (result.affectedRows === 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						"This appointment isn't waiting on TherapyAppointment anymore",
+				});
+			}
+			return { status: "ok" as const };
 		}),
 
 	createShadowEvent: protectedProcedure
@@ -443,6 +566,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					asdAdhd: appointments.asdAdhd,
 					officeName: offices.prettyName,
 					placeholder: appointments.placeholder,
+					clientId: appointments.clientId,
 					clientName: clients.fullName,
 					clientHash: clients.hash,
 				})
@@ -472,6 +596,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					asdAdhd: string | null;
 					officeName: string | null;
 					placeholder: boolean;
+					clientId: number;
 					clientName: string | null;
 					clientHash: string | null;
 				}[]
@@ -489,6 +614,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					asdAdhd: row.asdAdhd,
 					officeName: row.officeName,
 					placeholder: row.placeholder,
+					clientId: row.clientId,
 					clientName: row.clientName,
 					clientHash: row.clientHash,
 				});

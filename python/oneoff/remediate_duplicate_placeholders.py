@@ -78,7 +78,11 @@ def main() -> None:
                 if p["id"] not in paired
             ]
             match = find_matching_placeholder(
-                placeholders, appt["daEval"], appt["startTime"], appt["calendarEventId"]
+                placeholders,
+                appt["daEval"],
+                appt["startTime"],
+                appt["calendarEventId"],
+                appointment_id=appt["id"],
             )
             if match is None:
                 continue

@@ -883,6 +883,15 @@ export const appointments = createTable(
 		cancelled: d.boolean().notNull().default(false),
 		rescheduled: d.boolean().notNull().default(false),
 		placeholder: d.boolean().notNull().default(false),
+		// Set when staff cancel the appointment from the scheduling helper ahead
+		// of TherapyAppointment. The row is marked cancelled meanwhile; the next
+		// TA sync that includes it clears this and writes TA's own state, so TA
+		// stays the source of truth.
+		cancelledPendingSyncAt: d.timestamp(),
+		// On a placeholder: the real appointment it was made to replace (a
+		// reschedule). The TA sync won't let that appointment supersede this
+		// placeholder unless TA has moved it to a new time.
+		replacesAppointmentId: d.varchar({ length: 255 }),
 		billingOnly: d.boolean().notNull().default(false),
 		locationKey: d.varchar({ length: 255 }),
 		calendarEventId: d.varchar({ length: 255 }),

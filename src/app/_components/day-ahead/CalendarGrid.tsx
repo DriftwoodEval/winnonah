@@ -2,10 +2,16 @@
 
 import { Redact } from "@components/redaction/Redact";
 import { Badge } from "@ui/badge";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
-import { DoorOpen, Eye, LogIn, LogOut, X } from "lucide-react";
+import { DoorOpen, Eye, LogIn, LogOut, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
@@ -60,7 +66,12 @@ export type CalAppt = {
 	isPreview?: boolean;
 	/** A scheduling-helper hold rather than a confirmed appointment. */
 	placeholder?: boolean;
+	/** Set where a caller needs the client's id, e.g. the scheduling helper. */
+	clientId?: number;
 };
+
+/** An entry in an appointment block's "more actions" menu. */
+export type ApptMenuAction = { label: string; onSelect: () => void };
 
 // ─── Messages popover open state ───────────────────────────────────────────────
 
@@ -326,6 +337,7 @@ export function ApptBlock({
 	onDragStart,
 	onDelete,
 	onShadow,
+	menuActions,
 }: {
 	appt: CalAppt;
 	colorClass: string;
@@ -344,6 +356,8 @@ export function ApptBlock({
 	onDelete?: () => void;
 	/** Shows a button to add a shadowing event for this appointment on another evaluator's calendar. */
 	onShadow?: () => void;
+	/** Shows a "more actions" menu on the block when non-empty. */
+	menuActions?: ApptMenuAction[];
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -495,6 +509,33 @@ export function ApptBlock({
 							<Eye className="h-3 w-3" />
 						</button>
 					)}
+					{!appt.isPreview && menuActions && menuActions.length > 0 && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									aria-label="More actions"
+									className={cn(
+										"absolute top-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-foreground",
+										onShadow ? "right-5" : "right-0.5",
+									)}
+									onClick={(e) => e.stopPropagation()}
+									type="button"
+								>
+									<MoreHorizontal className="h-3 w-3" />
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-56">
+								{menuActions.map((action) => (
+									<DropdownMenuItem
+										key={action.label}
+										onClick={action.onSelect}
+									>
+										{action.label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 					{canCheckin &&
 						!isVirtualAppointment(appt.locationKey) &&
 						checkinDateGate(apptDateKey(appt.startTime)) && (
@@ -557,6 +598,7 @@ export function CalendarDayView({
 	onMovePlaceholder,
 	onDeletePlaceholder,
 	onShadowAppointment,
+	menuActionsFor,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
@@ -599,6 +641,8 @@ export function CalendarDayView({
 	onDeletePlaceholder?: (appointmentId: string) => void;
 	/** Shows a shadowing button on each block, called with that appointment. */
 	onShadowAppointment?: (appt: CalAppt) => void;
+	/** The "more actions" menu entries for a block, if any. */
+	menuActionsFor?: (appt: CalAppt) => ApptMenuAction[];
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -749,6 +793,7 @@ export function CalendarDayView({
 									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
 									draggable={!!onMovePlaceholder && appt.placeholder === true}
 									key={appt.id}
+									menuActions={menuActionsFor?.(appt)}
 									messages={messages}
 									messagesLoading={messagesLoading}
 									onDelete={

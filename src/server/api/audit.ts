@@ -91,6 +91,14 @@ const RELATED_ID_RESOLVERS: Record<
 		field: "appointmentId",
 		resolve: resolveViaAppointment,
 	},
+	"schedulingHelper.cancelAppointmentPendingSync": {
+		field: "appointmentId",
+		resolve: resolveViaAppointment,
+	},
+	"schedulingHelper.restoreAppointmentPendingSync": {
+		field: "appointmentId",
+		resolve: resolveViaAppointment,
+	},
 	"evaluatorDashboard.saveNote": {
 		field: "appointmentId",
 		resolve: resolveViaAppointment,

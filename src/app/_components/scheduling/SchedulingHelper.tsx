@@ -16,6 +16,7 @@ import {
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card } from "@ui/card";
+import { Checkbox } from "@ui/checkbox";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -49,6 +50,7 @@ import {
 import { fromZonedTime } from "date-fns-tz";
 import {
 	AlertTriangle,
+	CalendarClock,
 	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
@@ -85,7 +87,6 @@ import {
 	SchedulingCalendar,
 } from "~/app/_components/scheduling/SchedulingCalendar";
 import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
-import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/integrations/google";
 import {
@@ -378,6 +379,19 @@ export function SchedulingHelper() {
 
 type ClientLike = { id: number; hash: string; fullName: string };
 
+// A real appointment being rescheduled or cancelled from the helper.
+type ExistingAppointment = {
+	id: string;
+	clientId: number;
+	clientName: string;
+	clientHash: string;
+	startTime: Date;
+	endTime: Date;
+	daEval: string | null;
+	locationKey: string | null;
+	evaluatorName: string;
+};
+
 // Open-slot estimate per appointment type an evaluator can take that day.
 type SlotsLeft = { type: AppointmentType; count: number }[];
 
@@ -427,8 +441,17 @@ function SchedulingHelperGrid({
 		api.evaluators.getAll.useQuery();
 	const { data: practiceDurations } =
 		api.schedulingHelper.getDurationDefaults.useQuery();
-	const [pendingClient, setPendingClient] = useState<SortedClient | null>(null);
+	const [pendingClient, setPendingClient] = useState<ClientLike | null>(null);
 	const effectiveClient = lockedClient ?? pendingClient;
+	// An existing appointment being rescheduled: the placeholder created next
+	// is linked to it, and can cancel it until TA syncs.
+	const [rescheduling, setRescheduling] = useState<ExistingAppointment | null>(
+		null,
+	);
+	const [cancelRescheduled, setCancelRescheduled] = useState(true);
+	// The original slot is free for the new booking when it's being cancelled.
+	const ignoredAppointmentId =
+		rescheduling && cancelRescheduled ? rescheduling.id : null;
 	const { data: queueInfo } =
 		api.schedulingHelper.getSchedulingQueueInfo.useQuery(
 			{ clientId: effectiveClient?.id ?? 0 },
@@ -692,7 +715,7 @@ function SchedulingHelperGrid({
 		const windows = availabilityRanges(dayEvents, day, office);
 		if (windows.length === 0) return null;
 		const busy = (appointmentsByNpi?.[npi] ?? [])
-			.filter((a) => a.date === day)
+			.filter((a) => a.date === day && a.id !== ignoredAppointmentId)
 			.map((a) => ({ start: a.startTime.getTime(), end: a.endTime.getTime() }));
 		return freeIntervals(windows, busy);
 	}
@@ -1060,11 +1083,13 @@ function SchedulingHelperGrid({
 
 	const busyRanges = useMemo(
 		() =>
-			(dayAppointments ?? []).map((appt) => ({
-				start: new Date(appt.startTime).getTime(),
-				end: new Date(appt.endTime).getTime(),
-			})),
-		[dayAppointments],
+			(dayAppointments ?? [])
+				.filter((appt) => appt.id !== ignoredAppointmentId)
+				.map((appt) => ({
+					start: new Date(appt.startTime).getTime(),
+					end: new Date(appt.endTime).getTime(),
+				})),
+		[dayAppointments, ignoredAppointmentId],
 	);
 
 	const dayWindows = useMemo(() => {
@@ -1226,9 +1251,14 @@ function SchedulingHelperGrid({
 	const utils = api.useUtils();
 
 	const createPlaceholder = api.schedulingHelper.createPlaceholder.useMutation({
-		onSuccess: () => {
-			toast.success("Placeholder appointment created");
+		onSuccess: (_data, variables) => {
+			toast.success(
+				variables.cancelReplaced
+					? "Placeholder created and the original appointment cancelled until TA syncs"
+					: "Placeholder appointment created",
+			);
 			setSelectedSlot(null);
+			setRescheduling(null);
 			void utils.appointments.getByClientId.invalidate();
 			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
 			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
@@ -1488,6 +1518,7 @@ function SchedulingHelperGrid({
 		return (appointmentsByNpi?.[npi] ?? []).some(
 			(a) =>
 				a.id !== ignoreId &&
+				a.id !== ignoredAppointmentId &&
 				start.getTime() < a.endTime.getTime() &&
 				end.getTime() > a.startTime.getTime(),
 		);
@@ -1587,6 +1618,8 @@ function SchedulingHelperGrid({
 		const end = new Date(
 			selectedSlot.start.getTime() + selectedSlot.durationMinutes * 60000,
 		);
+		const replaces =
+			rescheduling?.clientId === effectiveClient.id ? rescheduling : null;
 		createPlaceholder.mutate({
 			clientId: effectiveClient.id,
 			evaluatorNpi: selectedCell.npi,
@@ -1594,8 +1627,126 @@ function SchedulingHelperGrid({
 			endTime: toBusinessWallClockString(end),
 			daEval: appointmentType,
 			locationKey: office,
+			replacesAppointmentId: replaces?.id,
+			cancelReplaced: replaces ? cancelRescheduled : undefined,
 		});
 	};
+
+	const [pendingCancel, setPendingCancel] =
+		useState<ExistingAppointment | null>(null);
+
+	function invalidateAppointments() {
+		void utils.appointments.getByClientId.invalidate();
+		void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+		void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+		void utils.schedulingHelper.getOfficeCalendar.invalidate();
+	}
+
+	const restoreAppointment =
+		api.schedulingHelper.restoreAppointmentPendingSync.useMutation({
+			onSuccess: () => {
+				toast.success("Appointment restored");
+				invalidateAppointments();
+			},
+			onError: (error) => {
+				toast.error("Failed to restore appointment", {
+					description: error.message,
+				});
+			},
+		});
+
+	const cancelAppointment =
+		api.schedulingHelper.cancelAppointmentPendingSync.useMutation({
+			onSuccess: (_data, variables) => {
+				setPendingCancel(null);
+				if (rescheduling?.id === variables.appointmentId) {
+					setRescheduling(null);
+				}
+				toast.success("Appointment cancelled until TA syncs", {
+					description: "Cancel it in TherapyAppointment too.",
+					action: {
+						label: "Undo",
+						onClick: () =>
+							restoreAppointment.mutate({
+								appointmentId: variables.appointmentId,
+							}),
+					},
+				});
+				invalidateAppointments();
+			},
+			onError: (error) => {
+				toast.error("Failed to cancel appointment", {
+					description: error.message,
+				});
+			},
+		});
+
+	// Sets the helper up to find a new time for an existing appointment: its
+	// client, type and office, with the placeholder linked back to it.
+	function startReschedule(appt: ExistingAppointment) {
+		if (lockedClient && lockedClient.id !== appt.clientId) {
+			toast.error(
+				"This page is for one client. Open the scheduling helper from the Scheduling page to reschedule someone else.",
+			);
+			return;
+		}
+		if (!lockedClient) {
+			setPendingClient({
+				id: appt.clientId,
+				hash: appt.clientHash,
+				fullName: appt.clientName,
+			});
+		}
+		// The appointment's own type and office win over the scheduling queue's.
+		setDefaultsAppliedFor(appt.clientId);
+		const type = APPOINTMENT_TYPES.find((t) => t === appt.daEval);
+		if (type) setAppointmentType(type);
+		if (appt.locationKey) {
+			setOfficeFilter(
+				isVirtualOffice(appt.locationKey) ? "Virtual" : appt.locationKey,
+			);
+		}
+		setSelectedSlot(null);
+		setRescheduling(appt);
+		setCancelRescheduled(true);
+	}
+
+	// A calendar-view booking, which is keyed by evaluator rather than carrying
+	// the evaluator itself.
+	function existingFromBooking(
+		appt: CalendarBooking,
+		npi: number,
+	): ExistingAppointment {
+		return {
+			id: appt.id,
+			clientId: appt.clientId,
+			clientName: appt.clientName ?? "this client",
+			clientHash: appt.clientHash ?? "",
+			startTime: appt.startTime,
+			endTime: appt.endTime,
+			daEval: appt.daEval,
+			locationKey: appt.locationKey,
+			evaluatorName: evaluatorByNpi.get(npi)?.providerName ?? "Unknown",
+		};
+	}
+
+	function dayViewMenuActions(appt: CalAppt) {
+		const clientId = appt.clientId;
+		if (appt.placeholder || appt.isPreview || clientId === undefined) {
+			return [];
+		}
+		const existing: ExistingAppointment = { ...appt, clientId };
+		return [
+			{
+				label: "Reschedule with a placeholder",
+				onSelect: () => startReschedule(existing),
+			},
+			{
+				label: "Cancel until TA syncs",
+				onSelect: () => setPendingCancel(existing),
+			},
+		];
+	}
 
 	// The plan row picks its own office; it starts from the page filter and
 	// resets whenever a different evaluator-day is selected.
@@ -1699,6 +1850,36 @@ function SchedulingHelperGrid({
 				</Button>
 			</div>
 
+			{rescheduling && (
+				<Alert>
+					<CalendarClock className="h-4 w-4" />
+					<AlertTitle>
+						Rescheduling <Redact>{rescheduling.clientName}</Redact>'s{" "}
+						{rescheduling.daEval ?? "appointment"}
+					</AlertTitle>
+					<AlertDescription>
+						<p>
+							Currently{" "}
+							{formatInBusinessTime(
+								rescheduling.startTime,
+								"EEE, MMM d, h:mm a",
+							)}{" "}
+							with <Redact>{rescheduling.evaluatorName}</Redact>. Pick a new
+							time and create a placeholder; it stays until TherapyAppointment
+							has the new time.
+						</p>
+						<Button
+							className="mt-1 h-auto p-0"
+							onClick={() => setRescheduling(null)}
+							size="sm"
+							variant="link"
+						>
+							Stop rescheduling
+						</Button>
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<div
 				className={cn(
 					"grid grid-cols-1 gap-3 lg:items-start",
@@ -1720,7 +1901,10 @@ function SchedulingHelperGrid({
 											</span>
 											<button
 												className="text-xs text-muted-foreground underline"
-												onClick={() => setPendingClient(null)}
+												onClick={() => {
+													setPendingClient(null);
+													setRescheduling(null);
+												}}
 												type="button"
 											>
 												change
@@ -1944,12 +2128,18 @@ function SchedulingHelperGrid({
 									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
 									offices={(offices ?? []).filter((o) => !o.archived)}
+									onCancelAppointment={(appt, npi) =>
+										setPendingCancel(existingFromBooking(appt, npi))
+									}
 									onChangeWeek={(delta) =>
 										setWeekOffset((w) => Math.max(0, w + delta))
 									}
 									onCreate={handleCalendarCreate}
 									onDelete={setPendingDeleteId}
 									onMove={handleCalendarMove}
+									onReschedule={(appt, npi) =>
+										startReschedule(existingFromBooking(appt, npi))
+									}
 									onSelect={handleCalendarSelect}
 									onToggleEvaluator={toggleEvaluator}
 									pendingMove={
@@ -2302,6 +2492,29 @@ function SchedulingHelperGrid({
 									</div>
 									{view === "calendar" && durationControl}
 
+									{rescheduling &&
+										rescheduling.clientId === effectiveClient?.id && (
+											<div className="flex items-start gap-2 text-sm">
+												<Checkbox
+													checked={cancelRescheduled}
+													id="cancel-rescheduled"
+													onCheckedChange={(checked) =>
+														setCancelRescheduled(checked === true)
+													}
+												/>
+												<Label
+													className="leading-snug font-normal"
+													htmlFor="cancel-rescheduled"
+												>
+													Cancel the original{" "}
+													{formatInBusinessTime(
+														rescheduling.startTime,
+														"MMM d, h:mm a",
+													)}{" "}
+													appointment until TA syncs
+												</Label>
+											</div>
+										)}
 									{effectiveClient ? (
 										<div className="flex items-center justify-between gap-2">
 											<Link
@@ -2361,6 +2574,7 @@ function SchedulingHelperGrid({
 													]
 												: []
 										}
+										menuActionsFor={dayViewMenuActions}
 										messages={{}}
 										messagesLoading={false}
 										onDeletePlaceholder={setPendingDeleteId}
@@ -2508,6 +2722,50 @@ function SchedulingHelperGrid({
 							<AlertDialogCancel>Cancel</AlertDialogCancel>
 							<AlertDialogAction onClick={handleConfirmMove}>
 								Move
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+
+				<AlertDialog
+					onOpenChange={(open) => !open && setPendingCancel(null)}
+					open={!!pendingCancel}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Cancel until TA syncs?</AlertDialogTitle>
+							<AlertDialogDescription>
+								{pendingCancel && (
+									<>
+										<Redact>{pendingCancel.clientName}</Redact>'s{" "}
+										{formatInBusinessTime(
+											pendingCancel.startTime,
+											"EEE, MMM d, h:mm a",
+										)}{" "}
+										appointment with{" "}
+										<Redact>{pendingCancel.evaluatorName}</Redact> will show as
+										cancelled here right away, freeing its time. This doesn't
+										change TherapyAppointment: cancel or reschedule it there
+										too. The next TA sync replaces this with whatever
+										TherapyAppointment shows, so if it's still booked there it
+										comes back.
+									</>
+								)}
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Keep it</AlertDialogCancel>
+							<AlertDialogAction
+								disabled={cancelAppointment.isPending}
+								onClick={() =>
+									pendingCancel &&
+									cancelAppointment.mutate({
+										appointmentId: pendingCancel.id,
+									})
+								}
+								variant="destructive"
+							>
+								Cancel appointment
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

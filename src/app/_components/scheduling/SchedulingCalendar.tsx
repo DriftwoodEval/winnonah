@@ -142,6 +142,8 @@ export function SchedulingCalendar({
 	onMove,
 	onSelect,
 	onDelete,
+	onCancelAppointment,
+	onReschedule,
 	offices,
 }: {
 	days: string[];
@@ -179,6 +181,10 @@ export function SchedulingCalendar({
 	) => void;
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
+	/** Cancels a real appointment in the app until TherapyAppointment syncs. */
+	onCancelAppointment: (appt: CalendarBooking, npi: number) => void;
+	/** Starts a placeholder that reschedules a real appointment. */
+	onReschedule: (appt: CalendarBooking, npi: number) => void;
 	/** Offices a placeholder can be moved to, besides Virtual. */
 	offices: { key: string; prettyName: string }[];
 }) {
@@ -677,6 +683,14 @@ export function SchedulingCalendar({
 															evaluators={evaluators}
 															npi={ev.npi}
 															offices={offices}
+															onCancelAppointment={() => {
+																setDetailId(null);
+																onCancelAppointment(appt, ev.npi);
+															}}
+															onReschedule={() => {
+																setDetailId(null);
+																onReschedule(appt, ev.npi);
+															}}
 															onSave={(npi, start, end, changes) => {
 																setDetailId(null);
 																onMove(appt, npi, day, start, end, changes);
@@ -776,20 +790,25 @@ function timeFromMinutes(total: number) {
 	return `${hh}:${mm}`;
 }
 
-// Details for one block. Booked appointments are read only; a placeholder's
-// date, times, evaluator, office and type can be changed. Saving hands the
-// change to onSave, which stages it behind the usual move confirm.
+// Details for one block. A booked appointment's details are read only, with
+// actions to reschedule it into a placeholder or cancel it until TA syncs; a
+// placeholder's date, times, evaluator, office and type can be changed. Saving
+// hands the change to onSave, which stages it behind the usual move confirm.
 function AppointmentDetails({
 	appt,
 	evaluators,
 	offices,
 	npi,
 	onSave,
+	onCancelAppointment,
+	onReschedule,
 }: {
 	appt: CalendarBooking;
 	evaluators: { npi: number; providerName: string }[];
 	offices: { key: string; prettyName: string }[];
 	npi: number;
+	onCancelAppointment: () => void;
+	onReschedule: () => void;
 	onSave: (
 		npi: number,
 		start: Date,
@@ -964,6 +983,14 @@ function AppointmentDetails({
 						</div>
 					)}
 					{type && <div className="text-xs text-muted-foreground">{type}</div>}
+					<div className="mt-1 flex flex-col gap-1.5">
+						<Button onClick={onReschedule} size="sm" variant="outline">
+							Reschedule with a placeholder
+						</Button>
+						<Button onClick={onCancelAppointment} size="sm" variant="outline">
+							Cancel until TA syncs
+						</Button>
+					</div>
 				</>
 			)}
 			{appt.placeholder && (
