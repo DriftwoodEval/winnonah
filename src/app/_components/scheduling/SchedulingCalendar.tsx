@@ -13,7 +13,7 @@ import {
 } from "@ui/select";
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
-import { Star, X } from "lucide-react";
+import { Eye, Star, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
@@ -142,6 +142,7 @@ export function SchedulingCalendar({
 	onMove,
 	onSelect,
 	onDelete,
+	onShadow,
 	offices,
 }: {
 	days: string[];
@@ -179,6 +180,8 @@ export function SchedulingCalendar({
 	) => void;
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
+	/** Called when the shadowing button on an appointment or placeholder is clicked. */
+	onShadow: (appt: CalendarBooking, evaluatorNpi: number) => void;
 	/** Offices a placeholder can be moved to, besides Virtual. */
 	offices: { key: string; prettyName: string }[];
 }) {
@@ -656,6 +659,18 @@ export function SchedulingCalendar({
 																		.join(" · ")}
 																</div>
 															)}
+															<button
+																aria-label="Add shadowing event"
+																className={cn(
+																	"absolute top-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-foreground",
+																	isPlaceholder ? "right-5" : "right-0.5",
+																)}
+																onClick={() => onShadow(appt, ev.npi)}
+																onPointerDown={(e) => e.stopPropagation()}
+																type="button"
+															>
+																<Eye className="h-3 w-3" />
+															</button>
 															{isPlaceholder && (
 																<button
 																	aria-label="Delete placeholder"

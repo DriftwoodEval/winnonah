@@ -1275,7 +1275,10 @@ function SchedulingHelperGrid({
 
 	// The appointment a shadowing event is being created for, and which
 	// evaluator's calendar it goes on.
-	const [shadowAppt, setShadowAppt] = useState<CalAppt | null>(null);
+	const [shadowAppt, setShadowAppt] = useState<Pick<
+		CalAppt,
+		"id" | "evaluatorNpi" | "evaluatorName" | "startTime" | "endTime"
+	> | null>(null);
 	const [shadowNpi, setShadowNpi] = useState<string>("");
 
 	const createShadowEvent = api.schedulingHelper.createShadowEvent.useMutation({
@@ -1951,6 +1954,18 @@ function SchedulingHelperGrid({
 									onDelete={setPendingDeleteId}
 									onMove={handleCalendarMove}
 									onSelect={handleCalendarSelect}
+									onShadow={(appt, npi) =>
+										setShadowAppt({
+											id: appt.id,
+											evaluatorNpi: npi,
+											evaluatorName:
+												[...eligibleList, ...ineligibleList].find(
+													(e) => e.npi === npi,
+												)?.providerName ?? "",
+											startTime: appt.startTime,
+											endTime: appt.endTime,
+										})
+									}
 									onToggleEvaluator={toggleEvaluator}
 									pendingMove={
 										pendingMove
