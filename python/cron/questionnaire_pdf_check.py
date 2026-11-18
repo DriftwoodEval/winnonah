@@ -200,7 +200,7 @@ def _drain(task) -> None:
                             f"({row['type']}): {'PDF found' if file_id else 'no PDF'}"
                         )
                         cur.execute(
-                            "UPDATE emr_questionnaire SET pdfFileId = %s, pdfCheckedAt = NOW() WHERE id = %s",
+                            "UPDATE emr_questionnaire SET pdfFileId = %s, pdfCheckedAt = NOW(), updatedAt = updatedAt WHERE id = %s",
                             (file_id, row["id"]),
                         )
                         if file_id:
