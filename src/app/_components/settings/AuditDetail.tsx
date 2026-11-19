@@ -18,30 +18,69 @@ const ACRONYMS = new Set([
 	"asd",
 	"adhd",
 	"ld",
+	"csv",
+	"pdf",
+	"scm",
+	"npi",
 ]);
+
+/** Words that always display with fixed casing, e.g. product and proper names. */
+const FIXED_WORDS: Record<string, string> = {
+	py: "Python",
+	gcal: "GCal",
+	pearson: "Pearson",
+	medicaid: "Medicaid",
+	quo: "Quo",
+};
+
+/** Plain-language casing for one word: acronyms (and their plurals) upper, fixed names as written, the rest lower. */
+function wordFor(word: string) {
+	const lower = word.toLowerCase();
+	const fixed = FIXED_WORDS[lower];
+	if (fixed) return fixed;
+	if (ACRONYMS.has(lower)) return lower.toUpperCase();
+	if (lower.endsWith("s") && ACRONYMS.has(lower.slice(0, -1))) {
+		return `${lower.slice(0, -1).toUpperCase()}s`;
+	}
+	return lower;
+}
+
+/** "oldEventId" -> "old event ID" (no leading capital, so it can follow a ": "). */
+function wordsFor(key: string) {
+	return key
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.split(" ")
+		.map(wordFor)
+		.join(" ")
+		.replace(/\bbaby net\b/, "BabyNet");
+}
+
+const capitalize = (text: string) =>
+	text.charAt(0).toUpperCase() + text.slice(1);
 
 /** "oldEventId" -> "Old event ID" */
 function labelFor(key: string) {
-	const words = key
-		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-		.toLowerCase()
-		.split(" ")
-		.map((word) => (ACRONYMS.has(word) ? word.toUpperCase() : word));
-	const text = words.join(" ");
-	return text.charAt(0).toUpperCase() + text.slice(1);
+	return capitalize(wordsFor(key));
 }
 
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const REASON_CODE = /^[a-z]+(_[a-z]+)+$/;
 
-/** "python.gcal.event_deleted" -> "Gcal: Event deleted" (drops the source namespace). */
+/** Namespaces that only say where an action came from, so the label drops them. */
+const SOURCE_NAMESPACES = new Set(["internal", "python"]);
+
+/**
+ * "python.gcal.event_deleted" -> "GCal: event deleted" (drops the source namespace).
+ * Any other namespace stays so generic names are not ambiguous:
+ * "clients.update" -> "Clients: update".
+ */
 export function actionLabel(action: string) {
-	const [, ...parts] = action.split(".");
-	const words = (parts.length > 0 ? parts : [action]).map((part) =>
-		labelFor(part.replace(/_/g, " ")).toLowerCase(),
+	const [first = action, ...rest] = action.split(".");
+	const parts =
+		SOURCE_NAMESPACES.has(first) && rest.length > 0 ? rest : [first, ...rest];
+	return capitalize(
+		parts.map((part) => wordsFor(part.replace(/_/g, " "))).join(": "),
 	);
-	const text = words.join(": ");
-	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** Plain-language form of a stored string: timestamps in business time, snake_case codes as words. */

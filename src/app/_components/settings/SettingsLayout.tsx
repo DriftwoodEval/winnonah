@@ -212,7 +212,7 @@ export function SettingsLayout() {
 				<SettingsSearch groups={groups} onNavigate={goTo} />
 			</div>
 
-			<div className="md:hidden">
+			<div className="lg:hidden">
 				<Select
 					onValueChange={(value) => goTo(value as SettingsPageId)}
 					value={current.id}
@@ -238,7 +238,7 @@ export function SettingsLayout() {
 			<div className="flex min-w-0 gap-10">
 				<nav
 					aria-label="Settings"
-					className="hidden w-56 shrink-0 flex-col gap-5 self-start md:sticky md:top-14 md:flex"
+					className="hidden w-56 shrink-0 flex-col gap-5 self-start lg:sticky lg:top-14 lg:flex"
 				>
 					{groups.map(({ group, pages }) => (
 						<div className="flex flex-col gap-0.5" key={group.id}>
@@ -268,7 +268,7 @@ export function SettingsLayout() {
 					))}
 				</nav>
 
-				<div className="min-w-0 flex-1 md:border-l md:pl-10">
+				<div className="min-w-0 flex-1 lg:border-l lg:pl-10">
 					<div className="flex flex-col gap-1 pb-6">
 						<h2 className="text-xl font-semibold">{current.label}</h2>
 						<p className="max-w-prose text-sm text-muted-foreground">

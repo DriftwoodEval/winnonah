@@ -22,6 +22,8 @@ interface DatePickerProps {
   allowClear?: boolean
   placeholder?: string
   flexDirection?: "flex-col" | "flex-row"
+  size?: "sm" | "default"
+  triggerClassName?: string
 }
 
 export function DatePicker({
@@ -33,6 +35,8 @@ export function DatePicker({
   allowClear = false,
   placeholder = "Select date",
   flexDirection = "flex-col",
+  size = "sm",
+  triggerClassName,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -43,9 +47,9 @@ export function DatePicker({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
+            size={size}
             id={id}
-            className={cn("max-w-32 justify-between font-normal", !date && "text-muted-foreground")}
+            className={cn("max-w-32 justify-between font-normal", !date && "text-muted-foreground", triggerClassName)}
             disabled={disabled}
           >
             {date ? date.toLocaleDateString() : placeholder}

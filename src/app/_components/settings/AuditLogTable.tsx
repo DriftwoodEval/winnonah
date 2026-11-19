@@ -8,14 +8,15 @@ import { ErrorState } from "@components/shared/ErrorState";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/select";
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@ui/command";
+import { DatePicker } from "@ui/date-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
@@ -25,10 +26,15 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { ChevronRight, X } from "lucide-react";
+import { endOfDay, startOfDay } from "date-fns";
+import { ChevronRight, ChevronsUpDown, X } from "lucide-react";
 import Link from "next/link";
 import { Fragment, type MouseEvent, useState } from "react";
-import { cn, formatInBusinessTime } from "~/lib/utils";
+import {
+	businessZonedTimeToUtcInstant,
+	cn,
+	formatInBusinessTime,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AuditDetail, actionLabel, summarizeDetail } from "./AuditDetail";
 
@@ -51,12 +57,92 @@ function groupActionsByCategory(actionNames: string[]) {
 	return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
+type FilterOption = { value: string; label: string };
+type FilterGroup = { heading?: string; options: FilterOption[] };
+
+/** Keeps an option only if every typed word appears in it as plain text (no fuzzy matching). */
+function matchesAllWords(value: string, search: string, keywords?: string[]) {
+	const text = `${value} ${keywords?.join(" ") ?? ""}`.toLowerCase();
+	return search
+		.toLowerCase()
+		.split(/\s+/)
+		.filter(Boolean)
+		.every((word) => text.includes(word))
+		? 1
+		: 0;
+}
+
+/** A type-to-search dropdown. Options can be split into headed groups. */
+function FilterCombobox({
+	groups,
+	value,
+	onChange,
+	className,
+}: {
+	groups: FilterGroup[];
+	value: string;
+	onChange: (value: string) => void;
+	className?: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const selected = groups
+		.flatMap((g) => g.options)
+		.find((o) => o.value === value);
+
+	return (
+		<Popover onOpenChange={setOpen} open={open}>
+			<PopoverTrigger asChild>
+				<Button
+					aria-expanded={open}
+					className={cn("justify-between font-normal", className)}
+					role="combobox"
+					variant="outline"
+				>
+					<span className="truncate">{selected?.label ?? value}</span>
+					<ChevronsUpDown className="opacity-50" />
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent
+				align="start"
+				className="w-auto max-w-[360px] min-w-[var(--radix-popover-trigger-width)] p-0"
+			>
+				<Command filter={matchesAllWords}>
+					<CommandInput className="h-9" placeholder="Search..." />
+					<CommandList className="max-h-[28rem]">
+						<CommandEmpty>No matches.</CommandEmpty>
+						{groups.map((group) => (
+							<CommandGroup heading={group.heading} key={group.heading ?? ""}>
+								{group.options.map((option) => (
+									<CommandItem
+										data-checked={option.value === value}
+										key={option.value}
+										keywords={[option.label]}
+										onSelect={() => {
+											onChange(option.value);
+											setOpen(false);
+										}}
+										value={option.value}
+									>
+										{option.label}
+									</CommandItem>
+								))}
+							</CommandGroup>
+						))}
+					</CommandList>
+				</Command>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 export default function AuditLogTable() {
 	const [userId, setUserId] = useState<string | undefined>(undefined);
 	const [action, setAction] = useState("");
 	const [client, setClient] = useState<{ id: number; fullName: string } | null>(
 		null,
 	);
+	const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+	const [toDate, setToDate] = useState<Date | undefined>(undefined);
 	const [offset, setOffset] = useState(0);
 	const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
@@ -67,6 +153,8 @@ export default function AuditLogTable() {
 			userId,
 			action: action || undefined,
 			clientId: client?.id,
+			from: fromDate && businessZonedTimeToUtcInstant(startOfDay(fromDate)),
+			to: toDate && businessZonedTimeToUtcInstant(endOfDay(toDate)),
 			limit: PAGE_SIZE,
 			offset,
 		},
@@ -189,52 +277,78 @@ export default function AuditLogTable() {
 		};
 	}
 
+	// Picking a "From" after "To" (or a "To" before "From") moves the other
+	// date to match, so the range is never empty by mistake.
+	const changeFromDate = resetAndSet((date: Date | undefined) => {
+		setFromDate(date);
+		if (date && toDate && date > toDate) setToDate(date);
+	});
+	const changeToDate = resetAndSet((date: Date | undefined) => {
+		setToDate(date);
+		if (date && fromDate && date < fromDate) setFromDate(date);
+	});
+
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-wrap gap-2">
-				<Select
-					onValueChange={resetAndSet<string | undefined>((value) =>
+				<FilterCombobox
+					className="w-full sm:w-[200px]"
+					groups={[
+						{
+							options: [
+								{ value: "all", label: "All users" },
+								...(auditUsers?.map((user) => ({
+									value: user.userId,
+									label: user.userName ?? user.userEmail,
+								})) ?? []),
+							],
+						},
+					]}
+					onChange={resetAndSet((value: string) =>
 						setUserId(value === "all" ? undefined : value),
 					)}
 					value={userId ?? "all"}
-				>
-					<SelectTrigger className="w-full sm:w-[200px]">
-						<SelectValue placeholder="All users" />
-					</SelectTrigger>
-					<SelectContent position="popper">
-						<SelectItem value="all">All users</SelectItem>
-						{auditUsers?.map((user) => (
-							<SelectItem key={user.userId} value={user.userId}>
-								{user.userName ?? user.userEmail}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				/>
 
-				<Select
-					onValueChange={resetAndSet<string>((value) =>
+				<FilterCombobox
+					className="w-full sm:w-[240px]"
+					groups={[
+						{ options: [{ value: "all", label: "All actions" }] },
+						...actionCategories.map(([category, names]) => ({
+							heading: category,
+							options: [
+								{ value: `${category}.*`, label: `All ${category}` },
+								...names.map((name) => ({
+									value: name,
+									label: actionLabel(name),
+								})),
+							],
+						})),
+					]}
+					onChange={resetAndSet((value: string) =>
 						setAction(value === "all" ? "" : value),
 					)}
 					value={action || "all"}
-				>
-					<SelectTrigger className="w-full sm:w-[240px]">
-						<SelectValue placeholder="All actions" />
-					</SelectTrigger>
-					<SelectContent position="popper">
-						<SelectItem value="all">All actions</SelectItem>
-						{actionCategories.map(([category, names]) => (
-							<SelectGroup key={category}>
-								<SelectLabel>{category}</SelectLabel>
-								<SelectItem value={`${category}.*`}>All {category}</SelectItem>
-								{names.map((name) => (
-									<SelectItem key={name} value={name}>
-										{actionLabel(name)}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						))}
-					</SelectContent>
-				</Select>
+				/>
+
+				<DatePicker
+					allowClear
+					date={fromDate}
+					id="audit-from"
+					placeholder="From date"
+					setDate={changeFromDate}
+					size="default"
+					triggerClassName="w-full max-w-none sm:w-[160px]"
+				/>
+				<DatePicker
+					allowClear
+					date={toDate}
+					id="audit-to"
+					placeholder="To date"
+					setDate={changeToDate}
+					size="default"
+					triggerClassName="w-full max-w-none sm:w-[160px]"
+				/>
 
 				{client ? (
 					<Button
