@@ -176,7 +176,7 @@ fi
 
 # Kimai answers with a redirect to its login page, which curl -f accepts.
 log "Waiting for primary kimai to answer (timeout 60s)..."
-if wait_for_health "http://kimai:8001/"; then
+if wait_for_health "http://kimai:8001/" 30 "clock.driftwoodeval.com"; then
   slack "Primary kimai is serving."
 else
   degraded+=("kimai")
