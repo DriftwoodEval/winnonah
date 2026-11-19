@@ -202,6 +202,10 @@ function FieldInput<T extends FieldValues>({
 					<FormControl>
 						<Input
 							{...field}
+							autoComplete="off"
+							data-1p-ignore
+							data-bwignore
+							data-lpignore="true"
 							disabled={disabled}
 							list={list}
 							placeholder={placeholder}
@@ -260,6 +264,10 @@ function ProtectedFieldInput<T extends FieldValues>({
 						<FormControl>
 							<Input
 								{...field}
+								autoComplete="off"
+								data-1p-ignore
+								data-bwignore
+								data-lpignore="true"
 								disabled={disabled || !isUnlocked}
 								placeholder={placeholder}
 								type={type}
