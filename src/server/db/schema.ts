@@ -318,6 +318,9 @@ export const clients = createTable(
 		medicaidCheckedAt: d.timestamp(),
 		// True when the last portal lookup could not find the client.
 		medicaidNotFound: d.boolean().notNull().default(false),
+		// True when staff asked for a fresh portal lookup. The next Medicaid run
+		// checks the client regardless of medicaidCheckedAt and clears the flag.
+		medicaidRecheck: d.boolean().notNull().default(false),
 		precertExpires: d.date({ mode: "string" }),
 		privatePay: d.boolean().notNull().default(false),
 		sessionStartedAt: d.timestamp(),

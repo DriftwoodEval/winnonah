@@ -596,6 +596,81 @@ class TestPutClientInsurancePoliciesInDb:
             "new": "2025-01-01",
         }
 
+    @staticmethod
+    def _recheck_flags(cursor):
+        return [
+            params
+            for query, params in cursor.executed
+            if "SET medicaidRecheck = TRUE" in query
+        ]
+
+    def _existing(self, **overrides):
+        return _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2025-01-01",
+                **overrides,
+            }
+        )
+
+    def test_medicaid_relevant_change_flags_client_for_recheck(self):
+        cursor = _RoutingCursor(
+            self._routes(self._existing(policyEndDate="2024-06-01"))
+        )
+
+        put_client_insurance_policies_in_db(
+            self._policy_df(), connection=FakeConnection(cursor)
+        )
+
+        assert self._recheck_flags(cursor) == [[1]]
+
+    def test_irrelevant_change_does_not_flag_client(self):
+        cursor = _RoutingCursor(self._routes(self._existing(memo="old note")))
+
+        put_client_insurance_policies_in_db(
+            self._policy_df(), connection=FakeConnection(cursor)
+        )
+
+        assert any(
+            "python.insurance.updatePolicy" in str(p) for _, p in cursor.executed
+        )
+        assert self._recheck_flags(cursor) == []
+
+    def test_unchanged_policy_does_not_flag_client(self):
+        cursor = _RoutingCursor(self._routes(self._existing()))
+
+        put_client_insurance_policies_in_db(
+            self._policy_df(), connection=FakeConnection(cursor)
+        )
+
+        assert self._recheck_flags(cursor) == []
+
+    def test_new_policy_flags_client_for_recheck(self):
+        routes = [r for r in self._routes(None) if "policyId IN" not in r[0]]
+        cursor = _RoutingCursor(routes)
+
+        put_client_insurance_policies_in_db(
+            self._policy_df(), connection=FakeConnection(cursor)
+        )
+
+        assert self._recheck_flags(cursor) == [[1]]
+
+    def test_removed_policy_flags_client_for_recheck(self):
+        routes = self._routes(self._existing())
+        routes[-1] = (
+            "SELECT clientId, policyId FROM `emr_client_insurance_policy`",
+            [{"clientId": 1, "policyId": "gone"}],
+        )
+        cursor = _RoutingCursor(routes)
+
+        put_client_insurance_policies_in_db(
+            self._policy_df(), connection=FakeConnection(cursor)
+        )
+
+        assert self._recheck_flags(cursor) == [[1]]
+
     def test_no_audit_log_for_superseded_duplicate_policy_rows(self):
         """The export can contain multiple rows for the same POLICY_ID (one per
         benefits-check event). Only the last row's state should be diffed and
@@ -978,11 +1053,61 @@ class TestGetMedicaidClientsWithIds:
         assert "medicaidCheckedAt" not in all_query
         assert len(due_params) == len(all_params) + 1
 
+    def test_flagged_clients_are_always_included_and_come_first_with_stale_days(self):
+        def row(i, checked, recheck=False):
+            return {
+                "id": i,
+                "medicaidCheckedAt": checked,
+                "medicaidRecheck": recheck,
+                "firstName": "A",
+                "lastName": "B",
+                "insuranceNumber": "1111111111",
+            }
+
+        recent = dt.datetime(2026, 11, 1)
+        flagged = row(1, recent, recheck=True)
+        never = row(2, None)
+        old = row(3, dt.datetime(2020, 1, 1))
+        conn = FakeConnection(FakeCursor(fetchall_result=[old, never, flagged]))
+
+        result = get_medicaid_clients_with_ids(stale_days=30, connection=conn)
+
+        assert [c["id"] for c in result] == [1, 2, 3]
+
+    def test_only_due_query_selects_flag_and_does_not_cap_flagged_clients(self):
+        def row(i, checked, recheck=False):
+            return {
+                "id": i,
+                "medicaidCheckedAt": checked,
+                "medicaidRecheck": recheck,
+                "firstName": "A",
+                "lastName": "B",
+                "insuranceNumber": "1111111111",
+            }
+
+        stale = [
+            row(i, dt.datetime(2020, 1, 1) + dt.timedelta(days=i))
+            for i in range(MEDICAID_RECHECK_BATCH_SIZE + 5)
+        ]
+        flagged = [row(2000 + i, dt.datetime(2026, 11, 1), True) for i in range(3)]
+        cursor = FakeCursor(fetchall_result=stale + flagged)
+
+        result = get_medicaid_clients_with_ids(
+            only_due=True, connection=FakeConnection(cursor)
+        )
+
+        query, _ = cursor.executed[0]
+        assert "c.medicaidRecheck = TRUE" in query
+        ids = {c["id"] for c in result}
+        assert {2000, 2001, 2002} <= ids
+        assert len(result) == MEDICAID_RECHECK_BATCH_SIZE + 3
+
     def test_only_due_caps_rechecks_but_not_new_clients(self):
         def row(i, checked):
             return {
                 "id": i,
                 "medicaidCheckedAt": checked,
+                "medicaidRecheck": False,
                 "firstName": "A",
                 "lastName": "B",
                 "insuranceNumber": "1111111111",
@@ -1005,6 +1130,7 @@ class TestGetMedicaidClientsWithIds:
             return {
                 "id": i,
                 "medicaidCheckedAt": dt.datetime(2020, 1, 1),
+                "medicaidRecheck": False,
                 "firstName": "A",
                 "lastName": "B",
                 "insuranceNumber": "1111111111",
@@ -1033,6 +1159,7 @@ class TestGetMedicaidClientsWithIds:
             return {
                 "id": i,
                 "medicaidCheckedAt": checked,
+                "medicaidRecheck": False,
                 "firstName": "A",
                 "lastName": "B",
                 "insuranceNumber": "1111111111",
@@ -1076,6 +1203,7 @@ class TestUpdateClientMedicaidEligibility:
 
         query, params = cursor.executed[0]
         assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert "medicaidRecheck = FALSE" in query
         assert params == (
             "DISABLED",
             "TEFRA",
@@ -1102,6 +1230,7 @@ class TestUpdateClientMedicaidEligibility:
         query, params = cursor.executed[0]
         assert "qualCategory" not in query
         assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert "medicaidRecheck = FALSE" in query
         assert params == (5,)
 
 

@@ -1112,6 +1112,17 @@ MEDICAID_SHORT_NAMES = [
 # rechecks at most this many of them, oldest first, so the portal isn't hit with
 # every active client at once on the 1st. Clients never checked are not capped.
 MEDICAID_RECHECK_BATCH_SIZE = 30
+# Policy fields that change which client or number the portal lookup uses, or
+# whether the policy counts as active. A change to any of them, or a policy
+# being added or removed, flags the client for a Medicaid recheck.
+MEDICAID_RELEVANT_POLICY_COLUMNS = {
+    "policyType",
+    "policyStartDate",
+    "policyEndDate",
+    "insuranceNumber",
+    "policyCompanyName",
+    "insuranceCompanyName",
+}
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
@@ -1285,7 +1296,7 @@ def update_client_medicaid_eligibility(
     with connection.cursor() as cursor:
         if eligibility is None:
             cursor.execute(
-                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP(), medicaidNotFound = TRUE WHERE id = %s",
+                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP(), medicaidNotFound = TRUE, medicaidRecheck = FALSE WHERE id = %s",
                 (client_id,),
             )
         else:
@@ -1298,7 +1309,7 @@ def update_client_medicaid_eligibility(
                     medicaidSpecialProgram = %s, medicaidSpecialProgramMessage = %s,
                     medicaidBeneficiaryStatus = %s,
                     medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP(),
-                    medicaidNotFound = FALSE
+                    medicaidNotFound = FALSE, medicaidRecheck = FALSE
                 WHERE id = %s
                 """,
                 (
@@ -1341,9 +1352,10 @@ def get_medicaid_clients_with_ids(
     Each client appears once with the policy number to search, preferring the
     primary policy. With only_due, restricts to clients never checked, plus a
     batch of MEDICAID_RECHECK_BATCH_SIZE (oldest first) last checked before the
-    start of this calendar month. With stale_days, restricts instead to every
-    client never checked or last checked more than stale_days ago, never checked
-    first and then oldest first, capped at limit when given (no cap otherwise).
+    start of this calendar month, plus every client with medicaidRecheck set.
+    With stale_days, restricts instead to every client never checked, flagged
+    for recheck, or last checked more than stale_days ago, flagged first, then
+    never checked, then oldest first, capped at limit when given (no cap otherwise).
     This catches clients whose last check predates a mid-month change.
     With not_found_only, restricts to clients the portal could not find on their
     last check, regardless of when that was, capped at limit when given.
@@ -1364,7 +1376,7 @@ def get_medicaid_clients_with_ids(
         cursor.execute(
             f"""
             SELECT c.id, {
-                "c.medicaidCheckedAt, " if only_due else ""
+                "c.medicaidCheckedAt, c.medicaidRecheck, " if only_due else ""
             }c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
@@ -1382,7 +1394,7 @@ def get_medicaid_clients_with_ids(
               AND TRIM(p.insuranceNumber) REGEXP '^[0-9A-Za-z]+$'
               {" AND c.medicaidNotFound = TRUE" if not_found_only else ""}
               {
-                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < %s)"
+                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidRecheck = TRUE OR c.medicaidCheckedAt < %s)"
                 if only_due
                 else ""
             }
@@ -1403,15 +1415,24 @@ def get_medicaid_clients_with_ids(
     if stale_days is not None:
         result.sort(
             key=lambda c: (
+                not c["medicaidRecheck"],
                 c["medicaidCheckedAt"] is not None,
                 c["medicaidCheckedAt"] or datetime.min,
             )
         )
         return result[:limit]
 
-    new_clients = [c for c in result if c["medicaidCheckedAt"] is None]
+    # Never-checked and recheck-requested clients are always included, not
+    # counted against the stale batch.
+    new_clients = [
+        c for c in result if c["medicaidCheckedAt"] is None or c["medicaidRecheck"]
+    ]
     stale = sorted(
-        (c for c in result if c["medicaidCheckedAt"] is not None),
+        (
+            c
+            for c in result
+            if c["medicaidCheckedAt"] is not None and not c["medicaidRecheck"]
+        ),
         key=lambda c: c["medicaidCheckedAt"],
     )
     return new_clients + stale[:MEDICAID_RECHECK_BATCH_SIZE]
@@ -1935,10 +1956,12 @@ def put_client_insurance_policies_in_db(
         return val
 
     policy_updates: list[tuple[int, str, dict]] = []
+    recheck_client_ids: set[int] = set()
     for values in values_to_insert:
         new_row = dict(zip(col_names, values, strict=True))
         existing = existing_by_policy_id.get(new_row["policyId"])
         if existing is None:
+            recheck_client_ids.add(new_row["clientId"])
             continue
         diff = {
             col: {"old": existing[col], "new": new_row[col]}
@@ -1947,6 +1970,8 @@ def put_client_insurance_policies_in_db(
         }
         if diff:
             policy_updates.append((new_row["clientId"], new_row["policyId"], diff))
+            if MEDICAID_RELEVANT_POLICY_COLUMNS & diff.keys():
+                recheck_client_ids.add(new_row["clientId"])
 
     with connection.cursor() as cursor:
         cursor.executemany(sql_stmt, values_to_insert)
@@ -2002,6 +2027,17 @@ def put_client_insurance_policies_in_db(
             "TA import",
             detail={"policyId": policy["policyId"]},
         )
+    recheck_client_ids.update(policy["clientId"] for policy in stale_policies)
+    if recheck_client_ids:
+        # lazy: flags every client with a changed policy, not just Medicaid
+        # ones. The lookup query ignores non-Medicaid clients, so the flag sits
+        # unused until they get a Medicaid policy.
+        recheck_placeholders = ", ".join(["%s"] * len(recheck_client_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET medicaidRecheck = TRUE WHERE id IN ({recheck_placeholders})",
+                list(recheck_client_ids),
+            )
     connection.commit()
 
     if deleted:

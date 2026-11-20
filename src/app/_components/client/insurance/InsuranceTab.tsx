@@ -5,6 +5,7 @@ import { Redact } from "@components/redaction/Redact";
 import { ResponsiveDialog } from "@components/shared/ResponsiveDialog";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Badge } from "@ui/badge";
+import { Button } from "@ui/button";
 import {
 	Card,
 	CardContent,
@@ -14,6 +15,7 @@ import {
 } from "@ui/card";
 import { format } from "date-fns";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { Client } from "~/lib/models";
 import {
@@ -98,6 +100,40 @@ function PaAssignedToRow({
 	);
 }
 
+function MedicaidRecheckButton({
+	clientId,
+	requested,
+}: {
+	clientId: number;
+	requested: boolean;
+}) {
+	const can = useCheckPermission();
+	const utils = api.useUtils();
+	const request = api.clients.requestMedicaidRecheck.useMutation({
+		onSuccess: () => {
+			toast.success("Medicaid eligibility will be rechecked on the next run");
+			void utils.clients.getOne.invalidate();
+		},
+		onError: (err) =>
+			toast.error("Failed to request Medicaid recheck", {
+				description: err.message,
+			}),
+	});
+
+	if (!can("clients:medicaid-recheck")) return null;
+
+	return (
+		<Button
+			disabled={requested || request.isPending}
+			onClick={() => request.mutate({ clientId })}
+			size="sm"
+			variant="outline"
+		>
+			{requested ? "Recheck requested" : "Request recheck"}
+		</Button>
+	);
+}
+
 function SectionHeader({ children }: { children: React.ReactNode }) {
 	return (
 		<p className="mt-3 mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -121,6 +157,8 @@ type MedicaidEligibility = {
 	medicaidSpecialProgram: string | null;
 	medicaidSpecialProgramMessage: string | null;
 	medicaidCheckedAt: Date | string | null;
+	medicaidRecheck: boolean;
+	clientId: number;
 };
 
 function PolicyCard({
@@ -326,7 +364,13 @@ function PolicyCard({
 
 				{medicaidEligibility && (
 					<>
-						<SectionHeader>Medicaid Eligibility</SectionHeader>
+						<div className="flex items-center justify-between">
+							<SectionHeader>Medicaid Eligibility</SectionHeader>
+							<MedicaidRecheckButton
+								clientId={medicaidEligibility.clientId}
+								requested={medicaidEligibility.medicaidRecheck}
+							/>
+						</div>
 						<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
 							<InfoRow
 								label="Qual. Category"
@@ -415,6 +459,8 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				medicaidSpecialProgramMessage:
 					client.medicaidSpecialProgramMessage ?? null,
 				medicaidCheckedAt: client.medicaidCheckedAt ?? null,
+				medicaidRecheck: client.medicaidRecheck,
+				clientId,
 			}
 		: undefined;
 

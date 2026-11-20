@@ -62,6 +62,10 @@ export const PERMISSIONS = {
 					{ id: "clients:language", title: "Edit Language" },
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
 					{ id: "clients:pa-assigned-to", title: "Edit PA Assigned To" },
+					{
+						id: "clients:medicaid-recheck",
+						title: "Request Medicaid Eligibility Recheck",
+					},
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{
 						id: "clients:ei-reminders",

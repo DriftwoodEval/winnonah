@@ -1499,6 +1499,18 @@ export const clientRouter = createTRPCRouter({
 				);
 		}),
 
+	requestMedicaidRecheck: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:medicaid-recheck");
+			ctx.logger.info(input, "Requesting Medicaid recheck");
+
+			await ctx.db
+				.update(clients)
+				.set({ medicaidRecheck: true })
+				.where(eq(clients.id, input.clientId));
+		}),
+
 	getSorted: protectedProcedure.query(async ({ ctx }) => {
 		const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
