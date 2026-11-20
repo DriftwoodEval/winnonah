@@ -22,6 +22,8 @@ import {
 	TableRow,
 } from "@ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
+import { addDays } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -35,11 +37,12 @@ import {
 	fuzzyNameRowMatches,
 	nameSearchWords,
 } from "~/lib/clients/name-search";
-import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import { BUSINESS_TIMEZONE, QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { statusLabel } from "~/lib/questionnaires/questionnaire-history";
 import {
 	cn,
 	compareDateOnly,
+	formatInBusinessTime,
 	formatShortDate,
 	formatShortInstantDate,
 	getReminderColorClass,
@@ -83,13 +86,33 @@ const REMINDED_OPTIONS: FilterOption[] = [
 
 type PdfState = "found" | "missing" | "unchecked";
 
-type AppointmentState = "upcoming" | "past" | "none";
+type AppointmentState = "past" | "soon" | "later" | "none";
 
 const APPOINTMENT_OPTIONS: FilterOption[] = [
-	{ value: "upcoming", label: "Upcoming" },
-	{ value: "past", label: "Past only" },
+	{ value: "past", label: "Past" },
+	{ value: "soon", label: "Through tomorrow" },
+	{ value: "later", label: "Later" },
 	{ value: "none", label: "None" },
 ];
+
+// Appointments before this instant (the start of the day after tomorrow,
+// business time) are past or tomorrow at the latest. Cached per minute because
+// every row and every filter count asks for it.
+let cutoffCache: { minute: number; cutoff: Date } | null = null;
+function laterAppointmentCutoff(): Date {
+	const minute = Math.floor(Date.now() / 60_000);
+	if (cutoffCache?.minute !== minute) {
+		const dayAfterTomorrow = formatInBusinessTime(
+			addDays(new Date(), 2),
+			"yyyy-MM-dd",
+		);
+		cutoffCache = {
+			minute,
+			cutoff: fromZonedTime(dayAfterTomorrow, BUSINESS_TIMEZONE),
+		};
+	}
+	return cutoffCache.cutoff;
+}
 
 const PDF_OPTIONS: FilterOption[] = [
 	{ value: "found", label: "Found" },
@@ -138,11 +161,21 @@ const EMPTY_FILTERS: Filters = {
 	appointments: [],
 };
 
-// Only active clients are shown until the viewer changes the client status filter.
+// Only active clients, and only those whose appointment is past or no later
+// than tomorrow, are shown until the viewer changes those filters.
 const DEFAULT_FILTERS: Filters = {
 	...EMPTY_FILTERS,
 	clientStatuses: ["active"],
+	appointments: ["past", "soon"],
 };
+
+function appointmentFilterChanged(selected: string[]): boolean {
+	const defaults = DEFAULT_FILTERS.appointments;
+	return (
+		selected.length !== defaults.length ||
+		!defaults.every((value) => selected.includes(value))
+	);
+}
 
 interface ClientGroup {
 	clientId: number;
@@ -261,7 +294,8 @@ function pdfState(row: QuestionnaireRow): PdfState {
 
 function appointmentState(row: QuestionnaireRow): AppointmentState {
 	if (!row.appointment) return "none";
-	return row.appointmentIsPast ? "past" : "upcoming";
+	if (row.appointmentIsPast) return "past";
+	return row.appointment < laterAppointmentCutoff() ? "soon" : "later";
 }
 
 // Each filter is skipped when `except` names it, so a facet's own counts
@@ -314,13 +348,14 @@ function matchesFilters(
 		filters.pdfs.length > 0 &&
 		!filters.pdfs.includes(pdfState(row))
 	) {
-		if (
-			except !== "appointments" &&
-			filters.appointments.length > 0 &&
-			!filters.appointments.includes(appointmentState(row))
-		) {
-			return false;
-		}
+		return false;
+	}
+
+	if (
+		except !== "appointments" &&
+		filters.appointments.length > 0 &&
+		!filters.appointments.includes(appointmentState(row))
+	) {
 		return false;
 	}
 
@@ -461,7 +496,7 @@ export function QuestionnaireDataView() {
 
 	const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 	const [viewMode, setViewMode] = useState<ViewMode>("rows");
-	const [rowSort, setRowSort] = useState<RowSortKey>("sent");
+	const [rowSort, setRowSort] = useState<RowSortKey>("appointment");
 	const [rowSortDir, setRowSortDir] = useState<SortDir>("asc");
 	const [groupSort, setGroupSort] = useState<GroupSortKey>("progress");
 	const [groupSortDir, setGroupSortDir] = useState<SortDir>("desc");
@@ -524,7 +559,7 @@ export function QuestionnaireDataView() {
 		clientStatusFilterChanged(filters.clientStatuses) ||
 		filters.reminded.length > 0 ||
 		filters.pdfs.length > 0 ||
-		filters.appointments.length > 0;
+		appointmentFilterChanged(filters.appointments);
 
 	const filteredRows = useMemo(
 		() => rows.filter((row) => matchesFilters(row, deferredFilters)),
