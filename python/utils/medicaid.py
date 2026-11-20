@@ -15,9 +15,11 @@ come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
 """
 
+import base64
 import re
 from time import sleep
 
+from driftwood_common.timezone import now_business
 from loguru import logger
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -31,6 +33,7 @@ from selenium.webdriver.support.ui import Select
 
 import utils.database
 import utils.webdriving as w
+from utils.google import upload_file
 from utils.task_tracker import track_task
 
 BASE_PORTAL_URL = "https://portal.scmedicaid.com"
@@ -227,6 +230,7 @@ def _run_medicaid_eligibility_lookup(
                             f"Failed to look up eligibility for client {medicaid_id} after re-login, skipping"
                         )
                         continue
+                archive_results_screenshot(driver, client["id"])
                 utils.database.update_client_medicaid_eligibility(
                     client["id"], eligibility, client["policyId"]
                 )
@@ -295,6 +299,46 @@ def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | N
             "Results page does not show the Medicaid ID that was searched"
         )
     return eligibility
+
+
+def capture_full_page_png(driver: WebDriver) -> bytes:
+    """Screenshot the whole page the driver is on, including the part below the fold."""
+    size = driver.execute_cdp_cmd("Page.getLayoutMetrics", {})["cssContentSize"]
+    shot = driver.execute_cdp_cmd(
+        "Page.captureScreenshot",
+        {
+            "format": "png",
+            "captureBeyondViewport": True,
+            "clip": {
+                "x": 0,
+                "y": 0,
+                "width": size["width"],
+                "height": size["height"],
+                "scale": 1,
+            },
+        },
+    )
+    return base64.b64decode(shot["data"])
+
+
+def archive_results_screenshot(driver: WebDriver, client_id: int) -> None:
+    """Save a full-page screenshot of the page the portal returned to the client's Drive folder.
+
+    It is proof of what the portal returned. A failure is logged and never stops
+    the lookup, so the eligibility is still stored.
+    """
+    try:
+        folder_id = utils.database.get_client_drive_id(client_id)
+        if not folder_id or folder_id == "N/A":
+            logger.warning(
+                f"Client {client_id} has no Drive folder, not saving Medicaid screenshot"
+            )
+            return
+        name = f"Medicaid eligibility {now_business().strftime('%Y-%m-%d %H%M')}.png"
+        upload_file(name, capture_full_page_png(driver), "image/png", folder_id)
+        logger.info(f"Saved {name} for client {client_id}")
+    except Exception:
+        logger.exception(f"Failed to save Medicaid screenshot for client {client_id}")
 
 
 def read_eligibility(driver: WebDriver) -> dict[str, str | None]:

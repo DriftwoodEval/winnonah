@@ -119,6 +119,7 @@ class TestRunLookup:
             patch.object(medicaid, "_ensure_logged_in"),
             patch.object(medicaid, "track_task") as track_task,
             patch.object(medicaid, "search_single_client") as search,
+            patch.object(medicaid, "archive_results_screenshot") as archive,
             patch.object(
                 medicaid.utils.database, "update_client_medicaid_eligibility"
             ) as update,
@@ -126,6 +127,7 @@ class TestRunLookup:
             track_task.return_value.__enter__.return_value = MagicMock()
             search.side_effect = search_side_effect
             medicaid.lookup_due_medicaid_eligibility()
+            self.archive = archive
             return update
 
     def test_stores_scraped_fields(self):
@@ -134,11 +136,13 @@ class TestRunLookup:
         update = self._run([found])
 
         update.assert_called_once_with(7, found, "policy-1")
+        self.archive.assert_called_once()
 
     def test_client_not_found_after_retry_is_stamped_without_fields(self):
         update = self._run([TimeoutException(), TimeoutException()])
 
         update.assert_called_once_with(7, None, "policy-1")
+        self.archive.assert_called_once()
 
     @pytest.mark.parametrize(
         "side_effect",
@@ -170,3 +174,41 @@ class TestDryRun:
         medicaid.lookup_medicaid_eligibility(stale_days=14, dry_run=True)
 
         login.assert_not_called()
+
+
+class TestArchiveResultsScreenshot:
+    def test_uploads_png_to_client_drive_folder(self):
+        with (
+            patch.object(
+                medicaid.utils.database, "get_client_drive_id", return_value="drive1"
+            ),
+            patch.object(medicaid, "capture_full_page_png", return_value=b"png"),
+            patch.object(medicaid, "upload_file") as upload,
+        ):
+            medicaid.archive_results_screenshot(MagicMock(), 7)
+
+        name, content, mime, folder = upload.call_args.args
+        assert name.startswith("Medicaid eligibility ")
+        assert (content, mime, folder) == (b"png", "image/png", "drive1")
+
+    @pytest.mark.parametrize("drive_id", [None, "N/A"])
+    def test_skips_client_without_drive_folder(self, drive_id):
+        with (
+            patch.object(
+                medicaid.utils.database, "get_client_drive_id", return_value=drive_id
+            ),
+            patch.object(medicaid, "upload_file") as upload,
+        ):
+            medicaid.archive_results_screenshot(MagicMock(), 7)
+
+        upload.assert_not_called()
+
+    def test_upload_failure_does_not_raise(self):
+        with (
+            patch.object(
+                medicaid.utils.database, "get_client_drive_id", return_value="drive1"
+            ),
+            patch.object(medicaid, "capture_full_page_png", return_value=b"png"),
+            patch.object(medicaid, "upload_file", side_effect=RuntimeError),
+        ):
+            medicaid.archive_results_screenshot(MagicMock(), 7)
