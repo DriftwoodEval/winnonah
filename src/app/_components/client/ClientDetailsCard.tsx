@@ -2,8 +2,9 @@
 import { Redact } from "@components/redaction/Redact";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
-import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
+import { AlertTriangleIcon, CopyIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import {
@@ -22,6 +23,27 @@ function contactName(contact: Contact) {
 	return [contact.firstName, contact.middleName, contact.lastName]
 		.filter(Boolean)
 		.join(" ");
+}
+
+function CopyButton({ label, value }: { label: string; value: string }) {
+	const copy = async () => {
+		await navigator.clipboard.writeText(value);
+		toast.success(`${label} copied to clipboard`);
+	};
+
+	return (
+		<Button
+			aria-label={`Copy ${label.toLowerCase()}`}
+			className="h-5 w-5 text-muted-foreground"
+			onClick={copy}
+			size="icon"
+			title={`Copy ${label.toLowerCase()}`}
+			type="button"
+			variant="ghost"
+		>
+			<CopyIcon className="h-3 w-3" />
+		</Button>
+	);
 }
 
 interface ClientDetailsCardProps {
@@ -161,9 +183,18 @@ export function ClientDetailsCard({
 			{client.phoneNumber && (
 				<div>
 					<p className="font-bold">Phone Number</p>
-					<Link className="hover:underline" href={`tel:${client.phoneNumber}`}>
-						<Redact>{formatPhoneNumber(client.phoneNumber)}</Redact>
-					</Link>
+					<div className="flex items-center gap-1">
+						<Link
+							className="hover:underline"
+							href={`tel:${client.phoneNumber}`}
+						>
+							<Redact>{formatPhoneNumber(client.phoneNumber)}</Redact>
+						</Link>
+						<CopyButton
+							label="Phone number"
+							value={formatPhoneNumber(client.phoneNumber)}
+						/>
+					</div>
 				</div>
 			)}
 
@@ -186,9 +217,12 @@ export function ClientDetailsCard({
 			{client.email && (
 				<div>
 					<p className="font-bold">Email</p>
-					<Link className="hover:underline" href={`mailto:${client.email}`}>
-						<Redact>{client.email}</Redact>
-					</Link>
+					<div className="flex items-center gap-1">
+						<Link className="hover:underline" href={`mailto:${client.email}`}>
+							<Redact>{client.email}</Redact>
+						</Link>
+						<CopyButton label="Email" value={client.email} />
+					</div>
 				</div>
 			)}
 
