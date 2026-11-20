@@ -57,7 +57,7 @@ import {
 	X,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
 	type ReactNode,
 	useCallback,
@@ -371,6 +371,7 @@ export function SchedulingHelper() {
 
 	return (
 		<SchedulingHelperGrid
+			key={searchParams.toString()}
 			lockedClient={clientHash ? (lockedClient ?? null) : null}
 			prefill={readPrefill(searchParams)}
 		/>
@@ -1314,6 +1315,37 @@ function SchedulingHelperGrid({
 		},
 	});
 
+	const router = useRouter();
+	const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+
+	const markAppointmentCancelled =
+		api.schedulingHelper.markAppointmentCancelled.useMutation({
+			onSuccess: (appt, { reason }) => {
+				toast.success("Slot freed");
+				setPendingCancelId(null);
+				if (reason === "rescheduled") {
+					const params = new URLSearchParams({
+						clientHash: appt.clientHash,
+						npi: String(appt.evaluatorNpi),
+						date: appt.date,
+					});
+					if (appt.daEval) params.set("type", appt.daEval);
+					if (appt.locationKey) params.set("office", appt.locationKey);
+					router.push(`/scheduling/helper?${params.toString()}`);
+				}
+				void utils.appointments.getByClientId.invalidate();
+				void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+				void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+				void utils.schedulingHelper.getOfficeCalendar.invalidate();
+				void utils.schedulingHelper.getAvailability.invalidate();
+			},
+			onError: (error) => {
+				toast.error("Failed to mark appointment cancelled", {
+					description: error.message,
+				});
+			},
+		});
+
 	// Dragging a placeholder block to a new time on its evaluator's day - see
 	// CalendarDayView's onMovePlaceholder. Only opens the confirmation, the
 	// actual move only happens once the user confirms it.
@@ -1953,6 +1985,7 @@ function SchedulingHelperGrid({
 									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
 									offices={(offices ?? []).filter((o) => !o.archived)}
+									onCancel={setPendingCancelId}
 									onChangeWeek={(delta) =>
 										setWeekOffset((w) => Math.max(0, w + delta))
 									}
@@ -2387,6 +2420,7 @@ function SchedulingHelperGrid({
 										}
 										messages={{}}
 										messagesLoading={false}
+										onCancelAppointment={setPendingCancelId}
 										onDeletePlaceholder={setPendingDeleteId}
 										onMovePlaceholder={handleMovePlaceholderDrop}
 										onShadowAppointment={setShadowAppt}
@@ -2532,6 +2566,51 @@ function SchedulingHelperGrid({
 							<AlertDialogCancel>Cancel</AlertDialogCancel>
 							<AlertDialogAction onClick={handleConfirmMove}>
 								Move
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+
+				<AlertDialog
+					onOpenChange={(open) => !open && setPendingCancelId(null)}
+					open={!!pendingCancelId}
+				>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Free this appointment's slot?</AlertDialogTitle>
+							<AlertDialogDescription>
+								Use this when the appointment was cancelled or rescheduled in
+								TherapyAppointment but hasn't synced yet. The slot opens up so
+								you can rebook it. Choose Rescheduled to reopen the helper for
+								the same client, evaluator, office, and type so you can pick the
+								new time. The next sync sets the real status, so cancel or
+								reschedule it in TherapyAppointment too.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Keep it</AlertDialogCancel>
+							<AlertDialogAction
+								onClick={() =>
+									pendingCancelId &&
+									markAppointmentCancelled.mutate({
+										appointmentId: pendingCancelId,
+										reason: "cancelled",
+									})
+								}
+								variant="destructive"
+							>
+								Cancelled
+							</AlertDialogAction>
+							<AlertDialogAction
+								onClick={() =>
+									pendingCancelId &&
+									markAppointmentCancelled.mutate({
+										appointmentId: pendingCancelId,
+										reason: "rescheduled",
+									})
+								}
+							>
+								Rescheduled: pick a new time
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

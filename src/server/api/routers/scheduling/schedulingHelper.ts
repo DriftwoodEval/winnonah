@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
 import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { z } from "zod";
@@ -9,6 +10,7 @@ import {
 	splitAvailabilityByOOO,
 } from "~/lib/integrations/google";
 import { formatInBusinessTime, getAppointmentsRequired } from "~/lib/utils";
+import { setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -247,6 +249,63 @@ export const schedulingHelperRouter = createTRPCRouter({
 				.orderBy(asc(appointments.startTime));
 
 			return rows.map((r) => ({ ...r, isCurrentUser: false }));
+		}),
+
+	// Frees a real appointment's slot right away so it can be rebooked, before
+	// the TherapyAppointment sync reports the cancellation or reschedule. The
+	// flag is only a stopgap: every sync rewrites `cancelled` from the export,
+	// and a moved start time clears it, so TA stays the source of truth.
+	markAppointmentCancelled: protectedProcedure
+		.input(
+			z.object({
+				appointmentId: z.string(),
+				reason: z.enum(["cancelled", "rescheduled"]),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+			const [appt] = await ctx.db
+				.select({
+					clientHash: clients.hash,
+					evaluatorNpi: appointments.evaluatorNpi,
+					startTime: appointments.startTime,
+					daEval: appointments.daEval,
+					locationKey: appointments.locationKey,
+				})
+				.from(appointments)
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.where(
+					and(
+						eq(appointments.id, input.appointmentId),
+						eq(appointments.placeholder, false),
+					),
+				);
+			if (!appt) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Appointment not found",
+				});
+			}
+
+			setAuditDetail(ctx, {
+				appointmentId: input.appointmentId,
+				reason: input.reason,
+				changes: { cancelled: { from: false, to: true } },
+			});
+			await ctx.db
+				.update(appointments)
+				.set({ cancelled: true })
+				.where(eq(appointments.id, input.appointmentId));
+
+			// What the helper needs to rebook the same appointment at a new time.
+			return {
+				clientHash: appt.clientHash,
+				evaluatorNpi: appt.evaluatorNpi,
+				date: formatInBusinessTime(appt.startTime, "yyyy-MM-dd"),
+				daEval: appt.daEval,
+				locationKey: appt.locationKey,
+			};
 		}),
 
 	// Practice-wide appointment durations (minutes), used when an evaluator has

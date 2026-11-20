@@ -91,6 +91,10 @@ const RELATED_ID_RESOLVERS: Record<
 		field: "appointmentId",
 		resolve: resolveViaAppointment,
 	},
+	"schedulingHelper.markAppointmentCancelled": {
+		field: "appointmentId",
+		resolve: resolveViaAppointment,
+	},
 	"evaluatorDashboard.saveNote": {
 		field: "appointmentId",
 		resolve: resolveViaAppointment,

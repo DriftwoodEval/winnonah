@@ -338,6 +338,7 @@ export function ApptBlock({
 	draggable = false,
 	onDragStart,
 	onDelete,
+	onCancel,
 	onShadow,
 }: {
 	appt: CalAppt;
@@ -355,6 +356,8 @@ export function ApptBlock({
 	onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 	/** Shows a small delete button on the block - only meaningful for placeholders. */
 	onDelete?: () => void;
+	/** Shows a button to mark a real appointment cancelled or rescheduled before TA reports it. */
+	onCancel?: () => void;
 	/** Shows a button to add a shadowing event for this appointment on another evaluator's calendar. */
 	onShadow?: () => void;
 }) {
@@ -492,12 +495,28 @@ export function ApptBlock({
 							<X className="h-3 w-3" />
 						</button>
 					)}
+					{!appt.isPreview && !appt.placeholder && onCancel && (
+						<button
+							aria-label="Mark cancelled or rescheduled"
+							className="absolute top-0.5 right-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-destructive"
+							onClick={(e) => {
+								e.stopPropagation();
+								onCancel();
+							}}
+							type="button"
+						>
+							<X className="h-3 w-3" />
+						</button>
+					)}
 					{!appt.isPreview && onShadow && (
 						<button
 							aria-label="Add shadowing event"
 							className={cn(
 								"absolute top-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-foreground",
-								appt.placeholder && onDelete ? "right-5" : "right-0.5",
+								(appt.placeholder && onDelete) ||
+									(!appt.placeholder && onCancel)
+									? "right-5"
+									: "right-0.5",
 							)}
 							onClick={(e) => {
 								e.stopPropagation();
@@ -569,6 +588,7 @@ export function CalendarDayView({
 	onSlotClick,
 	onMovePlaceholder,
 	onDeletePlaceholder,
+	onCancelAppointment,
 	onShadowAppointment,
 }: {
 	appointments: CalAppt[];
@@ -611,6 +631,8 @@ export function CalendarDayView({
 	) => void;
 	/** Shows a delete button on placeholder blocks, called with the appointment id. */
 	onDeletePlaceholder?: (appointmentId: string) => void;
+	/** Shows a button on real appointments to mark them cancelled or rescheduled ahead of the TA sync. */
+	onCancelAppointment?: (appointmentId: string) => void;
 	/** Shows a shadowing button on each block, called with that appointment. */
 	onShadowAppointment?: (appt: CalAppt) => void;
 }) {
@@ -766,6 +788,11 @@ export function CalendarDayView({
 									key={appt.id}
 									messages={messages}
 									messagesLoading={messagesLoading}
+									onCancel={
+										onCancelAppointment && appt.placeholder !== true
+											? () => onCancelAppointment(appt.id)
+											: undefined
+									}
 									onDelete={
 										onDeletePlaceholder && appt.placeholder === true
 											? () => onDeletePlaceholder(appt.id)

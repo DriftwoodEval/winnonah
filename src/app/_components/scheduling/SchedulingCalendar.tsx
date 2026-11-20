@@ -142,6 +142,7 @@ export function SchedulingCalendar({
 	onMove,
 	onSelect,
 	onDelete,
+	onCancel,
 	onShadow,
 	offices,
 }: {
@@ -180,6 +181,8 @@ export function SchedulingCalendar({
 	) => void;
 	onSelect: (npi: number, day: string) => void;
 	onDelete: (appointmentId: string) => void;
+	/** Called to free the slot of a real appointment TA hasn't reported as cancelled or rescheduled yet. */
+	onCancel: (appointmentId: string) => void;
 	/** Called when the shadowing button on an appointment or placeholder is clicked. */
 	onShadow: (appt: CalendarBooking, evaluatorNpi: number) => void;
 	/** Offices a placeholder can be moved to, besides Virtual. */
@@ -665,7 +668,7 @@ export function SchedulingCalendar({
 																aria-label="Add shadowing event"
 																className={cn(
 																	"absolute top-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-foreground",
-																	isPlaceholder ? "right-5" : "right-0.5",
+																	"right-5",
 																)}
 																onClick={() => onShadow(appt, ev.npi)}
 																onPointerDown={(e) => e.stopPropagation()}
@@ -673,17 +676,23 @@ export function SchedulingCalendar({
 															>
 																<Eye className="h-3 w-3" />
 															</button>
-															{isPlaceholder && (
-																<button
-																	aria-label="Delete placeholder"
-																	className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-destructive"
-																	onClick={() => onDelete(appt.id)}
-																	onPointerDown={(e) => e.stopPropagation()}
-																	type="button"
-																>
-																	<X className="h-3 w-3" />
-																</button>
-															)}
+															<button
+																aria-label={
+																	isPlaceholder
+																		? "Delete placeholder"
+																		: "Mark cancelled or rescheduled"
+																}
+																className="absolute top-0.5 right-0.5 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-destructive"
+																onClick={() =>
+																	isPlaceholder
+																		? onDelete(appt.id)
+																		: onCancel(appt.id)
+																}
+																onPointerDown={(e) => e.stopPropagation()}
+																type="button"
+															>
+																<X className="h-3 w-3" />
+															</button>
 														</div>
 													</PopoverAnchor>
 													<PopoverContent
