@@ -56,7 +56,9 @@ This table has one row per appointment, with the information from Work Summary: 
 - **Projected** is how long the appointment is expected to take. **Logged** is the time from started to left.
 - **vs Projected** says how far the logged length was from the projection, for example "12 min over" or "24 min under".
 - **Late Start** says how far the started time was from the scheduled start, for example "5 min late" or "3 min early".
-- If the left time was entered before the started time, Logged shows **Out of order** instead of a length. Filter the **Logged** column to **Out of order** to find these, then fix the times on the client's appointment.
+- If the left time was entered before the started time, or the started time before the arrived time, Logged shows **Out of order** instead of a length. Filter the **Logged** column to **Out of order** to find these, or to **Out of order: (name)** for one person's entries, then fix the times on the client's appointment.
 - The Logged, vs Projected, Late Start, Arrived, Started, and Left filters have a **Recorded** option that shows every row with any value, and **Not recorded** for rows with none.
+- The Arrived, Started, and Left filters also list each person who entered that time, so you can see everything one person checked in.
+- The Work Summary page links here. Clicking a client count on its check-ins card opens this table for the same dates, filtered to that person. A date button next to the search box shows the dates, and clicking it removes the date limit. A view opened this way is not saved, so your own filters stay as you left them.
 
 Search by client name, the filters, and sorting work the same as in the other tables.

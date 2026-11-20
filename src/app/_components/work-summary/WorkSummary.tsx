@@ -1,12 +1,9 @@
 "use client";
 
-import { ClientHoverCard } from "@components/client/ClientHoverCard";
-import { Redact } from "@components/redaction/Redact";
 import { EmptyState } from "@components/shared/EmptyState";
 import { ErrorState } from "@components/shared/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { DatePicker } from "@ui/date-picker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
@@ -22,12 +19,13 @@ import { format, subDays, subMonths } from "date-fns";
 import {
 	ClipboardCheckIcon,
 	ClipboardListIcon,
-	DoorOpenIcon,
 	TimerIcon,
 	UserIcon,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState } from "react";
-import { cn } from "~/lib/utils";
+import { cn, evaluatorDisplayName } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const DA_EVAL_ORDER = ["DA", "EVAL", "DAEVAL"] as const;
@@ -174,98 +172,81 @@ function fmtHours(minutes: number): string {
 	return h % 1 === 0 ? `${h}h` : `${h.toFixed(1)}h`;
 }
 
-function fmtSignedMinutes(minutes: number): string {
+// Reads "5 min late" or "3 min early"; zero reads as the `zero` label.
+function fmtMinuteWords(
+	minutes: number,
+	positive: string,
+	negative: string,
+	zero: string,
+): string {
 	const rounded = Math.round(minutes);
-	if (rounded === 0) return "on time";
-	const sign = rounded > 0 ? "+" : "";
-	return `${sign}${rounded}m`;
+	if (rounded === 0) return zero;
+	return `${Math.abs(rounded)} min ${rounded > 0 ? positive : negative}`;
 }
 
-function fmtMinutes(minutes: number | undefined): string {
-	if (minutes === undefined) return "-";
-	const rounded = Math.round(minutes);
-	if (rounded < 60) return `${rounded}m`;
-	const h = Math.floor(rounded / 60);
-	const m = rounded % 60;
-	return m === 0 ? `${h}h` : `${h}h ${m}m`;
+const HEADER_ROW = "bg-muted hover:bg-muted";
+const STICKY_FIRST = "sticky left-0 z-10";
+
+function CardHeading({
+	icon,
+	title,
+	hint,
+}: {
+	icon: React.ReactNode;
+	title: string;
+	hint: string;
+}) {
+	return (
+		<CardHeader className="flex flex-row items-center gap-3 space-y-0">
+			<div className="rounded-lg bg-primary/10 p-2 text-primary">{icon}</div>
+			<div>
+				<CardTitle>{title}</CardTitle>
+				<p className="text-sm text-muted-foreground">{hint}</p>
+			</div>
+		</CardHeader>
+	);
 }
 
-type SelectedEvaluator = { npi: number; name: string };
+// The Database page's Appointments tab for the date range, with one filter
+// applied (a filter key and its value).
+function appointmentsHref(
+	filter: { key: string; value: string },
+	startDate?: Date,
+	endDate?: Date,
+): string {
+	const params = new URLSearchParams({ table: "appointments" });
+	if (startDate && endDate) {
+		params.set("from", format(startDate, "yyyy-MM-dd"));
+		params.set("to", format(endDate, "yyyy-MM-dd"));
+	}
+	params.set(filter.key, filter.value);
+	return `/database?${params}`;
+}
 
-function AppointmentDetailDialog({
-	evaluator,
+// A count that opens the Database page's Appointments tab with the matching
+// rows: the date range plus the filter that produced the count.
+function CheckinCountLink({
+	count,
+	filter,
+	name,
 	startDate,
 	endDate,
-	onClose,
 }: {
-	evaluator: SelectedEvaluator;
-	startDate: Date;
-	endDate: Date;
-	onClose: () => void;
+	count: number;
+	filter: "arrived" | "started" | "left" | "logged";
+	name: string;
+	startDate?: Date;
+	endDate?: Date;
 }) {
-	const { data, isLoading, isError, refetch } =
-		api.workSummary.getAppointmentDetail.useQuery({
-			evaluatorNpi: evaluator.npi,
-			startDate,
-			endDate,
-		});
-
+	if (!count) return <>{count || "-"}</>;
+	const value = filter === "logged" ? `Out of order: ${name}` : name;
 	return (
-		<Dialog onOpenChange={(open) => !open && onClose()} open>
-			<DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-4xl">
-				<DialogHeader>
-					<DialogTitle>{evaluator.name}</DialogTitle>
-				</DialogHeader>
-				{isLoading ? (
-					<div className="space-y-2">
-						<Skeleton className="h-8 w-full" />
-						<Skeleton className="h-8 w-full" />
-						<Skeleton className="h-8 w-full" />
-					</div>
-				) : isError ? (
-					<ErrorState compact onRetry={refetch} />
-				) : data?.length ? (
-					<Table>
-						<TableHeader>
-							<TableRow className="hover:bg-transparent">
-								<TableHead>Date</TableHead>
-								<TableHead>Client</TableHead>
-								<TableHead>Type</TableHead>
-								<TableHead className="text-center">Projected</TableHead>
-								<TableHead className="text-center">Logged</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{data.map((appt) => (
-								<TableRow className="hover:bg-transparent" key={appt.id}>
-									<TableCell className="text-muted-foreground">
-										{format(appt.startTime, "MMM d, yyyy h:mm a")}
-									</TableCell>
-									<TableCell>
-										<ClientHoverCard clientHash={appt.clientHash}>
-											<Redact>{appt.clientName}</Redact>
-										</ClientHoverCard>
-									</TableCell>
-									<TableCell>
-										{appt.asdAdhd
-											? `${appt.daEval}/${appt.asdAdhd}`
-											: appt.daEval}
-									</TableCell>
-									<TableCell className="text-center text-muted-foreground">
-										{fmtMinutes(appt.projectedMinutes)}
-									</TableCell>
-									<TableCell className="text-center text-muted-foreground">
-										{fmtMinutes(appt.loggedMinutes)}
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				) : (
-					<EmptyState compact title="No appointments found" />
-				)}
-			</DialogContent>
-		</Dialog>
+		<Link
+			className="underline-offset-2 hover:underline"
+			href={appointmentsHref({ key: filter, value }, startDate, endDate)}
+		>
+			{count}
+		</Link>
 	);
 }
 
@@ -273,8 +254,7 @@ export default function PieceworkSummary() {
 	const [preset, setPreset] = useState<Preset>("4w");
 	const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
 	const [customEnd, setCustomEnd] = useState<Date | undefined>(undefined);
-	const [selectedEvaluator, setSelectedEvaluator] =
-		useState<SelectedEvaluator | null>(null);
+	const router = useRouter();
 	const [viewMode, setViewMode] = useState<ViewMode>("total");
 
 	const effectiveDates =
@@ -373,10 +353,45 @@ export default function PieceworkSummary() {
 		};
 	}, [data, viewMode, numWeeks]);
 
+	const openEvaluator = (npi: number) =>
+		router.push(
+			appointmentsHref(
+				{ key: "evaluators", value: String(npi) },
+				effectiveDates.startDate,
+				effectiveDates.endDate,
+			),
+		);
+	const linkDates = {
+		startDate: effectiveDates.startDate,
+		endDate: effectiveDates.endDate,
+	};
+	const showOutOfOrder =
+		data?.checkins.some((row) => row.outOfOrder > 0) ?? false;
+
+	const timingRows = useMemo(() => {
+		const rows = new Map<
+			number,
+			{
+				npi: number;
+				name: string;
+				timing?: NonNullable<typeof data>["timing"][number];
+				arrival?: NonNullable<typeof data>["dayLateness"][number];
+			}
+		>();
+		for (const t of data?.timing ?? []) {
+			rows.set(t.npi, { npi: t.npi, name: t.name, timing: t });
+		}
+		for (const a of data?.dayLateness ?? []) {
+			const row = rows.get(a.npi) ?? { npi: a.npi, name: a.name };
+			rows.set(a.npi, { ...row, arrival: a });
+		}
+		return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
+	}, [data]);
+
 	return (
 		<div className="flex w-full flex-col gap-6">
 			{/* Controls */}
-			<div className="flex flex-wrap items-center gap-3">
+			<div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3">
 				<ToggleGroup
 					onValueChange={(v) => {
 						if (v) setPreset(v as Preset);
@@ -434,12 +449,11 @@ export default function PieceworkSummary() {
 
 			{/* Appointments card */}
 			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
-					<div className="rounded-lg bg-primary/10 p-2 text-primary">
-						<UserIcon className="h-5 w-5" />
-					</div>
-					<CardTitle>Appointments by Evaluator</CardTitle>
-				</CardHeader>
+				<CardHeading
+					hint="Click an evaluator to open their appointments"
+					icon={<UserIcon className="h-5 w-5" />}
+					title="Appointments by Evaluator"
+				/>
 				<CardContent className="p-0">
 					{isLoading ? (
 						<div className="space-y-2 p-4">
@@ -457,13 +471,13 @@ export default function PieceworkSummary() {
 									<button
 										className="w-full cursor-pointer rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/70"
 										key={row.npi}
-										onClick={() =>
-											setSelectedEvaluator({ npi: row.npi, name: row.name })
-										}
+										onClick={() => openEvaluator(row.npi)}
 										type="button"
 									>
 										<div className="flex items-center justify-between">
-											<span className="font-medium">{row.name}</span>
+											<span className="font-medium">
+												{evaluatorDisplayName(row.name)}
+											</span>
 											<span className="font-bold">{fmt(row.rowTotal)}</span>
 										</div>
 										{(displayData.showProjectedHours ||
@@ -528,9 +542,12 @@ export default function PieceworkSummary() {
 							<div className="hidden overflow-x-auto md:block">
 								<Table>
 									<TableHeader>
-										<TableRow className="hover:bg-transparent">
+										<TableRow className={HEADER_ROW}>
 											<TableHead
-												className="text-center align-middle"
+												className={cn(
+													STICKY_FIRST,
+													"bg-muted text-center align-middle",
+												)}
 												rowSpan={2}
 											>
 												Evaluator
@@ -568,7 +585,7 @@ export default function PieceworkSummary() {
 												</TableHead>
 											)}
 										</TableRow>
-										<TableRow className="hover:bg-transparent">
+										<TableRow className={HEADER_ROW}>
 											{displayData.colGroups.map((g) => (
 												<Fragment key={g.daEval}>
 													{g.simple ? null : (
@@ -606,15 +623,15 @@ export default function PieceworkSummary() {
 											<TableRow
 												className="cursor-pointer hover:bg-muted/50"
 												key={row.npi}
-												onClick={() =>
-													setSelectedEvaluator({
-														npi: row.npi,
-														name: row.name,
-													})
-												}
+												onClick={() => openEvaluator(row.npi)}
 											>
-												<TableCell className="text-center font-medium">
-													{row.name}
+												<TableCell
+													className={cn(
+														STICKY_FIRST,
+														"bg-card text-center font-medium",
+													)}
+												>
+													{evaluatorDisplayName(row.name)}
 												</TableCell>
 												{displayData.colGroups.map((g) => (
 													<Fragment key={g.daEval}>
@@ -659,8 +676,13 @@ export default function PieceworkSummary() {
 										))}
 									</TableBody>
 									<TableFooter>
-										<TableRow className="hover:bg-transparent">
-											<TableCell className="text-center font-bold">
+										<TableRow className={HEADER_ROW}>
+											<TableCell
+												className={cn(
+													STICKY_FIRST,
+													"bg-muted text-center font-bold",
+												)}
+											>
 												All Evaluators
 											</TableCell>
 											{displayData.colGroups.map((g) => (
@@ -716,53 +738,13 @@ export default function PieceworkSummary() {
 				</CardContent>
 			</Card>
 
-			{/* Reports card */}
-			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
-					<div className="rounded-lg bg-primary/10 p-2 text-primary">
-						<ClipboardListIcon className="h-5 w-5" />
-					</div>
-					<CardTitle>Reports Written</CardTitle>
-				</CardHeader>
-				<CardContent className="p-0">
-					{isLoading ? (
-						<div className="space-y-2 p-4">
-							<Skeleton className="h-8 w-full" />
-							<Skeleton className="h-8 w-full" />
-						</div>
-					) : isError ? (
-						<ErrorState compact onRetry={refetch} />
-					) : data?.reports.length ? (
-						<Table classNameWrapper="px-4">
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Writer</TableHead>
-									<TableHead className="text-center">Reports</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data.reports.map((row) => (
-									<TableRow className="hover:bg-transparent" key={row.name}>
-										<TableCell className="font-medium">{row.name}</TableCell>
-										<TableCell className="text-center">{row.count}</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<EmptyState compact title="No reports tracked in this range" />
-					)}
-				</CardContent>
-			</Card>
-
 			{/* Timing card */}
 			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
-					<div className="rounded-lg bg-primary/10 p-2 text-primary">
-						<TimerIcon className="h-5 w-5" />
-					</div>
-					<CardTitle>Appointment Timing</CardTitle>
-				</CardHeader>
+				<CardHeading
+					hint="How long appointments run, when they start, and when evaluators arrive"
+					icon={<TimerIcon className="h-5 w-5" />}
+					title="Appointment Timing"
+				/>
 				<CardContent className="p-0">
 					{isLoading ? (
 						<div className="space-y-2 p-4">
@@ -771,45 +753,103 @@ export default function PieceworkSummary() {
 						</div>
 					) : isError ? (
 						<ErrorState compact onRetry={refetch} />
-					) : data?.timing.length ? (
-						<Table classNameWrapper="px-4">
+					) : timingRows.length ? (
+						<Table>
 							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Evaluator</TableHead>
-									<TableHead className="text-center">
-										Avg Duration vs Expected
+								<TableRow className={HEADER_ROW}>
+									<TableHead
+										className={cn(STICKY_FIRST, "bg-muted")}
+										rowSpan={2}
+									>
+										Evaluator
 									</TableHead>
-									<TableHead className="text-center">
-										Median Duration vs Expected
+									<TableHead className="border-l text-center" colSpan={2}>
+										Appointment length vs expected
 									</TableHead>
-									<TableHead className="text-center">Avg Late Start</TableHead>
-									<TableHead className="text-center">
-										Median Late Start
+									<TableHead className="border-l text-center" colSpan={2}>
+										Late start
 									</TableHead>
+									<TableHead className="border-l text-center" colSpan={2}>
+										Arrival
+									</TableHead>
+								</TableRow>
+								<TableRow className={HEADER_ROW}>
+									{["length", "start", "arrival"].map((group) => (
+										<Fragment key={group}>
+											<TableHead className="border-l text-center">
+												Avg
+											</TableHead>
+											<TableHead className="text-center">Median</TableHead>
+										</Fragment>
+									))}
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{data.timing.map((row) => (
-									<TableRow className="hover:bg-transparent" key={row.name}>
-										<TableCell className="font-medium">{row.name}</TableCell>
-										<TableCell className="text-center">
-											{row.durationSampleSize > 0
-												? fmtSignedMinutes(row.avgDurationDiff)
+								{timingRows.map((row) => (
+									<TableRow className="hover:bg-muted/50" key={row.npi}>
+										<TableCell
+											className={cn(STICKY_FIRST, "bg-card font-medium")}
+										>
+											{evaluatorDisplayName(row.name)}
+										</TableCell>
+										<TableCell className="border-l text-center tabular-nums">
+											{row.timing && row.timing.durationSampleSize > 0
+												? fmtMinuteWords(
+														row.timing.avgDurationDiff,
+														"over",
+														"under",
+														"On expected",
+													)
 												: "-"}
 										</TableCell>
-										<TableCell className="text-center">
-											{row.durationSampleSize > 0
-												? fmtSignedMinutes(row.medianDurationDiff)
+										<TableCell className="text-center tabular-nums">
+											{row.timing && row.timing.durationSampleSize > 0
+												? fmtMinuteWords(
+														row.timing.medianDurationDiff,
+														"over",
+														"under",
+														"On expected",
+													)
 												: "-"}
 										</TableCell>
-										<TableCell className="text-center">
-											{row.lateStartSampleSize > 0
-												? fmtSignedMinutes(row.avgLateStart)
+										<TableCell className="border-l text-center tabular-nums">
+											{row.timing && row.timing.lateStartSampleSize > 0
+												? fmtMinuteWords(
+														row.timing.avgLateStart,
+														"late",
+														"early",
+														"On time",
+													)
 												: "-"}
 										</TableCell>
-										<TableCell className="text-center">
-											{row.lateStartSampleSize > 0
-												? fmtSignedMinutes(row.medianLateStart)
+										<TableCell className="text-center tabular-nums">
+											{row.timing && row.timing.lateStartSampleSize > 0
+												? fmtMinuteWords(
+														row.timing.medianLateStart,
+														"late",
+														"early",
+														"On time",
+													)
+												: "-"}
+										</TableCell>
+										<TableCell className="border-l text-center tabular-nums">
+											{row.arrival
+												? fmtMinuteWords(
+														row.arrival.avgLateness,
+														"late",
+														"early",
+														"On time",
+													)
+												: "-"}
+										</TableCell>
+										<TableCell className="text-center tabular-nums">
+											{row.arrival
+												? fmtMinuteWords(
+														row.arrival.medianLateness,
+														"late",
+														"early",
+														"On time",
+													)
 												: "-"}
 										</TableCell>
 									</TableRow>
@@ -822,103 +862,162 @@ export default function PieceworkSummary() {
 				</CardContent>
 			</Card>
 
-			{/* Evaluator arrival lateness card */}
-			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
-					<div className="rounded-lg bg-primary/10 p-2 text-primary">
-						<DoorOpenIcon className="h-5 w-5" />
-					</div>
-					<CardTitle>Evaluator Arrival Lateness</CardTitle>
-				</CardHeader>
-				<CardContent className="p-0">
-					{isLoading ? (
-						<div className="space-y-2 p-4">
-							<Skeleton className="h-8 w-full" />
-							<Skeleton className="h-8 w-full" />
-						</div>
-					) : isError ? (
-						<ErrorState compact onRetry={refetch} />
-					) : data?.dayLateness.length ? (
-						<Table classNameWrapper="px-4">
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Evaluator</TableHead>
-									<TableHead className="text-center">Avg Lateness</TableHead>
-									<TableHead className="text-center">Median Lateness</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data.dayLateness.map((row) => (
-									<TableRow className="hover:bg-transparent" key={row.name}>
-										<TableCell className="font-medium">{row.name}</TableCell>
-										<TableCell className="text-center">
-											{fmtSignedMinutes(row.avgLateness)}
-										</TableCell>
-										<TableCell className="text-center">
-											{fmtSignedMinutes(row.medianLateness)}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<EmptyState
-							compact
-							title="No evaluator day check-ins in this range"
-						/>
-					)}
-				</CardContent>
-			</Card>
-
-			{/* Check-ins card */}
-			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
-					<div className="rounded-lg bg-primary/10 p-2 text-primary">
-						<ClipboardCheckIcon className="h-5 w-5" />
-					</div>
-					<CardTitle>Appointment Check-ins</CardTitle>
-				</CardHeader>
-				<CardContent className="p-0">
-					{isLoading ? (
-						<div className="space-y-2 p-4">
-							<Skeleton className="h-8 w-full" />
-							<Skeleton className="h-8 w-full" />
-						</div>
-					) : isError ? (
-						<ErrorState compact onRetry={refetch} />
-					) : data?.checkins.length ? (
-						<Table classNameWrapper="px-4">
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Checked In By</TableHead>
-									<TableHead className="text-center">Check-ins</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{data.checkins.map((row) => (
-									<TableRow className="hover:bg-transparent" key={row.name}>
-										<TableCell className="font-medium">{row.name}</TableCell>
-										<TableCell className="text-center">{row.count}</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					) : (
-						<EmptyState compact title="No check-ins tracked in this range" />
-					)}
-				</CardContent>
-			</Card>
-
-			{selectedEvaluator &&
-				effectiveDates.startDate &&
-				effectiveDates.endDate && (
-					<AppointmentDetailDialog
-						endDate={effectiveDates.endDate}
-						evaluator={selectedEvaluator}
-						onClose={() => setSelectedEvaluator(null)}
-						startDate={effectiveDates.startDate}
+			<div className="grid gap-6 lg:grid-cols-2">
+				{/* Reports card */}
+				<Card>
+					<CardHeading
+						hint="Who wrote each report"
+						icon={<ClipboardListIcon className="h-5 w-5" />}
+						title="Reports Written"
 					/>
-				)}
+					<CardContent className="p-0">
+						{isLoading ? (
+							<div className="space-y-2 p-4">
+								<Skeleton className="h-8 w-full" />
+								<Skeleton className="h-8 w-full" />
+							</div>
+						) : isError ? (
+							<ErrorState compact onRetry={refetch} />
+						) : data?.reports.length ? (
+							<Table>
+								<TableHeader>
+									<TableRow className={HEADER_ROW}>
+										<TableHead className={cn(STICKY_FIRST, "bg-muted")}>
+											Writer
+										</TableHead>
+										<TableHead className="border-l text-center">
+											Reports
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{data.reports.map((row) => (
+										<TableRow className="hover:bg-muted/50" key={row.name}>
+											<TableCell
+												className={cn(STICKY_FIRST, "bg-card font-medium")}
+											>
+												{row.name}
+											</TableCell>
+											<TableCell className="border-l text-center tabular-nums">
+												{row.count}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						) : (
+							<EmptyState compact title="No reports tracked in this range" />
+						)}
+					</CardContent>
+				</Card>
+
+				{/* Check-ins card */}
+				<Card>
+					<CardHeading
+						hint="Who checked in clients, and who checked in evaluators for the day. Click a client count to see those appointments"
+						icon={<ClipboardCheckIcon className="h-5 w-5" />}
+						title="Appointment Check-ins"
+					/>
+					<CardContent className="p-0">
+						{isLoading ? (
+							<div className="space-y-2 p-4">
+								<Skeleton className="h-8 w-full" />
+								<Skeleton className="h-8 w-full" />
+							</div>
+						) : isError ? (
+							<ErrorState compact onRetry={refetch} />
+						) : data?.checkins.length ? (
+							<Table>
+								<TableHeader>
+									<TableRow className={HEADER_ROW}>
+										<TableHead
+											className={cn(STICKY_FIRST, "bg-muted")}
+											rowSpan={2}
+										>
+											Checked In By
+										</TableHead>
+										<TableHead className="border-l text-center" colSpan={3}>
+											Client check-ins
+										</TableHead>
+										<TableHead className="border-l text-center" colSpan={2}>
+											Evaluator check-ins
+										</TableHead>
+										{showOutOfOrder && (
+											<TableHead className="border-l text-center" rowSpan={2}>
+												Out of order
+											</TableHead>
+										)}
+									</TableRow>
+									<TableRow className={HEADER_ROW}>
+										<TableHead className="border-l text-center">
+											Arrived
+										</TableHead>
+										<TableHead className="text-center">Started</TableHead>
+										<TableHead className="text-center">Left</TableHead>
+										<TableHead className="border-l text-center">
+											Arrived
+										</TableHead>
+										<TableHead className="text-center">Left</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{data.checkins.map((row) => (
+										<TableRow className="hover:bg-muted/50" key={row.name}>
+											<TableCell
+												className={cn(STICKY_FIRST, "bg-card font-medium")}
+											>
+												{row.name}
+											</TableCell>
+											<TableCell className="border-l text-center tabular-nums">
+												<CheckinCountLink
+													count={row.clientArrived}
+													{...linkDates}
+													filter="arrived"
+													name={row.name}
+												/>
+											</TableCell>
+											<TableCell className="text-center tabular-nums">
+												<CheckinCountLink
+													count={row.clientStarted}
+													{...linkDates}
+													filter="started"
+													name={row.name}
+												/>
+											</TableCell>
+											<TableCell className="text-center tabular-nums">
+												<CheckinCountLink
+													count={row.clientLeft}
+													{...linkDates}
+													filter="left"
+													name={row.name}
+												/>
+											</TableCell>
+											<TableCell className="border-l text-center tabular-nums">
+												{row.evaluatorArrived}
+											</TableCell>
+											<TableCell className="text-center tabular-nums">
+												{row.evaluatorLeft}
+											</TableCell>
+											{showOutOfOrder && (
+												<TableCell className="border-l text-center tabular-nums">
+													<CheckinCountLink
+														count={row.outOfOrder}
+														{...linkDates}
+														filter="logged"
+														name={row.name}
+													/>
+												</TableCell>
+											)}
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						) : (
+							<EmptyState compact title="No check-ins tracked in this range" />
+						)}
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 }

@@ -12,12 +12,23 @@ import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@ui/table";
 import { CalendarX, X } from "lucide-react";
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+	useCallback,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	fuzzyNameRowMatches,
 	nameSearchWords,
 } from "~/lib/clients/name-search";
-import { evaluatorDisplayName, formatInBusinessTime } from "~/lib/utils";
+import {
+	evaluatorDisplayName,
+	formatDateOnlyMedium,
+	formatInBusinessTime,
+} from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import {
@@ -113,8 +124,28 @@ function validLogged(row: AppointmentRow): number | undefined {
 		: undefined;
 }
 
-function isOutOfOrder(row: AppointmentRow): boolean {
+function startedBeforeArrived(row: AppointmentRow): boolean {
+	return !!row.startedAt && !!row.arrivedAt && row.startedAt < row.arrivedAt;
+}
+
+function leftBeforeStarted(row: AppointmentRow): boolean {
 	return row.loggedMinutes !== undefined && row.loggedMinutes < 0;
+}
+
+function isOutOfOrder(row: AppointmentRow): boolean {
+	return startedBeforeArrived(row) || leftBeforeStarted(row);
+}
+
+function outOfOrderBy(name: string): string {
+	return `${OUT_OF_ORDER}: ${name}`;
+}
+
+// The staff who entered the step that came out earlier than the step before it.
+function outOfOrderStaff(row: AppointmentRow): string[] {
+	const staff: string[] = [];
+	if (startedBeforeArrived(row)) staff.push(row.startedByName ?? "Unknown");
+	if (leftBeforeStarted(row)) staff.push(row.leftByName ?? "Unknown");
+	return staff;
 }
 
 // Logged minus projected minutes, when both are known.
@@ -142,8 +173,10 @@ function withRecorded(value: string): string[] {
 	return value === NOT_RECORDED ? [value] : [RECORDED, value];
 }
 
-function timeState(time: Date | null): string[] {
-	return [time ? RECORDED : NOT_RECORDED];
+// A recorded step also matches the name of the staff member who entered it.
+function stepState(time: Date | null, by: string | null): string[] {
+	if (!time) return [NOT_RECORDED];
+	return by ? [RECORDED, by] : [RECORDED];
 }
 
 // Each filter's values for a row. Rows match a filter when it has no selection
@@ -155,15 +188,15 @@ const FILTER_VALUES = {
 	types: (row: AppointmentRow) => [row.daEval ?? ""],
 	logged: (row: AppointmentRow) =>
 		isOutOfOrder(row)
-			? [OUT_OF_ORDER]
+			? [OUT_OF_ORDER, ...outOfOrderStaff(row).map(outOfOrderBy)]
 			: withRecorded(loggedRange(validLogged(row))),
 	vsProjected: (row: AppointmentRow) =>
 		withRecorded(vsProjectedRange(overProjected(row))),
 	lateStart: (row: AppointmentRow) =>
 		withRecorded(lateStartRange(row.lateStartMinutes)),
-	arrived: (row: AppointmentRow) => timeState(row.arrivedAt),
-	started: (row: AppointmentRow) => timeState(row.startedAt),
-	left: (row: AppointmentRow) => timeState(row.leftAt),
+	arrived: (row: AppointmentRow) => stepState(row.arrivedAt, row.arrivedByName),
+	started: (row: AppointmentRow) => stepState(row.startedAt, row.startedByName),
+	left: (row: AppointmentRow) => stepState(row.leftAt, row.leftByName),
 };
 
 type FilterKey = keyof typeof FILTER_VALUES;
@@ -184,6 +217,28 @@ const DEFAULT_FILTERS: Filters = {
 	started: [],
 	left: [],
 };
+
+// Business-local dates ("YYYY-MM-DD"), both ends included.
+interface DateRange {
+	from: string;
+	to: string;
+}
+
+// A link from another page (the work summary) sets filters and a date range in
+// the URL: `from` and `to`, plus any filter key with one or more values.
+// Such a view starts with every client status and is not saved or restored.
+function viewFromLink(
+	params: URLSearchParams,
+): { filters: Filters; range: DateRange | null } | null {
+	const from = params.get("from");
+	const to = params.get("to");
+	const linkedKeys = FILTER_KEYS.filter((key) => params.has(key));
+	if (linkedKeys.length === 0 && !(from && to)) return null;
+
+	const filters: Filters = { ...DEFAULT_FILTERS, clientStatuses: [] };
+	for (const key of linkedKeys) filters[key] = params.getAll(key);
+	return { filters, range: from && to ? { from, to } : null };
+}
 
 // Each filter is skipped when `except` names it, so a filter's own counts
 // reflect every other active filter but not its own selection.
@@ -283,16 +338,41 @@ export function AppointmentsDataView() {
 	const { data, isLoading, isError, refetch } =
 		api.workSummary.listAppointments.useQuery();
 
-	const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+	const searchParams = useSearchParams();
+	const linkParams = searchParams.toString();
+	const [linked, setLinked] = useState(
+		() => viewFromLink(searchParams) !== null,
+	);
+	const [filters, setFilters] = useState<Filters>(
+		() => viewFromLink(searchParams)?.filters ?? DEFAULT_FILTERS,
+	);
+	const [range, setRange] = useState<DateRange | null>(
+		() => viewFromLink(searchParams)?.range ?? null,
+	);
+
+	// The page can stay mounted while the URL changes (opening another link
+	// from the work summary), so each new link is applied here too.
+	useEffect(() => {
+		const view = viewFromLink(new URLSearchParams(linkParams));
+		if (!view) return;
+		setLinked(true);
+		setFilters(view.filters);
+		setRange(view.range);
+	}, [linkParams]);
 	const [sort, setSort] = useState<SortKey>("date");
 	const [sortDir, setSortDir] = useState<SortDir>("desc");
 	const [clientSearch, setClientSearch] = useState("");
 
-	useSavedView("appointments", { filters, sort, sortDir }, (saved) => {
-		if (saved.filters) setFilters({ ...DEFAULT_FILTERS, ...saved.filters });
-		if (saved.sort) setSort(saved.sort);
-		if (saved.sortDir) setSortDir(saved.sortDir);
-	});
+	useSavedView(
+		"appointments",
+		{ filters, sort, sortDir },
+		(saved) => {
+			if (saved.filters) setFilters({ ...DEFAULT_FILTERS, ...saved.filters });
+			if (saved.sort) setSort(saved.sort);
+			if (saved.sortDir) setSortDir(saved.sortDir);
+		},
+		!linked,
+	);
 
 	const rows = useMemo(() => data ?? [], [data]);
 	const deferredFilters = useDeferredValue(filters);
@@ -303,10 +383,17 @@ export function AppointmentsDataView() {
 		[deferredSearch],
 	);
 	const matchesAll = useCallback(
-		(row: AppointmentRow, except?: FilterKey) =>
-			fuzzyNameRowMatches(searchWords, row.clientName) &&
-			matchesFilters(row, deferredFilters, except),
-		[searchWords, deferredFilters],
+		(row: AppointmentRow, except?: FilterKey) => {
+			if (range) {
+				const day = formatInBusinessTime(row.startTime, "yyyy-MM-dd");
+				if (day < range.from || day > range.to) return false;
+			}
+			return (
+				fuzzyNameRowMatches(searchWords, row.clientName) &&
+				matchesFilters(row, deferredFilters, except)
+			);
+		},
+		[searchWords, deferredFilters, range],
 	);
 
 	const evaluatorOptions = useMemo(() => {
@@ -317,6 +404,23 @@ export function AppointmentsDataView() {
 				evaluatorDisplayName(row.evaluatorName),
 			);
 		return [...byNpi].map(([value, label]) => ({ value, label }));
+	}, [rows]);
+
+	// Staff who entered check-in steps, and staff behind out-of-order steps.
+	const { staffOptions, outOfOrderOptions } = useMemo(() => {
+		const staff = new Set<string>();
+		const offenders = new Set<string>();
+		for (const row of rows) {
+			for (const name of [row.arrivedByName, row.startedByName, row.leftByName])
+				if (name) staff.add(name);
+			for (const name of outOfOrderStaff(row)) offenders.add(name);
+		}
+		const sorted = (names: Set<string>) =>
+			[...names].sort((a, b) => a.localeCompare(b));
+		return {
+			staffOptions: toOptions(sorted(staff)),
+			outOfOrderOptions: toOptions(sorted(offenders).map(outOfOrderBy)),
+		};
 	}, [rows]);
 
 	const setFilter = (key: FilterKey, value: string[]) => {
@@ -332,14 +436,16 @@ export function AppointmentsDataView() {
 		setSortDir(key === "client" || key === "evaluator" ? "asc" : "desc");
 	};
 
-	const hasActiveFilters = FILTER_KEYS.some((key) => {
-		const selected = filters[key];
-		const defaults = DEFAULT_FILTERS[key];
-		return (
-			selected.length !== defaults.length ||
-			!defaults.every((value) => selected.includes(value))
-		);
-	});
+	const hasActiveFilters =
+		range !== null ||
+		FILTER_KEYS.some((key) => {
+			const selected = filters[key];
+			const defaults = DEFAULT_FILTERS[key];
+			return (
+				selected.length !== defaults.length ||
+				!defaults.every((value) => selected.includes(value))
+			);
+		});
 
 	const visibleRows = useMemo(() => {
 		const dir = sortDir === "asc" ? 1 : -1;
@@ -412,10 +518,18 @@ export function AppointmentsDataView() {
 					placeholder="Search client..."
 					value={clientSearch}
 				/>
+				{range && (
+					<Button onClick={() => setRange(null)} size="sm" variant="outline">
+						{formatDateOnlyMedium(range.from)} to{" "}
+						{formatDateOnlyMedium(range.to)}
+						<X className="h-4 w-4" />
+					</Button>
+				)}
 				{(hasActiveFilters || clientSearch) && (
 					<Button
 						onClick={() => {
 							setFilters(DEFAULT_FILTERS);
+							setRange(null);
 							setClientSearch("");
 						}}
 						size="sm"
@@ -432,7 +546,7 @@ export function AppointmentsDataView() {
 
 			<div className="rounded-lg border">
 				<Table
-					className={`${FIXED_TABLE} min-w-[1600px]`}
+					className={FIXED_TABLE}
 					classNameWrapper={VIRTUAL_TABLE_HEIGHT}
 					ref={scrollRef}
 				>
@@ -475,7 +589,10 @@ export function AppointmentsDataView() {
 							/>
 							<SortableHead
 								{...sortProps}
-								filter={filterFor("logged", "Logged", LOGGED_OPTIONS)}
+								filter={filterFor("logged", "Logged", [
+									...LOGGED_OPTIONS,
+									...outOfOrderOptions,
+								])}
 								label="Logged"
 								sortKey="logged"
 							/>
@@ -501,19 +618,28 @@ export function AppointmentsDataView() {
 							/>
 							<SortableHead
 								{...sortProps}
-								filter={filterFor("arrived", "Arrived", RECORDED_OPTIONS)}
+								filter={filterFor("arrived", "Arrived", [
+									...RECORDED_OPTIONS,
+									...staffOptions,
+								])}
 								label="Arrived"
 								sortKey="arrived"
 							/>
 							<SortableHead
 								{...sortProps}
-								filter={filterFor("started", "Started", RECORDED_OPTIONS)}
+								filter={filterFor("started", "Started", [
+									...RECORDED_OPTIONS,
+									...staffOptions,
+								])}
 								label="Started"
 								sortKey="started"
 							/>
 							<SortableHead
 								{...sortProps}
-								filter={filterFor("left", "Left", RECORDED_OPTIONS)}
+								filter={filterFor("left", "Left", [
+									...RECORDED_OPTIONS,
+									...staffOptions,
+								])}
 								label="Left"
 								sortKey="left"
 							/>

@@ -170,6 +170,9 @@ export function useSavedView<T extends object>(
 	table: "questionnaires" | "externalRecords" | "appointments",
 	snapshot: T,
 	restore: (saved: Partial<T>) => void,
+	// When false the saved view is neither restored nor overwritten, so a view
+	// opened from a link leaves the user's own saved filters alone.
+	enabled = true,
 ) {
 	const { data } = api.users.getDatabaseViews.useQuery(undefined, {
 		refetchOnWindowFocus: false,
@@ -179,7 +182,7 @@ export function useSavedView<T extends object>(
 	const [restored, setRestored] = useState(false);
 
 	useEffect(() => {
-		if (restored || !data) return;
+		if (!enabled || restored || !data) return;
 		try {
 			const saved = JSON.parse(data[table] ?? "null");
 			if (saved && typeof saved === "object") restore(saved as Partial<T>);
@@ -187,7 +190,7 @@ export function useSavedView<T extends object>(
 			// An unreadable saved view is ignored and the defaults stay.
 		}
 		setRestored(true);
-	}, [data, restored, table, restore]);
+	}, [data, restored, table, restore, enabled]);
 
 	const key = JSON.stringify(snapshot);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` is the serialized snapshot

@@ -1,4 +1,5 @@
 import { and, asc, count, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
+import type { MySqlColumn } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -192,27 +193,146 @@ export const workSummaryRouter = createTRPCRouter({
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
-			const checkinRows = await ctx.db
-				.select({
-					performedByEmail: appointmentCheckins.arrivedBy,
-					performedByName: users.name,
-					count: count(),
-				})
-				.from(appointmentCheckins)
-				.leftJoin(users, eq(users.email, appointmentCheckins.arrivedBy ?? ""))
-				.where(
-					and(
-						isNotNull(appointmentCheckins.arrivedAt),
-						gte(appointmentCheckins.arrivedAt, input.startDate),
-						lt(appointmentCheckins.arrivedAt, endOfDay(input.endDate)),
-					),
-				)
-				.groupBy(appointmentCheckins.arrivedBy, users.name);
+			const startDateOnly = localDateToDateOnly(input.startDate) as string;
+			const endDateOnly = localDateToDateOnly(input.endDate) as string;
 
-			const checkinSummary = checkinRows
-				.map((row) => ({
-					name: row.performedByName ?? row.performedByEmail ?? "Unknown",
-					count: row.count,
+			// Counts how many check-ins each person recorded for one kind of event.
+			// Each event has its own timestamp and "by" email column.
+			async function countCheckins(at: MySqlColumn, by: MySqlColumn) {
+				return ctx.db
+					.select({ email: by, count: count() })
+					.from(appointmentCheckins)
+					.where(
+						and(
+							isNotNull(at),
+							isNotNull(by),
+							gte(at, input.startDate),
+							lt(at, endOfDay(input.endDate)),
+						),
+					)
+					.groupBy(by);
+			}
+
+			async function countEvaluatorCheckins(at: MySqlColumn, by: MySqlColumn) {
+				return ctx.db
+					.select({ email: by, count: count() })
+					.from(evaluatorCheckins)
+					.where(
+						and(
+							isNotNull(at),
+							isNotNull(by),
+							gte(evaluatorCheckins.date, startDateOnly),
+							lte(evaluatorCheckins.date, endDateOnly),
+						),
+					)
+					.groupBy(by);
+			}
+
+			// A check-in is out of order when a later step has an earlier time than the
+			// step before it. The person who entered the later step is counted.
+			async function countOutOfOrder(
+				at: MySqlColumn,
+				by: MySqlColumn,
+				before: MySqlColumn,
+			) {
+				return ctx.db
+					.select({ email: by, count: count() })
+					.from(appointmentCheckins)
+					.where(
+						and(
+							isNotNull(by),
+							gte(at, input.startDate),
+							lt(at, endOfDay(input.endDate)),
+							sql`${at} < ${before}`,
+						),
+					)
+					.groupBy(by);
+			}
+
+			const [
+				clientArrived,
+				clientStarted,
+				clientLeft,
+				evaluatorArrived,
+				evaluatorLeft,
+				startedBeforeArrived,
+				leftBeforeStarted,
+			] = await Promise.all([
+				countCheckins(
+					appointmentCheckins.arrivedAt,
+					appointmentCheckins.arrivedBy,
+				),
+				countCheckins(
+					appointmentCheckins.startedAt,
+					appointmentCheckins.startedBy,
+				),
+				countCheckins(appointmentCheckins.leftAt, appointmentCheckins.leftBy),
+				countEvaluatorCheckins(
+					evaluatorCheckins.arrivedAt,
+					evaluatorCheckins.arrivedBy,
+				),
+				countEvaluatorCheckins(
+					evaluatorCheckins.leftAt,
+					evaluatorCheckins.leftBy,
+				),
+				countOutOfOrder(
+					appointmentCheckins.startedAt,
+					appointmentCheckins.startedBy,
+					appointmentCheckins.arrivedAt,
+				),
+				countOutOfOrder(
+					appointmentCheckins.leftAt,
+					appointmentCheckins.leftBy,
+					appointmentCheckins.startedAt,
+				),
+			]);
+
+			type CheckinCounts = {
+				clientArrived: number;
+				clientStarted: number;
+				clientLeft: number;
+				evaluatorArrived: number;
+				evaluatorLeft: number;
+				outOfOrder: number;
+			};
+			const checkinsByEmail = new Map<string, CheckinCounts>();
+			function addCounts(
+				rows: { email: string | null; count: number }[],
+				column: keyof CheckinCounts,
+			) {
+				for (const row of rows) {
+					if (!row.email) continue;
+					const entry = checkinsByEmail.get(row.email) ?? {
+						clientArrived: 0,
+						clientStarted: 0,
+						clientLeft: 0,
+						evaluatorArrived: 0,
+						evaluatorLeft: 0,
+						outOfOrder: 0,
+					};
+					entry[column] += row.count;
+					checkinsByEmail.set(row.email, entry);
+				}
+			}
+			addCounts(clientArrived, "clientArrived");
+			addCounts(clientStarted, "clientStarted");
+			addCounts(clientLeft, "clientLeft");
+			addCounts(evaluatorArrived, "evaluatorArrived");
+			addCounts(evaluatorLeft, "evaluatorLeft");
+			addCounts(startedBeforeArrived, "outOfOrder");
+			addCounts(leftBeforeStarted, "outOfOrder");
+
+			const staffRows = await ctx.db
+				.select({ email: users.email, name: users.name })
+				.from(users);
+			const staffNameByEmail = new Map(
+				staffRows.map((row) => [row.email, row.name]),
+			);
+
+			const checkinSummary = [...checkinsByEmail.entries()]
+				.map(([email, counts]) => ({
+					name: staffNameByEmail.get(email) ?? email,
+					...counts,
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -453,6 +573,9 @@ export const workSummaryRouter = createTRPCRouter({
 				arrivedAt: appointmentCheckins.arrivedAt,
 				startedAt: appointmentCheckins.startedAt,
 				leftAt: appointmentCheckins.leftAt,
+				arrivedBy: appointmentCheckins.arrivedBy,
+				startedBy: appointmentCheckins.startedBy,
+				leftBy: appointmentCheckins.leftBy,
 			})
 			.from(appointments)
 			.innerJoin(clients, eq(appointments.clientId, clients.id))
@@ -473,113 +596,58 @@ export const workSummaryRouter = createTRPCRouter({
 		const durationDefaults = (configRow?.appointmentDurationDefaults ??
 			{}) as Record<string, number>;
 
-		return rows.map(({ evaluatorDurations, ageGroup, ...row }) => {
-			const scheduledStart = row.startTime.getTime();
-			// Same rule as the work summary: lateness counts from arrival when the
-			// client arrived after the scheduled time.
-			const expectedStart = Math.max(
-				scheduledStart,
-				row.arrivedAt?.getTime() ?? 0,
-			);
-			return {
-				...row,
-				status: row.cancelled ? "Cancelled" : "Scheduled",
+		// Check-in staff are shown by name, the same way the work summary names them.
+		const staffRows = await ctx.db
+			.select({ email: users.email, name: users.name })
+			.from(users);
+		const staffNameByEmail = new Map(
+			staffRows.map((row) => [row.email, row.name]),
+		);
+		const staffName = (email: string | null) =>
+			email ? (staffNameByEmail.get(email) ?? email) : null;
+
+		return rows.map(
+			({
+				evaluatorDurations,
 				ageGroup,
-				projectedMinutes: row.daEval
-					? lookupExpectedDuration(
-							row.daEval,
-							row.asdAdhd,
-							ageGroup,
-							row.daEval === "DA",
-							(evaluatorDurations ?? {}) as Record<string, number>,
-							durationDefaults,
-						)
-					: undefined,
-				loggedMinutes:
-					row.startedAt && row.leftAt
-						? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+				arrivedBy,
+				startedBy,
+				leftBy,
+				...row
+			}) => {
+				const scheduledStart = row.startTime.getTime();
+				// Same rule as the work summary: lateness counts from arrival when the
+				// client arrived after the scheduled time.
+				const expectedStart = Math.max(
+					scheduledStart,
+					row.arrivedAt?.getTime() ?? 0,
+				);
+				return {
+					...row,
+					arrivedByName: staffName(arrivedBy),
+					startedByName: staffName(startedBy),
+					leftByName: staffName(leftBy),
+					status: row.cancelled ? "Cancelled" : "Scheduled",
+					ageGroup,
+					projectedMinutes: row.daEval
+						? lookupExpectedDuration(
+								row.daEval,
+								row.asdAdhd,
+								ageGroup,
+								row.daEval === "DA",
+								(evaluatorDurations ?? {}) as Record<string, number>,
+								durationDefaults,
+							)
 						: undefined,
-				lateStartMinutes: row.startedAt
-					? (row.startedAt.getTime() - expectedStart) / 60000
-					: undefined,
-			};
-		});
+					loggedMinutes:
+						row.startedAt && row.leftAt
+							? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+							: undefined,
+					lateStartMinutes: row.startedAt
+						? (row.startedAt.getTime() - expectedStart) / 60000
+						: undefined,
+				};
+			},
+		);
 	}),
-
-	getAppointmentDetail: protectedProcedure
-		.input(
-			z.object({
-				evaluatorNpi: z.number(),
-				startDate: z.date(),
-				endDate: z.date(),
-			}),
-		)
-		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "pages:work-summary");
-
-			const rows = await ctx.db
-				.select({
-					id: appointments.id,
-					clientName: clients.fullName,
-					clientHash: clients.hash,
-					startTime: appointments.startTime,
-					daEval: appointments.daEval,
-					asdAdhd: appointments.asdAdhd,
-					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
-					startedAt: appointmentCheckins.startedAt,
-					leftAt: appointmentCheckins.leftAt,
-				})
-				.from(appointments)
-				.innerJoin(clients, eq(appointments.clientId, clients.id))
-				.leftJoin(
-					appointmentCheckins,
-					eq(appointmentCheckins.appointmentId, appointments.id),
-				)
-				.where(
-					and(
-						eq(appointments.evaluatorNpi, input.evaluatorNpi),
-						gte(appointments.startTime, input.startDate),
-						lt(appointments.startTime, endOfDay(input.endDate)),
-						eq(appointments.cancelled, false),
-						eq(appointments.rescheduled, false),
-						eq(appointments.placeholder, false),
-						eq(appointments.billingOnly, false),
-						isNotNull(appointments.daEval),
-					),
-				)
-				.orderBy(asc(appointments.startTime));
-
-			const evaluatorRow = await ctx.db.query.evaluators.findFirst({
-				where: eq(evaluators.npi, input.evaluatorNpi),
-			});
-			const evaluatorDurations = (evaluatorRow?.appointmentDurations ??
-				{}) as Record<string, number>;
-
-			const configRow = await ctx.db.query.workSummaryConfig.findFirst();
-			const durationDefaults = (configRow?.appointmentDurationDefaults ??
-				{}) as Record<string, number>;
-
-			return rows.map((row) => ({
-				id: row.id,
-				clientName: row.clientName,
-				clientHash: row.clientHash,
-				startTime: row.startTime,
-				daEval: row.daEval,
-				asdAdhd: row.asdAdhd,
-				projectedMinutes: row.daEval
-					? lookupExpectedDuration(
-							row.daEval,
-							row.asdAdhd,
-							row.ageGroup,
-							row.daEval === "DA",
-							evaluatorDurations,
-							durationDefaults,
-						)
-					: undefined,
-				loggedMinutes:
-					row.startedAt && row.leftAt
-						? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
-						: undefined,
-			}));
-		}),
 });
