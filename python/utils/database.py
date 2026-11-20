@@ -1123,6 +1123,25 @@ MEDICAID_RELEVANT_POLICY_COLUMNS = {
     "policyCompanyName",
     "insuranceCompanyName",
 }
+
+
+def _medicaid_company_sql() -> str:
+    """SQL condition matching policies (alias `p`) from a Medicaid portal insurer.
+
+    Contains two copies of the short-name placeholder list, so bind
+    MEDICAID_SHORT_NAMES * 2.
+    """
+    placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
+    return f"""COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (
+                    SELECT i.shortName FROM `{TABLE_INSURANCE}` i
+                    WHERE i.shortName IN ({placeholders})
+                    UNION
+                    SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a
+                    JOIN `{TABLE_INSURANCE}` i ON i.id = a.insuranceId
+                    WHERE i.shortName IN ({placeholders})
+                )"""
+
+
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
@@ -1361,7 +1380,6 @@ def get_medicaid_clients_with_ids(
     last check, regardless of when that was, capped at limit when given.
     """
     assert connection is not None
-    shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
     if stale_days is not None:
         only_due = True
         checked_before = now_utc().replace(tzinfo=None) - timedelta(days=stale_days)
@@ -1380,14 +1398,7 @@ def get_medicaid_clients_with_ids(
             }c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
-            WHERE COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (
-                    SELECT i.shortName FROM `{TABLE_INSURANCE}` i
-                    WHERE i.shortName IN ({shortname_placeholders})
-                    UNION
-                    SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a
-                    JOIN `{TABLE_INSURANCE}` i ON i.id = a.insuranceId
-                    WHERE i.shortName IN ({shortname_placeholders})
-                )
+            WHERE {_medicaid_company_sql()}
               AND c.status = 1
               AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
@@ -2029,14 +2040,21 @@ def put_client_insurance_policies_in_db(
         )
     recheck_client_ids.update(policy["clientId"] for policy in stale_policies)
     if recheck_client_ids:
-        # lazy: flags every client with a changed policy, not just Medicaid
-        # ones. The lookup query ignores non-Medicaid clients, so the flag sits
-        # unused until they get a Medicaid policy.
+        # Only clients who currently hold a Medicaid portal policy are flagged.
+        # A policy that was removed or switched away from Medicaid needs no recheck.
         recheck_placeholders = ", ".join(["%s"] * len(recheck_client_ids))
         with connection.cursor() as cursor:
             cursor.execute(
-                f"UPDATE `{TABLE_CLIENT}` SET medicaidRecheck = TRUE WHERE id IN ({recheck_placeholders})",
-                list(recheck_client_ids),
+                f"""
+                UPDATE `{TABLE_CLIENT}` SET medicaidRecheck = TRUE
+                WHERE id IN ({recheck_placeholders})
+                  AND EXISTS (
+                    SELECT 1 FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
+                    WHERE p.clientId = `{TABLE_CLIENT}`.id
+                      AND {_medicaid_company_sql()}
+                  )
+                """,
+                [*recheck_client_ids, *MEDICAID_SHORT_NAMES * 2],
             )
     connection.commit()
 

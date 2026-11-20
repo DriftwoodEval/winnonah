@@ -8,6 +8,7 @@ import pytest
 
 from utils.database import (
     MEDICAID_RECHECK_BATCH_SIZE,
+    MEDICAID_SHORT_NAMES,
     _build_reactivation_note_block,
     _build_reactivation_review_separator,
     _get_date_cache,
@@ -598,11 +599,17 @@ class TestPutClientInsurancePoliciesInDb:
 
     @staticmethod
     def _recheck_flags(cursor):
-        return [
-            params
-            for query, params in cursor.executed
-            if "SET medicaidRecheck = TRUE" in query
-        ]
+        """Client ids flagged by each flag UPDATE. Also checks the UPDATE only
+        touches clients with a Medicaid portal policy."""
+        flagged = []
+        for query, params in cursor.executed:
+            if "SET medicaidRecheck = TRUE" not in query:
+                continue
+            assert "COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN" in query
+            names = len(MEDICAID_SHORT_NAMES) * 2
+            assert params[-names:] == MEDICAID_SHORT_NAMES * 2
+            flagged.append(list(params[:-names]))
+        return flagged
 
     def _existing(self, **overrides):
         return _DefaultNoneDict(
