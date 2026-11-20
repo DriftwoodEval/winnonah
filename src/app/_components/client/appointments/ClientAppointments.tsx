@@ -301,13 +301,13 @@ export function ClientAppointments({
 						</div>
 					)}
 
-					{canCheckin &&
-						!isBilling &&
+					{!isBilling &&
 						!appt.cancelled &&
 						!appt.rescheduled &&
 						!appt.placeholder &&
 						!isVirtualAppointment(appt.locationKey) &&
-						checkinDateGate(format(startTime, "yyyy-MM-dd")) && (
+						(!canCheckin ||
+							checkinDateGate(format(startTime, "yyyy-MM-dd"))) && (
 							<div className="mt-2">
 								<CheckInOutControl
 									appointmentId={appt.id}
@@ -317,6 +317,7 @@ export function ClientAppointments({
 									isToday={format(startTime, "yyyy-MM-dd") === todayStr()}
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
+									readOnly={!canCheckin}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
 									startTime={appt.startTime}

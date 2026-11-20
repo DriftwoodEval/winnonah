@@ -260,7 +260,13 @@ const CHECKIN_STAGE_STYLES = {
 	},
 } as const;
 
-function CheckinIndicator({ appt }: { appt: CalAppt }) {
+function CheckinIndicator({
+	appt,
+	readOnly,
+}: {
+	appt: CalAppt;
+	readOnly: boolean;
+}) {
 	const stage = appt.leftAt
 		? "left"
 		: appt.startedAt
@@ -268,6 +274,7 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 			: appt.arrivedAt
 				? "arrived"
 				: "none";
+	if (readOnly && stage === "none") return null;
 	const { icon: Icon, className } = CHECKIN_STAGE_STYLES[stage];
 
 	return (
@@ -301,6 +308,7 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 					}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
+					readOnly={readOnly}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
 					startTime={appt.startTime}
@@ -495,10 +503,9 @@ export function ApptBlock({
 							<Eye className="h-3 w-3" />
 						</button>
 					)}
-					{canCheckin &&
-						!isVirtualAppointment(appt.locationKey) &&
-						checkinDateGate(apptDateKey(appt.startTime)) && (
-							<CheckinIndicator appt={appt} />
+					{!isVirtualAppointment(appt.locationKey) &&
+						(!canCheckin || checkinDateGate(apptDateKey(appt.startTime))) && (
+							<CheckinIndicator appt={appt} readOnly={!canCheckin} />
 						)}
 				</div>
 			</TooltipTrigger>
@@ -550,6 +557,7 @@ export function CalendarDayView({
 	canCheckin = false,
 	evaluatorCheckins,
 	evaluatorCheckinDate,
+	evaluatorCheckinsEditable = false,
 	availability,
 	extraEvaluators,
 	showMessages = true,
@@ -568,6 +576,7 @@ export function CalendarDayView({
 		RouterOutputs["appointments"]["getEvaluatorCheckins"][number]
 	>;
 	evaluatorCheckinDate?: string;
+	evaluatorCheckinsEditable?: boolean;
 	/** Rendered as a low-opacity layer behind appointment blocks. */
 	availability?: AvailabilityWindow[];
 	/**
@@ -674,6 +683,7 @@ export function CalendarDayView({
 												evaluatorNpi={ev.npi}
 												leftAt={checkin?.leftAt ?? null}
 												leftBy={checkin?.leftBy ?? null}
+												readOnly={!evaluatorCheckinsEditable}
 											/>
 										</div>
 									)}

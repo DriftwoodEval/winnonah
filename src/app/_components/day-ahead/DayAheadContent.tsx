@@ -150,7 +150,7 @@ function AppointmentRow({
 				messagesLoading={messagesLoading}
 			/>
 			<PostVisitMessageButton appointmentId={appt.id} />
-			{canCheckin && !isVirtualAppointment(appt.locationKey) && (
+			{!isVirtualAppointment(appt.locationKey) && (
 				<CheckInOutControl
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
@@ -160,6 +160,7 @@ function AppointmentRow({
 					isToday={isToday}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
+					readOnly={!canCheckin}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
 					startTime={appt.startTime}
@@ -224,7 +225,7 @@ function EvaluatorRow({
 						{evaluator.appointments.length !== 1 ? "s" : ""}
 					</span>
 				</CollapsibleTrigger>
-				{canCheckin && hasInPersonAppointment(evaluator.appointments) && (
+				{hasInPersonAppointment(evaluator.appointments) && (
 					<EvaluatorCheckInOutControl
 						arrivedAt={evaluator.checkin.arrivedAt}
 						arrivedBy={evaluator.checkin.arrivedBy}
@@ -233,6 +234,7 @@ function EvaluatorRow({
 						evaluatorNpi={evaluator.npi}
 						leftAt={evaluator.checkin.leftAt}
 						leftBy={evaluator.checkin.leftBy}
+						readOnly={!canCheckin}
 					/>
 				)}
 				{timeRange && (
@@ -269,7 +271,7 @@ function EvaluatorRow({
 								messagesLoading={messagesLoading}
 							/>
 							<PostVisitMessageButton appointmentId={appt.id} />
-							{canCheckin && !isVirtualAppointment(appt.locationKey) && (
+							{!isVirtualAppointment(appt.locationKey) && (
 								<CheckInOutControl
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
@@ -279,6 +281,7 @@ function EvaluatorRow({
 									isToday={isToday}
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
+									readOnly={!canCheckin}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
 									startTime={appt.startTime}
@@ -599,10 +602,9 @@ export function DayAheadContent() {
 							canCheckin={canCheckin}
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
-							evaluatorCheckins={
+							evaluatorCheckins={evaluatorCheckinsByNpi}
+							evaluatorCheckinsEditable={
 								canCheckin && canCheckinOnDate(selectedDate)
-									? evaluatorCheckinsByNpi
-									: undefined
 							}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}

@@ -30,6 +30,8 @@ interface EvaluatorCheckInOutControlProps extends EvaluatorCheckinData {
 	evaluatorNpi: number;
 	date: string;
 	compact?: boolean;
+	// Shows logged times only: no buttons, no edit dialog.
+	readOnly?: boolean;
 }
 
 const KIND_CONFIG: Record<Kind, { label: string; icon: typeof DoorOpen }> = {
@@ -45,6 +47,7 @@ export function EvaluatorCheckInOutControl({
 	evaluatorNpi,
 	date,
 	compact,
+	readOnly,
 	arrivedAt,
 	leftAt,
 }: EvaluatorCheckInOutControlProps) {
@@ -122,6 +125,8 @@ export function EvaluatorCheckInOutControl({
 			? "arrived"
 			: null;
 
+	if (readOnly && !arrivedAt) return null;
+
 	const badgeSize = compact ? "h-5 px-1.5 text-[10px]" : "h-5 px-1.5 text-xs";
 
 	const stages: { kind: Kind; at: Date | null }[] = [
@@ -136,7 +141,7 @@ export function EvaluatorCheckInOutControl({
 					const { label, icon: Icon } = KIND_CONFIG[kind];
 					const prevDone = i === 0 || stages[i - 1]?.at;
 					if (!at) {
-						if (!prevDone) return null;
+						if (!prevDone || readOnly) return null;
 						return (
 							<Button
 								className={compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs"}
@@ -150,9 +155,18 @@ export function EvaluatorCheckInOutControl({
 							</Button>
 						);
 					}
+					const badgeClass = `${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground`;
+					if (readOnly) {
+						return (
+							<span className={badgeClass} key={kind}>
+								<Icon className="h-2.5 w-2.5" />
+								{formatClock(at)}
+							</span>
+						);
+					}
 					return (
 						<button
-							className={`${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground transition-colors hover:opacity-80`}
+							className={`${badgeClass} transition-colors hover:opacity-80`}
 							key={kind}
 							onClick={() => handleClick(kind, at)}
 							type="button"
@@ -164,57 +178,63 @@ export function EvaluatorCheckInOutControl({
 				})}
 			</div>
 
-			<ResponsiveDialog
-				description={format(entryDate, "MMM d")}
-				open={dialog.open}
-				setOpen={dialog.setOpen}
-				title={KIND_CONFIG[dialogKind].label}
-			>
-				<div className="flex w-full min-w-72 flex-col gap-4 py-2">
-					<div className="flex flex-col gap-1.5">
-						<Label>Time</Label>
-						<Input
-							onChange={(e) => setTimeValue(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									submitDialog();
-								}
-							}}
-							type="time"
-							value={timeValue}
-						/>
-					</div>
+			{!readOnly && (
+				<ResponsiveDialog
+					description={format(entryDate, "MMM d")}
+					open={dialog.open}
+					setOpen={dialog.setOpen}
+					title={KIND_CONFIG[dialogKind].label}
+				>
+					<div className="flex w-full min-w-72 flex-col gap-4 py-2">
+						<div className="flex flex-col gap-1.5">
+							<Label>Time</Label>
+							<Input
+								onChange={(e) => setTimeValue(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										e.preventDefault();
+										submitDialog();
+									}
+								}}
+								type="time"
+								value={timeValue}
+							/>
+						</div>
 
-					<div className="flex items-center justify-between gap-2">
-						{dialogKind === lastLoggedStage ? (
-							<Button
-								disabled={isPending}
-								onClick={() => undoMutation.mutate({ evaluatorNpi, date })}
-								type="button"
-								variant="outline"
-							>
-								<Undo2 className="h-3.5 w-3.5" />
-								Back a step
-							</Button>
-						) : (
-							<div />
-						)}
-						<div className="flex gap-2">
-							<Button
-								onClick={() => dialog.closeDialog()}
-								type="button"
-								variant="ghost"
-							>
-								Cancel
-							</Button>
-							<Button disabled={isPending} onClick={submitDialog} type="button">
-								Save
-							</Button>
+						<div className="flex items-center justify-between gap-2">
+							{dialogKind === lastLoggedStage ? (
+								<Button
+									disabled={isPending}
+									onClick={() => undoMutation.mutate({ evaluatorNpi, date })}
+									type="button"
+									variant="outline"
+								>
+									<Undo2 className="h-3.5 w-3.5" />
+									Back a step
+								</Button>
+							) : (
+								<div />
+							)}
+							<div className="flex gap-2">
+								<Button
+									onClick={() => dialog.closeDialog()}
+									type="button"
+									variant="ghost"
+								>
+									Cancel
+								</Button>
+								<Button
+									disabled={isPending}
+									onClick={submitDialog}
+									type="button"
+								>
+									Save
+								</Button>
+							</div>
 						</div>
 					</div>
-				</div>
-			</ResponsiveDialog>
+				</ResponsiveDialog>
+			)}
 		</>
 	);
 }

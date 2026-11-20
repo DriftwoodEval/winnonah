@@ -215,8 +215,7 @@ export function MyDayWidget() {
 								messagesLoading={messagesLoading}
 							/>
 							<PostVisitMessageButton appointmentId={appt.id} />
-							{canCheckin &&
-								checkinDateGate(asDate) &&
+							{(!canCheckin || checkinDateGate(asDate)) &&
 								!isVirtualAppointment(appt.locationKey) && (
 									<CheckInOutControl
 										appointmentId={appt.id}
@@ -227,6 +226,7 @@ export function MyDayWidget() {
 										isToday={asDate === todayStr()}
 										leftAt={appt.leftAt}
 										leftBy={appt.leftBy}
+										readOnly={!canCheckin}
 										startedAt={appt.startedAt}
 										startedBy={appt.startedBy}
 										startTime={appt.startTime}
@@ -397,8 +397,7 @@ function ExpandableEvaluator({
 						{evaluator.appointments.length}
 					</span>
 				</CollapsibleTrigger>
-				{canCheckin &&
-					checkinDateGate(asDate) &&
+				{(!canCheckin || checkinDateGate(asDate)) &&
 					hasInPersonAppointment(evaluator.appointments) && (
 						<EvaluatorCheckInOutControl
 							arrivedAt={evaluator.checkin.arrivedAt}
@@ -408,6 +407,7 @@ function ExpandableEvaluator({
 							evaluatorNpi={evaluator.npi}
 							leftAt={evaluator.checkin.leftAt}
 							leftBy={evaluator.checkin.leftBy}
+							readOnly={!canCheckin}
 						/>
 					)}
 				{timeRange && (
@@ -442,8 +442,7 @@ function ExpandableEvaluator({
 								messagesLoading={messagesLoading}
 							/>
 							<PostVisitMessageButton appointmentId={appt.id} />
-							{canCheckin &&
-								checkinDateGate(asDate) &&
+							{(!canCheckin || checkinDateGate(asDate)) &&
 								!isVirtualAppointment(appt.locationKey) && (
 									<CheckInOutControl
 										appointmentId={appt.id}
@@ -454,6 +453,7 @@ function ExpandableEvaluator({
 										isToday={asDate === todayStr()}
 										leftAt={appt.leftAt}
 										leftBy={appt.leftBy}
+										readOnly={!canCheckin}
 										startedAt={appt.startedAt}
 										startedBy={appt.startedBy}
 										startTime={appt.startTime}
