@@ -12,6 +12,7 @@ import {
 } from "~/lib/clients/client-card";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
+	evaluatorDisplayName,
 	formatClientAge,
 	formatCurrency,
 	formatDateOnlyLong,
@@ -45,7 +46,10 @@ function AppointmentSummary({
 		<>
 			{formatInBusinessTime(appointment.startTime, "EEE, MMM d 'at' h:mm a")}
 			<span className="block text-xs text-muted-foreground">
-				{[appointment.evaluatorName, appointment.officeName]
+				{[
+					evaluatorDisplayName(appointment.evaluatorName),
+					appointment.officeName,
+				]
 					.filter(Boolean)
 					.join(" · ")}
 			</span>

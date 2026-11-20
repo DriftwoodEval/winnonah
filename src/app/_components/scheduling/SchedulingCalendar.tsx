@@ -32,7 +32,7 @@ import { Redact } from "~/app/_components/redaction/Redact";
 import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { TimeRange } from "~/lib/scheduling-slots";
-import { cn, formatInBusinessTime } from "~/lib/utils";
+import { cn, evaluatorDisplayName, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 
 export type CalendarBooking =
@@ -444,7 +444,7 @@ export function SchedulingCalendar({
 									colorByNpi.get(ev.npi),
 								)}
 							/>
-							<Redact>{ev.providerName}</Redact>
+							<Redact>{evaluatorDisplayName(ev.providerName)}</Redact>
 							{ev.npi === assignedNpi && <AssignedStar />}
 						</button>
 					);
@@ -511,10 +511,12 @@ export function SchedulingCalendar({
 										key={`${day}-${ev.npi}-head`}
 										onClick={() => onSelect(ev.npi, day)}
 										style={{ top: DAY_HEADER_HEIGHT }}
-										title={ev.providerName}
+										title={evaluatorDisplayName(ev.providerName)}
 										type="button"
 									>
-										<Redact>{initialsOf(ev.providerName)}</Redact>
+										<Redact>
+											{initialsOf(evaluatorDisplayName(ev.providerName))}
+										</Redact>
 										{ev.npi === assignedNpi && <AssignedStar />}
 									</button>
 								),
@@ -824,8 +826,9 @@ function AppointmentDetails({
 	const [daEval, setDaEval] = useState<PlaceholderChanges["daEval"]>(
 		(appt.daEval as PlaceholderChanges["daEval"] | null) ?? "DA",
 	);
-	const evaluatorName =
-		evaluators.find((e) => e.npi === npi)?.providerName ?? "Unknown";
+	const evaluatorName = evaluatorDisplayName(
+		evaluators.find((e) => e.npi === npi)?.providerName ?? "Unknown",
+	);
 	const type = [appt.daEval, appt.asdAdhd].filter(Boolean).join(" · ");
 
 	const durationMinutes = minutesOfTime(endTime) - minutesOfTime(time);
@@ -920,7 +923,7 @@ function AppointmentDetails({
 							<SelectContent>
 								{evaluators.map((e) => (
 									<SelectItem key={e.npi} value={String(e.npi)}>
-										{e.providerName}
+										{evaluatorDisplayName(e.providerName)}
 									</SelectItem>
 								))}
 							</SelectContent>

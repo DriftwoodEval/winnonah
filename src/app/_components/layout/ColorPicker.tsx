@@ -3,7 +3,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { toast } from "sonner";
 import { USER_COLORS } from "~/lib/user-colors";
-import { cn } from "~/lib/utils";
+import { cn, evaluatorDisplayName } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 /** Color swatches for one evaluator. Colors held by another evaluator are disabled. */
@@ -47,7 +47,9 @@ export function ColorPicker({ npi }: { npi: number }) {
 								})
 							}
 							title={
-								takenByOther ? `Used by ${holder.providerName}` : undefined
+								takenByOther
+									? `Used by ${evaluatorDisplayName(holder.providerName)}`
+									: undefined
 							}
 							type="button"
 						/>

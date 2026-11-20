@@ -792,3 +792,20 @@ export function userBadgeStyle(name: string): React.CSSProperties {
 	const hue = Math.abs(hash) % 360;
 	return { backgroundColor: `hsl(${hue} 55% 40%)`, color: "white" };
 }
+
+/**
+ * Evaluator names are stored as "First (Preferred) Last". Everywhere except
+ * settings we show the preferred name in place of the first name:
+ * "Alexander (Alex) Smith" becomes "Alex Smith". Names without parentheses
+ * are returned unchanged.
+ */
+export function evaluatorDisplayName(providerName: string): string {
+	const match = /^.*?\(([^)]+)\)\s*(.*)$/.exec(providerName);
+	if (!match) return providerName;
+	return `${match[1]} ${match[2]}`.trim();
+}
+
+/** The first word of an evaluator's display name, e.g. "Alex" for "Alexander (Alex) Smith". */
+export function evaluatorFirstName(providerName: string): string {
+	return evaluatorDisplayName(providerName).split(" ")[0] ?? "";
+}

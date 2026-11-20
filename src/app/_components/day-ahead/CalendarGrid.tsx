@@ -10,7 +10,12 @@ import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { USER_COLORS } from "~/lib/user-colors";
-import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
+import {
+	cn,
+	evaluatorDisplayName,
+	formatInBusinessTime,
+	toBusinessZonedTime,
+} from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "./CheckInOutControl";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
@@ -412,7 +417,7 @@ export function ApptBlock({
 					)}
 					{showEvaluatorLine && (
 						<div className="truncate text-[10px] leading-tight text-muted-foreground">
-							<Redact>{appt.evaluatorName}</Redact>
+							<Redact>{evaluatorDisplayName(appt.evaluatorName)}</Redact>
 						</div>
 					)}
 					<div className="truncate text-[10px] leading-tight text-muted-foreground tabular-nums">
@@ -522,7 +527,7 @@ export function ApptBlock({
 				</p>
 				<p className="opacity-80">{fullLocation}</p>
 				<p className="opacity-80">
-					<Redact>{appt.evaluatorName}</Redact>
+					<Redact>{evaluatorDisplayName(appt.evaluatorName)}</Redact>
 				</p>
 				{(appt.asdAdhd ?? appt.daEval) && (
 					<p className="opacity-80">
@@ -616,7 +621,7 @@ export function CalendarDayView({
 		>();
 		for (const appt of appointments) {
 			const existing = map.get(appt.evaluatorNpi) ?? {
-				name: appt.evaluatorName,
+				name: evaluatorDisplayName(appt.evaluatorName),
 				npi: appt.evaluatorNpi,
 				isCurrentUser: appt.isCurrentUser,
 				appts: [],

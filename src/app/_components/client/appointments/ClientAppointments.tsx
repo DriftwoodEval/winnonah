@@ -40,7 +40,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { isVirtualAppointment } from "~/lib/checkin";
-import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
+import { evaluatorDisplayName, IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function ClientAppointments({
@@ -270,7 +270,9 @@ export function ClientAppointments({
 					<div className="space-y-1.5">
 						<div className="flex items-center gap-2 text-sm">
 							<User className="h-3.5 w-3.5 text-muted-foreground" />
-							<span>{appt.evaluatorName}</span>
+							<span>
+								{appt.evaluatorName && evaluatorDisplayName(appt.evaluatorName)}
+							</span>
 						</div>
 
 						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

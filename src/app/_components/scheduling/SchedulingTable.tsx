@@ -106,6 +106,7 @@ import type {
 import {
 	cn,
 	dateOnlyToLocalDate,
+	evaluatorFirstName,
 	formatClientAge,
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
@@ -662,7 +663,11 @@ function EvaluatorSelect({
 
 	if (disabled) {
 		const evaluator = allEvaluators.find((e) => e.npi.toString() === value);
-		return <span>{evaluator?.providerName.split(" ")[0] ?? "-"}</span>;
+		return (
+			<span>
+				{evaluator ? evaluatorFirstName(evaluator.providerName) : "-"}
+			</span>
+		);
 	}
 
 	return (
@@ -687,7 +692,7 @@ function EvaluatorSelect({
 						<SelectSeparator />
 						{eligible.map((evaluator) => (
 							<SelectItem key={evaluator.npi} value={evaluator.npi.toString()}>
-								{evaluator.providerName.split(" ")[0]}
+								{evaluatorFirstName(evaluator.providerName)}
 							</SelectItem>
 						))}
 						{eligible.length > 0 && other.length > 0 && <SelectSeparator />}
@@ -698,7 +703,7 @@ function EvaluatorSelect({
 						)}
 						{other.map((evaluator) => (
 							<SelectItem key={evaluator.npi} value={evaluator.npi.toString()}>
-								{evaluator.providerName.split(" ")[0]}
+								{evaluatorFirstName(evaluator.providerName)}
 							</SelectItem>
 						))}
 					</>

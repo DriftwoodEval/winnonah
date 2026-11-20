@@ -18,6 +18,7 @@ import { HelpCircle } from "lucide-react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
+import { evaluatorDisplayName } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface EligibleEvaluatorsListProps {
@@ -106,7 +107,9 @@ export function EligibleEvaluatorsList({
 						filteredEvaluators.map((evaluator, index) => (
 							<div key={evaluator.npi}>
 								<div className="text-sm">
-									<Redact>{evaluator.providerName}</Redact>
+									<Redact>
+										{evaluatorDisplayName(evaluator.providerName)}
+									</Redact>
 								</div>
 								{index !== filteredEvaluators.length - 1 && (
 									<Separator className="my-2" />

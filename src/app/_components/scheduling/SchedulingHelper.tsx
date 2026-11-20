@@ -96,6 +96,7 @@ import {
 } from "~/lib/scheduling-slots";
 import {
 	cn,
+	evaluatorDisplayName,
 	formatInBusinessTime,
 	IS_DEV,
 	localDateToDateOnly,
@@ -984,7 +985,7 @@ function SchedulingHelperGrid({
 			locationKey: office,
 			officeName: officeKeyToLabel.get(office) ?? office,
 			evaluatorNpi: selectedCell.npi,
-			evaluatorName: selectedEvaluator.providerName,
+			evaluatorName: evaluatorDisplayName(selectedEvaluator.providerName),
 			isCurrentUser: true,
 			isPreview: true,
 			arrivedAt: null,
@@ -1343,7 +1344,9 @@ function SchedulingHelperGrid({
 		setPendingMove({
 			appointmentId,
 			clientName: moved.clientName,
-			evaluatorName: selectedEvaluator?.providerName ?? "this evaluator",
+			evaluatorName: evaluatorDisplayName(
+				selectedEvaluator?.providerName ?? "this evaluator",
+			),
 			evaluatorNpi,
 			locationKey: moved.locationKey ?? office ?? "",
 			oldStart: moved.startTime,
@@ -1388,9 +1391,10 @@ function SchedulingHelperGrid({
 		setPendingMove({
 			appointmentId: args.appointmentId,
 			clientName: null,
-			evaluatorName:
+			evaluatorName: evaluatorDisplayName(
 				typeAllowedEvaluators.find((e) => e.npi === args.evaluatorNpi)
 					?.providerName ?? "this evaluator",
+			),
 			evaluatorNpi: args.evaluatorNpi,
 			locationKey: record.locationKey ?? "",
 			oldStart: args.startTime,
@@ -1543,7 +1547,9 @@ function SchedulingHelperGrid({
 		setPendingMove({
 			appointmentId: appt.id,
 			clientName: appt.clientName,
-			evaluatorName: evaluatorByNpi.get(npi)?.providerName ?? "this evaluator",
+			evaluatorName: evaluatorDisplayName(
+				evaluatorByNpi.get(npi)?.providerName ?? "this evaluator",
+			),
 			evaluatorNpi: npi,
 			locationKey: changes?.locationKey ?? appt.locationKey ?? office ?? "",
 			daEval: changes?.daEval,
@@ -1958,10 +1964,11 @@ function SchedulingHelperGrid({
 										setShadowAppt({
 											id: appt.id,
 											evaluatorNpi: npi,
-											evaluatorName:
+											evaluatorName: evaluatorDisplayName(
 												[...eligibleList, ...ineligibleList].find(
 													(e) => e.npi === npi,
 												)?.providerName ?? "",
+											),
 											startTime: appt.startTime,
 											endTime: appt.endTime,
 										})
@@ -2370,7 +2377,9 @@ function SchedulingHelperGrid({
 												? [
 														{
 															npi: selectedEvaluator.npi,
-															name: selectedEvaluator.providerName,
+															name: evaluatorDisplayName(
+																selectedEvaluator.providerName,
+															),
 															isCurrentUser: true,
 														},
 													]

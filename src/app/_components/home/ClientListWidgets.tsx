@@ -11,7 +11,7 @@ import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { formatInBusinessTime } from "~/lib/utils";
+import { evaluatorDisplayName, formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function RecentClientsWidget() {
@@ -158,7 +158,7 @@ export function PostVisitMessagesWidget() {
 							</Link>
 							<span className="text-xs text-muted-foreground">
 								{formatInBusinessTime(r.startTime, "MMM d")} with{" "}
-								{r.evaluatorName}
+								{evaluatorDisplayName(r.evaluatorName)}
 							</span>
 						</div>
 						<PostVisitMessageButton appointmentId={r.appointmentId} />
