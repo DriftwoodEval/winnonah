@@ -5,6 +5,7 @@ title: Changelog
 ## 2026-11-19
 
 **New**
+- The Database page has a new Appointments tab with every appointment, its check-in times, and how its length and start compare to the plan. Rows where the left time was entered before the started time show "Out of order".
 - The Audit Log can now be filtered by a from and to date.
 - The Medicaid Eligibility section on a client's Insurance tab has a "Request recheck" button. It marks the client to be checked on the Medicaid portal again on the next run, instead of waiting for the monthly check. Who can use it is set by the new "Request Medicaid Eligibility Recheck" permission.
 - A client with a Medicaid policy is now marked for an eligibility recheck automatically when their insurance policy is added or removed, or when its type, dates, insurance number, or company changes.
@@ -16,6 +17,7 @@ title: Changelog
 - Audit Log action names now capitalize acronyms and names correctly, for example "Download CSV", "SCM backfill", and "BabyNet".
 - The Settings sidebar now switches to the dropdown on medium-width windows, so pages like the Audit Log have more room.
 - Evaluators whose name has a preferred name in parentheses, like "Alexander (Alex) Smith", now show as "Alex Smith" everywhere except Settings.
+- Check-ins can no longer be saved out of order: a left time cannot be before the started time, and a started time cannot be before the arrived time.
 
 ## 2026-11-15
 

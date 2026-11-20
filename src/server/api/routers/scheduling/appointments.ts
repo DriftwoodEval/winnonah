@@ -49,6 +49,21 @@ const evaluatorCheckinInputSchema = z.object({
 	occurredAt: z.date(),
 });
 
+// Throws unless the recorded times, earliest step first, never go backwards.
+function assertCheckinOrder(steps: [string, Date | null | undefined][]) {
+	const recorded = steps.filter(([, time]) => time);
+	for (let i = 1; i < recorded.length; i++) {
+		const [prevName, prev] = recorded[i - 1] ?? [];
+		const [name, time] = recorded[i] ?? [];
+		if (prev && time && time < prev) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: `"${name}" time cannot be before the "${prevName}" time.`,
+			});
+		}
+	}
+}
+
 async function recordCheckin(
 	ctx: { db: Context["db"] },
 	appointmentId: string,
@@ -66,6 +81,12 @@ async function recordCheckin(
 	const existing = await ctx.db.query.appointmentCheckins.findFirst({
 		where: eq(appointmentCheckins.appointmentId, appointmentId),
 	});
+
+	assertCheckinOrder([
+		["arrived", payload.arrivedAt ?? existing?.arrivedAt],
+		["started", payload.startedAt ?? existing?.startedAt],
+		["left", payload.leftAt ?? existing?.leftAt],
+	]);
 
 	if (existing) {
 		await ctx.db
@@ -162,6 +183,11 @@ async function recordEvaluatorCheckin(
 			eq(evaluatorCheckins.date, date),
 		),
 	});
+
+	assertCheckinOrder([
+		["arrived", payload.arrivedAt ?? existing?.arrivedAt],
+		["left", payload.leftAt ?? existing?.leftAt],
+	]);
 
 	if (existing) {
 		await ctx.db

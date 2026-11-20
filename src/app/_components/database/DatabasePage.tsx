@@ -2,6 +2,7 @@
 
 import { Tabs, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AppointmentsDataView } from "./AppointmentsDataView";
 import { ExternalRecordsDataView } from "./ExternalRecordsDataView";
 import { QuestionnaireDataView } from "./QuestionnaireDataView";
 
@@ -15,6 +16,11 @@ const TABLES = [
 		id: "external-records",
 		label: "External Records",
 		description: "Where each client's school records request stands.",
+	},
+	{
+		id: "appointments",
+		label: "Appointments",
+		description: "Every appointment with its check-in times and length.",
 	},
 ] as const;
 
@@ -56,11 +62,9 @@ export function DatabasePage() {
 				</Tabs>
 			</div>
 
-			{tableId === "questionnaires" ? (
-				<QuestionnaireDataView />
-			) : (
-				<ExternalRecordsDataView />
-			)}
+			{tableId === "questionnaires" && <QuestionnaireDataView />}
+			{tableId === "external-records" && <ExternalRecordsDataView />}
+			{tableId === "appointments" && <AppointmentsDataView />}
 		</div>
 	);
 }

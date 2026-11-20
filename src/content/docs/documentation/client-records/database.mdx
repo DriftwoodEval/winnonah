@@ -2,9 +2,9 @@
 title: Database
 ---
 
-The **Database** link in the nav (under Clients) shows records from across all clients in one table. Use the tabs at the top right to choose which table to look at: **Questionnaires** or **External Records**. You need the Database page permission to see it.
+The **Database** link in the nav (under Clients) shows records from across all clients in one table. Use the tabs at the top right to choose which table to look at: **Questionnaires**, **External Records**, or **Appointments**. You need the Database page permission to see it.
 
-Both tables list only active clients at first. Change the **Client** column filter to include inactive clients. Your filters, sorting, and the List or By client choice are saved for you, so each table opens the way you left it. Use **Clear filters** to start over. To change a record, open the client's page. This page is for viewing only.
+All three tables list only active clients at first. Change the **Client** column filter to include inactive clients. Your filters, sorting, and the List or By client choice are saved for you, so each table opens the way you left it. Use **Clear filters** to start over. To change a record, open the client's page. This page is for viewing only.
 
 ## Questionnaires
 
@@ -48,3 +48,15 @@ A yellow badge under the status means a request is not going out yet, and says w
 The other columns show the date of the most recent request, how many requests have been sent, the hold date if there is one, and when the records notes were last updated. Only requests from the client's current session count, so an old request from before a re-referral does not make a client look requested.
 
 Search (by client name), the Client and Status filters, and sorting work the same as in the Questionnaires table. By default the table lists clients that still need action first.
+
+## Appointments
+
+This table has one row per appointment, with the information from Work Summary: the date, status (Scheduled or Cancelled), client, evaluator, type, projected length, logged length, and the arrived, started, and left times.
+
+- **Projected** is how long the appointment is expected to take. **Logged** is the time from started to left.
+- **vs Projected** says how far the logged length was from the projection, for example "12 min over" or "24 min under".
+- **Late Start** says how far the started time was from the scheduled start, for example "5 min late" or "3 min early".
+- If the left time was entered before the started time, Logged shows **Out of order** instead of a length. Filter the **Logged** column to **Out of order** to find these, then fix the times on the client's appointment.
+- The Logged, vs Projected, Late Start, Arrived, Started, and Left filters have a **Recorded** option that shows every row with any value, and **Not recorded** for rows with none.
+
+Search by client name, the filters, and sorting work the same as in the other tables.

@@ -428,6 +428,84 @@ export const workSummaryRouter = createTRPCRouter({
 				.onDuplicateKeyUpdate({ set: { appointmentDurationDefaults: input } });
 		}),
 
+	/**
+	 * Every real appointment (no placeholders or billing-only entries) with its
+	 * check-in times and expected length, for the Database page.
+	 * Filtering, sorting, and counts happen in the browser.
+	 */
+	listAppointments: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "pages:database");
+
+		const rows = await ctx.db
+			.select({
+				id: appointments.id,
+				startTime: appointments.startTime,
+				daEval: appointments.daEval,
+				asdAdhd: appointments.asdAdhd,
+				cancelled: appointments.cancelled,
+				clientName: clients.fullName,
+				clientHash: clients.hash,
+				clientActive: clients.status,
+				evaluatorNpi: evaluators.npi,
+				evaluatorName: evaluators.providerName,
+				evaluatorDurations: evaluators.appointmentDurations,
+				ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
+				arrivedAt: appointmentCheckins.arrivedAt,
+				startedAt: appointmentCheckins.startedAt,
+				leftAt: appointmentCheckins.leftAt,
+			})
+			.from(appointments)
+			.innerJoin(clients, eq(appointments.clientId, clients.id))
+			.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+			.leftJoin(
+				appointmentCheckins,
+				eq(appointmentCheckins.appointmentId, appointments.id),
+			)
+			.where(
+				and(
+					eq(appointments.placeholder, false),
+					eq(appointments.billingOnly, false),
+				),
+			)
+			.orderBy(asc(appointments.startTime));
+
+		const configRow = await ctx.db.query.workSummaryConfig.findFirst();
+		const durationDefaults = (configRow?.appointmentDurationDefaults ??
+			{}) as Record<string, number>;
+
+		return rows.map(({ evaluatorDurations, ageGroup, ...row }) => {
+			const scheduledStart = row.startTime.getTime();
+			// Same rule as the work summary: lateness counts from arrival when the
+			// client arrived after the scheduled time.
+			const expectedStart = Math.max(
+				scheduledStart,
+				row.arrivedAt?.getTime() ?? 0,
+			);
+			return {
+				...row,
+				status: row.cancelled ? "Cancelled" : "Scheduled",
+				ageGroup,
+				projectedMinutes: row.daEval
+					? lookupExpectedDuration(
+							row.daEval,
+							row.asdAdhd,
+							ageGroup,
+							row.daEval === "DA",
+							(evaluatorDurations ?? {}) as Record<string, number>,
+							durationDefaults,
+						)
+					: undefined,
+				loggedMinutes:
+					row.startedAt && row.leftAt
+						? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+						: undefined,
+				lateStartMinutes: row.startedAt
+					? (row.startedAt.getTime() - expectedStart) / 60000
+					: undefined,
+			};
+		});
+	}),
+
 	getAppointmentDetail: protectedProcedure
 		.input(
 			z.object({

@@ -54,6 +54,8 @@ interface ColumnFilterProps {
 	defaultValues?: string[];
 	onFilterChange: (values: string[]) => void;
 	counts?: Record<string, number>;
+	/** Show options in the order given instead of alphabetically (for ranges). */
+	keepOrder?: boolean;
 }
 
 export function ColumnFilter({
@@ -63,6 +65,7 @@ export function ColumnFilter({
 	defaultValues = [],
 	onFilterChange,
 	counts,
+	keepOrder = false,
 }: ColumnFilterProps) {
 	const [search, setSearch] = useState("");
 
@@ -71,8 +74,8 @@ export function ColumnFilter({
 			.filter((option) =>
 				option.label.toLowerCase().includes(search.toLowerCase()),
 			)
-			.sort(compareOptions);
-	}, [options, search]);
+			.sort((a, b) => (keepOrder ? 0 : compareOptions(a, b)));
+	}, [options, search, keepOrder]);
 
 	// Swatch options (colors) render as a grid of circles instead of
 	// checkbox rows, matching the color picker on the client search page.

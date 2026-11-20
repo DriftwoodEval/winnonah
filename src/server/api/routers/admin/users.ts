@@ -538,7 +538,7 @@ export const userRouter = createTRPCRouter({
 	setDatabaseView: protectedProcedure
 		.input(
 			z.object({
-				table: z.enum(["questionnaires", "externalRecords"]),
+				table: z.enum(["questionnaires", "externalRecords", "appointments"]),
 				view: z.string(),
 			}),
 		)

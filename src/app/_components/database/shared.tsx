@@ -167,7 +167,7 @@ export function SpacerRow({
  * pause, and nothing is saved until the saved view has been restored.
  */
 export function useSavedView<T extends object>(
-	table: "questionnaires" | "externalRecords",
+	table: "questionnaires" | "externalRecords" | "appointments",
 	snapshot: T,
 	restore: (saved: Partial<T>) => void,
 ) {
