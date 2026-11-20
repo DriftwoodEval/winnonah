@@ -1,10 +1,6 @@
 import { count, desc, eq, inArray } from "drizzle-orm";
 import z from "zod";
-import {
-	assertPermission,
-	createTRPCRouter,
-	protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import {
 	faxCategorizationClientLinks,
 	faxCategorizations,
@@ -23,10 +19,9 @@ const CATEGORIES = [
 ] as const;
 
 export const faxCategorizationRouter = createTRPCRouter({
-	list: protectedProcedure
+	list: permissionProcedure("fax:categorization:review")
 		.input(z.object({ status: z.enum(["pending", "reviewed"]).optional() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "fax:categorization:review");
 			const faxes = await ctx.db.query.faxCategorizations.findMany({
 				where: input.status
 					? eq(faxCategorizations.status, input.status)
@@ -81,16 +76,17 @@ export const faxCategorizationRouter = createTRPCRouter({
 			}));
 		}),
 
-	getPendingCount: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "fax:categorization:review");
-		const [row] = await ctx.db
-			.select({ count: count() })
-			.from(faxCategorizations)
-			.where(eq(faxCategorizations.status, "pending"));
-		return row?.count ?? 0;
-	}),
+	getPendingCount: permissionProcedure("fax:categorization:review").query(
+		async ({ ctx }) => {
+			const [row] = await ctx.db
+				.select({ count: count() })
+				.from(faxCategorizations)
+				.where(eq(faxCategorizations.status, "pending"));
+			return row?.count ?? 0;
+		},
+	),
 
-	confirmLink: protectedProcedure
+	confirmLink: permissionProcedure("fax:categorization:review")
 		.input(
 			z.object({
 				faxCategorizationId: z.number(),
@@ -99,7 +95,6 @@ export const faxCategorizationRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "fax:categorization:review");
 			await ctx.db
 				.insert(faxCategorizationClientLinks)
 				.values({
@@ -119,10 +114,9 @@ export const faxCategorizationRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	rejectLink: protectedProcedure
+	rejectLink: permissionProcedure("fax:categorization:review")
 		.input(z.object({ linkId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "fax:categorization:review");
 			await ctx.db
 				.update(faxCategorizationClientLinks)
 				.set({ rejected: true, reviewedBy: ctx.session.user.email })
@@ -130,7 +124,7 @@ export const faxCategorizationRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	markReviewed: protectedProcedure
+	markReviewed: permissionProcedure("fax:categorization:review")
 		.input(
 			z.object({
 				faxCategorizationId: z.number(),
@@ -138,7 +132,6 @@ export const faxCategorizationRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "fax:categorization:review");
 			await ctx.db
 				.update(faxCategorizations)
 				.set({
@@ -151,10 +144,9 @@ export const faxCategorizationRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	requestReprocess: protectedProcedure
+	requestReprocess: permissionProcedure("fax:categorization:review")
 		.input(z.object({ faxCategorizationId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "fax:categorization:review");
 			await ctx.db
 				.update(faxCategorizations)
 				.set({ reprocessRequestedAt: new Date() })

@@ -9,6 +9,7 @@ import {
 } from "~/lib/types";
 import {
 	BUSINESS_TIMEZONE,
+	LEGACY_HEADING_FLAGS,
 	PERMISSION_MAP,
 	type QUESTIONNAIRE_STATUSES,
 } from "./constants";
@@ -37,14 +38,20 @@ export function toTitleCase(str: string): string {
 
 /**
  * Whether a permissions object grants a permission. An explicit value for the
- * permission wins; otherwise its heading's "all" flag (see PermissionGroupId) decides.
+ * permission wins; otherwise its heading's "all" flag (see PermissionGroupId) decides,
+ * then the heading flag it used to sit under (see LEGACY_HEADING_FLAGS).
  */
 export function hasPermission(
 	userPerms: PermissionsObject,
 	permission: PermissionId,
 ): boolean {
+	const legacyFlag = LEGACY_HEADING_FLAGS[permission];
 	return !!(
-		userPerms[permission] ?? userPerms[PERMISSION_GROUP_IDS[permission]]
+		userPerms[permission] ??
+		userPerms[PERMISSION_GROUP_IDS[permission]] ??
+		(legacyFlag
+			? (userPerms as Record<string, boolean>)[legacyFlag]
+			: undefined)
 	);
 }
 

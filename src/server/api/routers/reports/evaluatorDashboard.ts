@@ -25,9 +25,9 @@ import {
 } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
-	assertPermission,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -175,7 +175,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		return getDashboardConfig(ctx);
 	}),
 
-	setConfig: protectedProcedure
+	setConfig: permissionProcedure("settings:evaluators")
 		.input(
 			z.object({
 				dueDateWeeks: z.number().int().min(0).max(52),
@@ -183,8 +183,6 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			const existing = await ctx.db.query.workSummaryConfig.findFirst();
 			setAuditDetail(
 				ctx,
@@ -424,7 +422,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			return [{ ...current[0], isCurrent: true }, ...history];
 		}),
 
-	setLastTaskCompletedDate: protectedProcedure
+	setLastTaskCompletedDate: permissionProcedure("evaluator-dashboard:admin")
 		.input(
 			z.object({
 				appointmentId: z.string(),
@@ -432,7 +430,6 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting last task completed date",
@@ -443,7 +440,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
-	setDueDateOverride: protectedProcedure
+	setDueDateOverride: permissionProcedure("evaluator-dashboard:admin")
 		.input(
 			z.object({
 				appointmentId: z.string(),
@@ -451,7 +448,6 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting due date override",
@@ -480,10 +476,9 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
-	unmarkReportComplete: protectedProcedure
+	unmarkReportComplete: permissionProcedure("evaluator-dashboard:admin")
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Unmarking report complete",
@@ -494,10 +489,9 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
-	setShowAnyway: protectedProcedure
+	setShowAnyway: permissionProcedure("evaluator-dashboard:admin")
 		.input(z.object({ appointmentId: z.string(), showAnyway: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting show anyway",
@@ -508,10 +502,9 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
-	archiveRow: protectedProcedure
+	archiveRow: permissionProcedure("evaluator-dashboard:admin")
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, archivedBy: ctx.session.user.email },
 				"Archiving evaluator dashboard row",
@@ -522,10 +515,9 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
-	unarchiveRow: protectedProcedure
+	unarchiveRow: permissionProcedure("evaluator-dashboard:admin")
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			ctx.logger.info(
 				{ ...input, unarchivedBy: ctx.session.user.email },
 				"Unarchiving evaluator dashboard row",

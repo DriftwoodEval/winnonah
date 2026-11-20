@@ -8,10 +8,10 @@ import { summarizeRecords } from "~/lib/records/records-status";
 import { formatInBusinessTime } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
-	assertPermission,
 	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -215,9 +215,7 @@ export const externalRecordRouter = createTRPCRouter({
 	 * session count, the same rule the dashboard and records-request.py use.
 	 * Filtering, sorting, and counts happen in the browser.
 	 */
-	listAll: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "pages:database");
-
+	listAll: permissionProcedure("pages:database").query(async ({ ctx }) => {
 		const [clientRows, recordRows, requestRows, failureRows] =
 			await Promise.all([
 				ctx.db
@@ -625,7 +623,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}
 		}),
 
-	updateExternalRecordNote: protectedProcedure
+	updateExternalRecordNote: permissionProcedure("clients:records:reviewed")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -634,8 +632,6 @@ export const externalRecordRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				assertPermission(ctx.session.user, "clients:records:reviewed");
-
 				ctx.logger.info(
 					{ clientId: input.clientId },
 					"Updating external records note",
@@ -755,7 +751,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}
 		}),
 
-	createRecordNote: protectedProcedure
+	createRecordNote: permissionProcedure("clients:records:reviewed")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -763,8 +759,6 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:reviewed");
-
 			ctx.logger.info(
 				{ clientId: input.clientId },
 				`Creating external records note`,

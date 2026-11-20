@@ -10,8 +10,8 @@ import {
 	mergeNotesContent,
 } from "~/lib/insurance-notes-merge";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -43,7 +43,7 @@ export const adminReviewRouter = createTRPCRouter({
 			return review ?? null;
 		}),
 
-	update: protectedProcedure
+	update: permissionProcedure("clients:admin:review")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -51,8 +51,6 @@ export const adminReviewRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			ctx.logger.info(
 				{ clientId: input.clientId, updatedBy: ctx.session.user.email },
 				"Updating admin review",
@@ -107,11 +105,9 @@ export const adminReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	setEnabled: protectedProcedure
+	setEnabled: permissionProcedure("clients:admin:review")
 		.input(z.object({ clientId: z.number(), enabled: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting admin review enabled",
@@ -159,11 +155,9 @@ export const adminReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	setWaiting: protectedProcedure
+	setWaiting: permissionProcedure("clients:admin:review")
 		.input(z.object({ clientId: z.number(), waiting: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting admin review waiting",
@@ -177,11 +171,9 @@ export const adminReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	setClaim: protectedProcedure
+	setClaim: permissionProcedure("clients:admin:review")
 		.input(z.object({ clientId: z.number(), userEmail: z.string().email() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			ctx.logger.info(
 				{ ...input, claimedBy: ctx.session.user.email },
 				"Setting admin review claim",
@@ -281,11 +273,9 @@ export const adminReviewRouter = createTRPCRouter({
 			return [currentVersion, ...history];
 		}),
 
-	getClaimHistory: protectedProcedure
+	getClaimHistory: permissionProcedure("clients:admin:review")
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			const setByUsers = alias(users, "set_by_users");
 
 			return ctx.db
@@ -308,7 +298,7 @@ export const adminReviewRouter = createTRPCRouter({
 				.orderBy(desc(adminReviewClaimHistory.createdAt));
 		}),
 
-	submitToNotes: protectedProcedure
+	submitToNotes: permissionProcedure("clients:admin:review")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -316,8 +306,6 @@ export const adminReviewRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input: { clientId, insertAt } }) => {
-			assertPermission(ctx.session.user, "clients:admin:review");
-
 			ctx.logger.info(
 				{ clientId, insertAt, submittedBy: ctx.session.user.email },
 				"Submitting admin review to notes",
@@ -374,29 +362,29 @@ export const adminReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	getAllEnabled: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:admin:review");
-
-		return ctx.db
-			.select({
-				clientId: clients.id,
-				clientName: clients.fullName,
-				clientHash: clients.hash,
-				claimedUserEmail: adminReview.claimedUserEmail,
-				claimedUserName: users.name,
-				waiting: adminReview.waiting,
-			})
-			.from(adminReview)
-			.innerJoin(clients, eq(adminReview.clientId, clients.id))
-			.leftJoin(users, eq(adminReview.claimedUserEmail, users.email))
-			.where(
-				and(
-					eq(adminReview.enabled, true),
-					isNull(adminReview.submittedToNotesAt),
-				),
-			)
-			.orderBy(desc(adminReview.updatedAt), asc(clients.fullName));
-	}),
+	getAllEnabled: permissionProcedure("clients:admin:review").query(
+		async ({ ctx }) => {
+			return ctx.db
+				.select({
+					clientId: clients.id,
+					clientName: clients.fullName,
+					clientHash: clients.hash,
+					claimedUserEmail: adminReview.claimedUserEmail,
+					claimedUserName: users.name,
+					waiting: adminReview.waiting,
+				})
+				.from(adminReview)
+				.innerJoin(clients, eq(adminReview.clientId, clients.id))
+				.leftJoin(users, eq(adminReview.claimedUserEmail, users.email))
+				.where(
+					and(
+						eq(adminReview.enabled, true),
+						isNull(adminReview.submittedToNotesAt),
+					),
+				)
+				.orderBy(desc(adminReview.updatedAt), asc(clients.fullName));
+		},
+	),
 
 	getMyClaimedClients: protectedProcedure.query(async ({ ctx }) => {
 		if (!ctx.session.user.email) return [];

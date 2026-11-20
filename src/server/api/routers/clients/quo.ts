@@ -12,9 +12,9 @@ import {
 } from "~/lib/integrations/quo";
 import { normalizePhoneNumber } from "~/lib/utils";
 import {
-	assertPermission,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -318,11 +318,9 @@ export const quoRouter = createTRPCRouter({
 			fetchAutomatedMessageContext(ctx.db, input.messageIds),
 		),
 
-	sendMessage: protectedProcedure
+	sendMessage: permissionProcedure("clients:referral:fillout")
 		.input(z.object({ phoneNumber: z.string(), message: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:referral:fillout");
-
 			const apiKey = env.OPENPHONE_API_TOKEN;
 			const phoneNumberId = env.OPENPHONE_NUMBER_ID;
 

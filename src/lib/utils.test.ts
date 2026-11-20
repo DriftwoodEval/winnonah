@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InsuranceWithAliases } from "~/lib/models";
+import type { PermissionsObject } from "~/lib/types";
 import {
 	cn,
 	compareDateOnly,
@@ -65,6 +66,24 @@ describe("hasPermission", () => {
 		expect(hasPermission(perms, "settings:users:edit")).toBe(false);
 	});
 
+	// Heading flags from before the regroup are no longer in the permission types.
+	const legacy = (flags: Record<string, boolean>): PermissionsObject => flags;
+
+	it("keeps honoring a heading flag from before the regroup", () => {
+		expect(
+			hasPermission(legacy({ "clients:admin:all": true }), "reports:billed"),
+		).toBe(true);
+		expect(
+			hasPermission(legacy({ "clients:general:all": true }), "clients:pause"),
+		).toBe(true);
+		expect(
+			hasPermission(
+				legacy({ "clients:admin:all": true, "reports:reports:all": false }),
+				"reports:billed",
+			),
+		).toBe(false);
+	});
+
 	it("lets an explicit value override the heading's all flag", () => {
 		expect(
 			hasPermission(
@@ -82,7 +101,7 @@ describe("hasPermission", () => {
 
 	it("uses the subgroup heading, not the permission id prefix", () => {
 		expect(
-			hasPermission({ "clients:admin:all": true }, "reports:approve"),
+			hasPermission(legacy({ "clients:admin:all": true }), "reports:approve"),
 		).toBe(true);
 	});
 });

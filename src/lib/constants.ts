@@ -50,8 +50,8 @@ export const PERMISSIONS = {
 	clients: {
 		title: "Clients",
 		subgroups: {
-			general: {
-				title: "General",
+			details: {
+				title: "Details",
 				permissions: [
 					{ id: "clients:notes", title: "Edit Client Note Title & Content" },
 					{ id: "clients:priority", title: "Edit High Priority" },
@@ -60,26 +60,27 @@ export const PERMISSIONS = {
 					{ id: "clients:schooldistrict", title: "Edit School District" },
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
 					{ id: "clients:language", title: "Edit Language" },
-					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
-					{
-						id: "clients:pa-assigned-to",
-						title: "Edit PA Assigned To and Status",
-					},
-					{
-						id: "clients:medicaid-recheck",
-						title: "Request Medicaid Eligibility Recheck",
-					},
+					{ id: "clients:related", title: "Edit Related Clients" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{
 						id: "clients:ei-reminders",
 						title: "Edit EI Reminder Number & Toggle",
 					},
-					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },
+				],
+			},
+			status: {
+				title: "Status",
+				permissions: [
+					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 					{ id: "clients:alreadydx", title: "Edit Already Diagnosed Label" },
-					{ id: "clients:pause", title: "Pause Clients" },
-					{ id: "clients:related", title: "Edit Related Clients" },
+					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
 					{ id: "clients:resolvefailure", title: "Mark Failures Resolved" },
+				],
+			},
+			appointments: {
+				title: "Appointments",
+				permissions: [
 					{
 						id: "clients:appointments:checkin",
 						title: "Check In/Out Appointments",
@@ -94,7 +95,6 @@ export const PERMISSIONS = {
 					},
 				],
 			},
-
 			questionnaires: {
 				title: "Questionnaires",
 				permissions: [
@@ -120,7 +120,6 @@ export const PERMISSIONS = {
 					},
 				],
 			},
-
 			records: {
 				title: "Records",
 				permissions: [
@@ -146,64 +145,6 @@ export const PERMISSIONS = {
 					},
 				],
 			},
-
-			admin: {
-				title: "Administration",
-				permissions: [
-					{ id: "clients:notes-only", title: "Create Notes Only Clients" },
-					{ id: "clients:merge", title: "Merge with Real Client Record" },
-					{ id: "clients:download", title: "Download CSVs" },
-					{ id: "reports:approve", title: "Approve Reports" },
-					{ id: "reports:view-all", title: "View All Reports" },
-					{
-						id: "reports:edit-any",
-						title: "Edit Any Report's Writer Status & Notes",
-					},
-					{ id: "reports:billed", title: "Check Reports as Billed" },
-					{
-						id: "reports:first-review",
-						title: "Check Reports as First Review Done",
-					},
-					{
-						id: "reports:second-review-needed",
-						title: "Check Reports as Second Review Needed",
-					},
-					{
-						id: "reports:second-review-done",
-						title: "Check Reports as Second Review Done",
-					},
-					{ id: "reports:beta", title: "Access New Reports Page (Beta)" },
-					{
-						id: "reports:notifications",
-						title: "Receive Report Queue Notifications",
-					},
-					{
-						id: "fax:categorization:review",
-						title: "Review Fax Categorization Guesses",
-					},
-				],
-			},
-
-			insurance: {
-				title: "Insurance",
-				permissions: [
-					{
-						id: "clients:additional-insurance-appointments",
-						title: "View Insurance Codes by Appointment",
-					},
-					{
-						id: "clients:admin:review",
-						title: "Edit Admin Review Notes & Claim",
-					},
-					{
-						id: "clients:admin:review:email-notifications",
-						title: "Receive Admin Review Claim Email Notifications",
-						parent: "clients:admin:review" as const,
-					},
-					{ id: "clients:pa-forms", title: "Download PA Forms" },
-				],
-			},
-
 			referrals: {
 				title: "Referrals",
 				permissions: [
@@ -229,43 +170,122 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+			insurance: {
+				title: "Insurance",
+				permissions: [
+					{
+						id: "clients:additional-insurance-appointments",
+						title: "View Insurance Codes by Appointment",
+					},
+					{
+						id: "clients:admin:review",
+						title: "Edit Admin Review Notes & Claim",
+					},
+					{ id: "clients:pa-forms", title: "Download PA Forms" },
+					{
+						id: "clients:pa-assigned-to",
+						title: "Edit PA Assigned To and Status",
+					},
+					{
+						id: "clients:medicaid-recheck",
+						title: "Request Medicaid Eligibility Recheck",
+					},
+				],
+			},
+			admin: {
+				title: "Data admin",
+				permissions: [
+					{ id: "clients:notes-only", title: "Create Notes Only Clients" },
+					{ id: "clients:merge", title: "Merge with Real Client Record" },
+					{ id: "clients:download", title: "Download CSVs" },
+				],
+			},
+		},
+	},
+	reports: {
+		title: "Reports & Fax",
+		subgroups: {
+			reports: {
+				title: "Reports",
+				permissions: [
+					{ id: "reports:approve", title: "Approve Reports" },
+					{ id: "reports:view-all", title: "View All Reports" },
+					{
+						id: "reports:edit-any",
+						title: "Edit Any Report's Writer Status & Notes",
+					},
+					{ id: "reports:billed", title: "Check Reports as Billed" },
+					{
+						id: "reports:first-review",
+						title: "Check Reports as First Review Done",
+					},
+					{
+						id: "reports:second-review-needed",
+						title: "Check Reports as Second Review Needed",
+					},
+					{
+						id: "reports:second-review-done",
+						title: "Check Reports as Second Review Done",
+					},
+				],
+			},
+			fax: {
+				title: "Fax",
+				permissions: [
+					{
+						id: "fax:categorization:review",
+						title: "Review Fax Categorization Guesses",
+					},
+				],
+			},
 		},
 	},
 	system: {
 		title: "System",
 		subgroups: {
-			settings: {
-				title: "Settings",
+			people: {
+				title: "People",
 				permissions: [
 					{ id: "settings:users:edit", title: "Edit Users" },
 					{ id: "settings:users:invite", title: "Invite Users" },
 					{ id: "settings:roles:edit", title: "Manage Roles" },
+				],
+			},
+			practice: {
+				title: "Practice",
+				permissions: [
 					{ id: "settings:evaluators", title: "Manage Evaluators" },
-					{ id: "settings:insurances", title: "Manage Insurances" },
-					{
-						id: "settings:appointments-sync",
-						title: "Manage Appointments Sync",
-					},
-					{
-						id: "settings:questionnaireRules",
-						title: "Manage Questionnaire Rules",
-					},
 					{
 						id: "evaluator-dashboard:admin",
 						title: "Evaluator Dashboard Admin",
 					},
 					{
-						id: "settings:pii-redaction",
-						title: "Toggle PII Redaction",
+						id: "settings:appointments-sync",
+						title: "Manage Appointments Sync",
+					},
+					{ id: "settings:insurances", title: "Manage Insurances" },
+					{
+						id: "settings:questionnaireRules",
+						title: "Manage Questionnaire Rules",
+					},
+				],
+			},
+			messages: {
+				title: "Messages",
+				permissions: [
+					{
+						id: "settings:post-visit-attachment:edit",
+						title: "Change Post-Visit Message Attachment",
 					},
 					{
-						id: "settings:impersonate",
-						title: "Impersonate Users",
+						id: "settings:issue-report:edit",
+						title: "Issue Report Admin",
 					},
-					{
-						id: "settings:audit-log:view",
-						title: "View Audit Log",
-					},
+				],
+			},
+			logs: {
+				title: "Logs & audit",
+				permissions: [
 					{
 						id: "settings:run-logs:view",
 						title: "View Script Run Logs",
@@ -275,12 +295,34 @@ export const PERMISSIONS = {
 						title: "View BabyNet Report",
 					},
 					{
-						id: "settings:post-visit-attachment:edit",
-						title: "Change Post-Visit Message Attachment",
+						id: "settings:audit-log:view",
+						title: "View Audit Log",
+					},
+				],
+			},
+			tools: {
+				title: "Admin tools",
+				permissions: [
+					{
+						id: "settings:impersonate",
+						title: "Impersonate Users",
 					},
 					{
-						id: "settings:issue-report:edit",
-						title: "Issue Report Admin",
+						id: "settings:pii-redaction",
+						title: "Toggle PII Redaction",
+					},
+				],
+			},
+			notifications: {
+				title: "Notifications",
+				permissions: [
+					{
+						id: "reports:notifications",
+						title: "Receive Report Queue Notifications",
+					},
+					{
+						id: "clients:admin:review:email-notifications",
+						title: "Receive Admin Review Claim Email Notifications",
 					},
 					{
 						id: "settings:exclusion-check:notifications",
@@ -288,7 +330,6 @@ export const PERMISSIONS = {
 					},
 				],
 			},
-
 			qsuite: {
 				title: "QSuite",
 				permissions: [
@@ -322,7 +363,6 @@ export const PERMISSIONS = {
 					},
 				],
 			},
-
 			issues: {
 				title: "Issues",
 				permissions: [
@@ -395,7 +435,6 @@ export const PERMISSIONS = {
 			},
 		},
 	},
-
 	pages: {
 		title: "Pages",
 		subgroups: {
@@ -412,11 +451,67 @@ export const PERMISSIONS = {
 						title: "Scheduling Helper (Beta)",
 					},
 					{ id: "pages:work-summary", title: "Work Summary" },
+					{ id: "reports:beta", title: "Access New Reports Page (Beta)" },
 				],
 			},
 		},
 	},
 } as const;
+/**
+ * Heading flags from before the permission groups were reorganized. A role or user
+ * that holds one still gets every permission that used to sit under it, so the
+ * regroup needed no data migration. The permission itself or its current heading
+ * flag, when set, wins over these.
+ */
+export const LEGACY_HEADING_FLAGS: Record<string, string> = {
+	"clients:admin:review:email-notifications": "clients:insurance:all",
+	"clients:alreadydx": "clients:general:all",
+	"clients:appointments:checkin": "clients:general:all",
+	"clients:appointments:copyinfo": "clients:general:all",
+	"clients:appointments:postvisitmessage": "clients:general:all",
+	"clients:asdadhd": "clients:general:all",
+	"clients:autismstop:disable": "clients:general:all",
+	"clients:babynet": "clients:general:all",
+	"clients:color": "clients:general:all",
+	"clients:drive": "clients:general:all",
+	"clients:ei-reminders": "clients:general:all",
+	"clients:language": "clients:general:all",
+	"clients:medicaid-recheck": "clients:general:all",
+	"clients:notes": "clients:general:all",
+	"clients:pa-assigned-to": "clients:general:all",
+	"clients:pause": "clients:general:all",
+	"clients:priority": "clients:general:all",
+	"clients:protocolsscanned": "clients:general:all",
+	"clients:related": "clients:general:all",
+	"clients:resolvefailure": "clients:general:all",
+	"clients:schooldistrict": "clients:general:all",
+	"evaluator-dashboard:admin": "system:settings:all",
+	"fax:categorization:review": "clients:admin:all",
+	"reports:approve": "clients:admin:all",
+	"reports:beta": "clients:admin:all",
+	"reports:billed": "clients:admin:all",
+	"reports:edit-any": "clients:admin:all",
+	"reports:first-review": "clients:admin:all",
+	"reports:notifications": "clients:admin:all",
+	"reports:second-review-done": "clients:admin:all",
+	"reports:second-review-needed": "clients:admin:all",
+	"reports:view-all": "clients:admin:all",
+	"settings:appointments-sync": "system:settings:all",
+	"settings:audit-log:view": "system:settings:all",
+	"settings:babynet-report:view": "system:settings:all",
+	"settings:evaluators": "system:settings:all",
+	"settings:exclusion-check:notifications": "system:settings:all",
+	"settings:impersonate": "system:settings:all",
+	"settings:insurances": "system:settings:all",
+	"settings:issue-report:edit": "system:settings:all",
+	"settings:pii-redaction": "system:settings:all",
+	"settings:post-visit-attachment:edit": "system:settings:all",
+	"settings:questionnaireRules": "system:settings:all",
+	"settings:roles:edit": "system:settings:all",
+	"settings:run-logs:view": "system:settings:all",
+	"settings:users:edit": "system:settings:all",
+	"settings:users:invite": "system:settings:all",
+};
 
 export type PUNCH_SCHEMA = {
 	"Client Name": string | undefined;

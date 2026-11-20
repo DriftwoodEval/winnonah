@@ -45,10 +45,10 @@ import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
 import { saveNoteInternal } from "~/server/api/routers/clients/notes";
 import {
-	assertPermission,
 	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -161,7 +161,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 export const googleRouter = createTRPCRouter({
 	// Google Drive
-	addIdToFolder: protectedProcedure
+	addIdToFolder: permissionProcedure("clients:drive")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -173,7 +173,6 @@ export const googleRouter = createTRPCRouter({
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
-			assertPermission(ctx.session.user, "clients:drive");
 
 			ctx.logger.info(input, "Adding client ID to Drive folder");
 
@@ -182,7 +181,7 @@ export const googleRouter = createTRPCRouter({
 			await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
 		}),
 
-	removeIdFromFolder: protectedProcedure
+	removeIdFromFolder: permissionProcedure("clients:drive")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -193,7 +192,6 @@ export const googleRouter = createTRPCRouter({
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
-			assertPermission(ctx.session.user, "clients:drive");
 
 			ctx.logger.info(input, "Removing client ID from Drive folder");
 
@@ -202,34 +200,34 @@ export const googleRouter = createTRPCRouter({
 			await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
 		}),
 
-	findDuplicates: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:duplicate-drive");
+	findDuplicates: permissionProcedure("issues:duplicate-drive").query(
+		async ({ ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
-		const cookieHeader = ctx.headers.get("cookie") ?? "";
+			return fetchWithCache(
+				ctx,
+				CACHE_KEY_DUPLICATES,
+				async () => {
+					const response = await fetch(`${env.PY_API}/folders/duplicates`, {
+						headers: {
+							Cookie: cookieHeader,
+						},
+					});
 
-		return fetchWithCache(
-			ctx,
-			CACHE_KEY_DUPLICATES,
-			async () => {
-				const response = await fetch(`${env.PY_API}/folders/duplicates`, {
-					headers: {
-						Cookie: cookieHeader,
-					},
-				});
+					if (!response.ok) {
+						console.error(
+							`FastAPI error: ${response.status} ${response.statusText}`,
+						);
+						throw new Error("FastAPI server error");
+					}
 
-				if (!response.ok) {
-					console.error(
-						`FastAPI error: ${response.status} ${response.statusText}`,
-					);
-					throw new Error("FastAPI server error");
-				}
-
-				return response.json() as Promise<DuplicateGroup[]>;
-			},
-			60 * 60 * 12, // 12 hours
-			true, // Enable timestamp
-		);
-	}),
+					return response.json() as Promise<DuplicateGroup[]>;
+				},
+				60 * 60 * 12, // 12 hours
+				true, // Enable timestamp
+			);
+		},
+	),
 
 	invalidateDuplicatesCache: protectedProcedure.mutation(async ({ ctx }) => {
 		await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
@@ -343,7 +341,7 @@ export const googleRouter = createTRPCRouter({
 			}
 		}),
 
-	setProtocolsScanned: protectedProcedure
+	setProtocolsScanned: permissionProcedure("clients:protocolsscanned")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -351,7 +349,6 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:protocolsscanned");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -387,7 +384,7 @@ export const googleRouter = createTRPCRouter({
 			};
 		}),
 
-	setPaExpiration: protectedProcedure
+	setPaExpiration: permissionProcedure("clients:pa-assigned-to")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -395,7 +392,6 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:pa-assigned-to");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -414,7 +410,7 @@ export const googleRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	setPaAssignedTo: protectedProcedure
+	setPaAssignedTo: permissionProcedure("clients:pa-assigned-to")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -422,7 +418,6 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:pa-assigned-to");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -1224,11 +1219,9 @@ export const googleRouter = createTRPCRouter({
 			}
 		}),
 
-	getFolders: protectedProcedure
+	getFolders: permissionProcedure("reports:approve")
 		.input(z.object({ parentId: z.string() }))
 		.query(async ({ input, ctx }) => {
-			assertPermission(ctx.session.user, "reports:approve");
-
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 			const response = await fetch(`${env.PY_API}/folders/${input.parentId}`, {
@@ -1507,11 +1500,9 @@ export const googleRouter = createTRPCRouter({
 			};
 		}),
 
-	approveReport: protectedProcedure
+	approveReport: permissionProcedure("reports:approve")
 		.input(z.object({ userId: z.string(), folderId: z.string() }))
 		.mutation(async ({ input, ctx }) => {
-			assertPermission(ctx.session.user, "reports:approve");
-
 			ctx.logger.info(
 				{ ...input, approvedBy: ctx.session.user.email },
 				"Approving report",
@@ -1622,21 +1613,21 @@ export const googleRouter = createTRPCRouter({
 		};
 	}),
 
-	getClaimedReports: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "reports:approve");
+	getClaimedReports: permissionProcedure("reports:approve").query(
+		async ({ ctx }) => {
+			const claimedUsers = await ctx.db.query.users.findMany({
+				where: isNotNull(users.claimedReportFolder),
+				columns: {
+					id: true,
+					name: true,
+					email: true,
+					claimedReportFolder: true,
+				},
+			});
 
-		const claimedUsers = await ctx.db.query.users.findMany({
-			where: isNotNull(users.claimedReportFolder),
-			columns: {
-				id: true,
-				name: true,
-				email: true,
-				claimedReportFolder: true,
-			},
-		});
-
-		return claimedUsers.filter(
-			(u) => u.claimedReportFolder && u.claimedReportFolder.length > 0,
-		);
-	}),
+			return claimedUsers.filter(
+				(u) => u.claimedReportFolder && u.claimedReportFolder.length > 0,
+			);
+		},
+	),
 });

@@ -5,9 +5,9 @@ import { z } from "zod";
 import { setAuditDetail } from "~/server/api/audit";
 import { noteChanges } from "~/server/api/note-changes";
 import {
-	assertPermission,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { noteHistory, notes, users } from "~/server/db/schema";
@@ -219,7 +219,7 @@ export const noteRouter = createTRPCRouter({
 			}
 		}),
 
-	updateNote: protectedProcedure
+	updateNote: permissionProcedure("clients:notes")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -228,14 +228,13 @@ export const noteRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:notes");
 			const { changes } = await saveNoteInternal(ctx, input);
 			// Log what changed, not the whole note the client sent.
 			setAuditDetail(ctx, changes ?? { changed: false });
 			return { success: true };
 		}),
 
-	createNote: protectedProcedure
+	createNote: permissionProcedure("clients:notes")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -244,7 +243,6 @@ export const noteRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:notes");
 			const { changes } = await saveNoteInternal(ctx, input);
 			// Log what changed, not the whole note the client sent.
 			setAuditDetail(ctx, changes ?? { changed: false });

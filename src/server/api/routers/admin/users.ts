@@ -12,8 +12,8 @@ import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { patchPreferences, readPreferences } from "~/server/api/preferences";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
@@ -52,7 +52,7 @@ export const userRouter = createTRPCRouter({
 			return user;
 		}),
 
-	updateUser: protectedProcedure
+	updateUser: permissionProcedure("settings:users:edit")
 		.input(
 			z.object({
 				userId: z.string(),
@@ -61,8 +61,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
-
 			const updateData: {
 				permissions?: PermissionsObject;
 				roleId?: number | null;
@@ -100,7 +98,7 @@ export const userRouter = createTRPCRouter({
 			systemEmitter.emit("permissionChange", input.userId);
 		}),
 
-	updateUserArchiveStatus: protectedProcedure
+	updateUserArchiveStatus: permissionProcedure("settings:users:edit")
 		.input(
 			z.object({
 				userId: z.string(),
@@ -108,8 +106,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
-
 			if (ctx.session.user.id === input.userId) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -127,7 +123,7 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
-	createInvitation: protectedProcedure
+	createInvitation: permissionProcedure("settings:users:invite")
 		.input(
 			z.object({
 				email: z.string().email(),
@@ -136,8 +132,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:invite");
-
 			ctx.logger.info(input, "Creating invitation");
 
 			await ctx.db.insert(invitations).values({
@@ -176,15 +170,13 @@ export const userRouter = createTRPCRouter({
 		});
 	}),
 
-	deleteInvitation: protectedProcedure
+	deleteInvitation: permissionProcedure("settings:users:invite")
 		.input(
 			z.object({
 				id: z.number(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:invite");
-
 			ctx.logger.info(input, "Deleting invitation");
 
 			return {
@@ -194,7 +186,7 @@ export const userRouter = createTRPCRouter({
 			};
 		}),
 
-	setPhone: protectedProcedure
+	setPhone: permissionProcedure("settings:users:edit")
 		.input(
 			z.object({
 				userId: z.string(),
@@ -208,7 +200,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting user phone number",
@@ -219,7 +210,7 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
-	setMaxClaimedReports: protectedProcedure
+	setMaxClaimedReports: permissionProcedure("settings:users:edit")
 		.input(
 			z.object({
 				userId: z.string(),
@@ -227,7 +218,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting max claimed reports",
@@ -238,7 +228,7 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
-	setBlockedEvaluatorNpis: protectedProcedure
+	setBlockedEvaluatorNpis: permissionProcedure("settings:users:edit")
 		.input(
 			z.object({
 				userId: z.string(),
@@ -246,8 +236,6 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
-
 			const existing = await ctx.db.query.users.findFirst({
 				where: eq(users.id, input.userId),
 			});

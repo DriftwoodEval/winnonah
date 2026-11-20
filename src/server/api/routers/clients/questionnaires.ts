@@ -47,6 +47,7 @@ import {
 	assertPermission,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -446,19 +447,16 @@ export const questionnaireRouter = createTRPCRouter({
 		});
 	}),
 
-	createType: protectedProcedure
+	createType: permissionProcedure("settings:questionnaireRules")
 		.input(questionnaireTypeInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Creating questionnaire type");
 			return ctx.db.insert(assessmentTypes).values(input);
 		}),
 
-	updateType: protectedProcedure
+	updateType: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number() }).merge(questionnaireTypeInputSchema))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
-
 			const { id, ...data } = input;
 
 			const existing = await ctx.db.query.assessmentTypes.findFirst({
@@ -473,10 +471,9 @@ export const questionnaireRouter = createTRPCRouter({
 				.where(eq(assessmentTypes.id, id));
 		}),
 
-	deleteType: protectedProcedure
+	deleteType: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Deleting questionnaire type");
 			await ctx.db
 				.delete(assessmentTypes)
@@ -528,15 +525,14 @@ export const questionnaireRouter = createTRPCRouter({
 			};
 		}),
 
-	createRule: protectedProcedure
+	createRule: permissionProcedure("settings:questionnaireRules")
 		.input(questionnaireRuleInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Creating questionnaire rule");
 			return ctx.db.insert(questionnaireRules).values(input);
 		}),
 
-	updateRule: protectedProcedure
+	updateRule: permissionProcedure("settings:questionnaireRules")
 		.input(
 			z
 				.object({ id: z.number() })
@@ -551,8 +547,6 @@ export const questionnaireRouter = createTRPCRouter({
 				}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
-
 			const { id, ...data } = input;
 
 			const existing = await ctx.db.query.questionnaireRules.findFirst({
@@ -567,10 +561,9 @@ export const questionnaireRouter = createTRPCRouter({
 				.where(eq(questionnaireRules.id, id));
 		}),
 
-	deleteRule: protectedProcedure
+	deleteRule: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Deleting questionnaire rule");
 			await ctx.db
 				.delete(questionnaireRules)
@@ -582,9 +575,7 @@ export const questionnaireRouter = createTRPCRouter({
 	 * client's display fields, for the Database page. Filtering, sorting, and
 	 * counts happen in the browser against this full list.
 	 */
-	listAll: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "pages:database");
-
+	listAll: permissionProcedure("pages:database").query(async ({ ctx }) => {
 		const now = new Date();
 		// Appointments still on the books, grouped per client: the earliest one
 		// from now on, and the latest one before now.
@@ -739,7 +730,7 @@ export const questionnaireRouter = createTRPCRouter({
 		);
 	}),
 
-	updateReminderSettings: protectedProcedure
+	updateReminderSettings: permissionProcedure("settings:questionnaireRules")
 		.input(
 			z.object({
 				stage2OffsetDays: z.number().int().min(0),
@@ -748,8 +739,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
-
 			const existing = await ctx.db
 				.select()
 				.from(questionnaireReminderSettings)
@@ -776,10 +765,9 @@ export const questionnaireRouter = createTRPCRouter({
 			);
 	}),
 
-	updateReminderTemplate: protectedProcedure
+	updateReminderTemplate: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number(), message: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating questionnaire reminder template",
@@ -803,7 +791,9 @@ export const questionnaireRouter = createTRPCRouter({
 				.orderBy(desc(questionnaireReminderOverrides.sent));
 		}),
 
-	setReminderOverride: protectedProcedure
+	setReminderOverride: permissionProcedure(
+		"clients:questionnaires:overridereminder",
+	)
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -813,10 +803,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"clients:questionnaires:overridereminder",
-			);
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting questionnaire reminder override",
@@ -837,7 +823,9 @@ export const questionnaireRouter = createTRPCRouter({
 			});
 		}),
 
-	clearReminderOverride: protectedProcedure
+	clearReminderOverride: permissionProcedure(
+		"clients:questionnaires:overridereminder",
+	)
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -846,10 +834,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"clients:questionnaires:overridereminder",
-			);
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Clearing questionnaire reminder override",
@@ -1099,7 +1083,9 @@ export const questionnaireRouter = createTRPCRouter({
 			return newQuestionnaire;
 		}),
 
-	addBulkQuestionnaires: protectedProcedure
+	addBulkQuestionnaires: permissionProcedure(
+		"clients:questionnaires:createbulk",
+	)
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -1107,8 +1093,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:createbulk");
-
 			ctx.logger.info(input, "Creating bulk questionnaires");
 
 			const client = await ctx.db.query.clients.findFirst({
@@ -1234,7 +1218,7 @@ export const questionnaireRouter = createTRPCRouter({
 			};
 		}),
 
-	updateQuestionnaire: protectedProcedure
+	updateQuestionnaire: permissionProcedure("clients:questionnaires:create")
 		.input(
 			z.object({
 				id: z.number(),
@@ -1245,8 +1229,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:create");
-
 			ctx.logger.info(input, "Updating questionnaire");
 
 			if (input.link !== undefined) {
@@ -1329,11 +1311,9 @@ export const questionnaireRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	deleteQuestionnaire: protectedProcedure
+	deleteQuestionnaire: permissionProcedure("clients:questionnaires:create")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:create");
-
 			ctx.logger.info(input, "Deleting questionnaire");
 
 			const existing = await ctx.db.query.questionnaires.findFirst({
@@ -1353,7 +1333,7 @@ export const questionnaireRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	bulkUpdateStatus: protectedProcedure
+	bulkUpdateStatus: permissionProcedure("clients:questionnaires:create")
 		.input(
 			z.object({
 				ids: z.array(z.number()).min(1),
@@ -1361,8 +1341,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:create");
-
 			ctx.logger.info(input, "Bulk updating questionnaire status");
 
 			const before = await ctx.db.query.questionnaires.findMany({
@@ -1429,29 +1407,29 @@ export const questionnaireRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:duplicate-questionnaires");
-
+	getDuplicateLinks: permissionProcedure(
+		"issues:duplicate-questionnaires",
+	).query(async ({ ctx }) => {
 		return fetchIssueList(ctx, "getDuplicateLinks", () =>
 			getDuplicateQuestionnaireLinksData(ctx.db),
 		);
 	}),
 
-	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:just-added");
+	getJustAdded: permissionProcedure("issues:just-added").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getJustAdded", () =>
+				getJustAddedQuestionnairesList(ctx.db),
+			);
+		},
+	),
 
-		return fetchIssueList(ctx, "getJustAdded", () =>
-			getJustAddedQuestionnairesList(ctx.db),
-		);
-	}),
-
-	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:partial-battery");
-
-		return fetchIssueList(ctx, "getPartialBatteries", () =>
-			getPartialBatteriesList(ctx),
-		);
-	}),
+	getPartialBatteries: permissionProcedure("issues:partial-battery").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getPartialBatteries", () =>
+				getPartialBatteriesList(ctx),
+			);
+		},
+	),
 
 	getLatestScreenshot: protectedProcedure
 		.input(z.object({ link: z.url() }))
@@ -1510,7 +1488,7 @@ export const questionnaireRouter = createTRPCRouter({
 				.orderBy(desc(inPersonAssessmentHistory.createdAt));
 		}),
 
-	addInPersonAssessment: protectedProcedure
+	addInPersonAssessment: permissionProcedure("clients:questionnaires:in-person")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -1519,7 +1497,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
 			await ctx.db
 				.insert(inPersonAssessments)
 				.ignore()
@@ -1532,7 +1509,9 @@ export const questionnaireRouter = createTRPCRouter({
 			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 		}),
 
-	updateInPersonAssessmentStatus: protectedProcedure
+	updateInPersonAssessmentStatus: permissionProcedure(
+		"clients:questionnaires:in-person",
+	)
 		.input(
 			z.object({
 				id: z.number(),
@@ -1540,17 +1519,17 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
 			await ctx.db
 				.update(inPersonAssessments)
 				.set({ status: input.status })
 				.where(eq(inPersonAssessments.id, input.id));
 		}),
 
-	deleteInPersonAssessment: protectedProcedure
+	deleteInPersonAssessment: permissionProcedure(
+		"clients:questionnaires:in-person",
+	)
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
 			ctx.logger.info(
 				{ ...input, deletedBy: ctx.session.user.email },
 				"Deleting in-person assessment",

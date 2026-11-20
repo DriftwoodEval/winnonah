@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { db } from "~/server/db";
@@ -100,25 +100,25 @@ function dedupeByType(items: Task[]) {
 export const taskRouter = createTRPCRouter({
 	getActive: protectedProcedure.query(({ ctx }) => getActiveTasks(ctx.db)),
 
-	getRunSummaries: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:download");
+	getRunSummaries: permissionProcedure("clients:download").query(
+		async ({ ctx }) => {
+			const recent = await ctx.db.query.tasks.findMany({
+				where: inArray(tasks.type, RUN_SUMMARY_TYPES),
+				orderBy: [desc(tasks.startedAt)],
+				limit: RUN_SUMMARY_TYPES.length * 10,
+			});
 
-		const recent = await ctx.db.query.tasks.findMany({
-			where: inArray(tasks.type, RUN_SUMMARY_TYPES),
-			orderBy: [desc(tasks.startedAt)],
-			limit: RUN_SUMMARY_TYPES.length * 10,
-		});
+			const latestByType = new Map<string, Task>();
+			for (const task of recent) {
+				if (!latestByType.has(task.type)) latestByType.set(task.type, task);
+			}
 
-		const latestByType = new Map<string, Task>();
-		for (const task of recent) {
-			if (!latestByType.has(task.type)) latestByType.set(task.type, task);
-		}
-
-		return RUN_SUMMARY_TYPES.map((type) => ({
-			type,
-			task: latestByType.get(type) ?? null,
-		}));
-	}),
+			return RUN_SUMMARY_TYPES.map((type) => ({
+				type,
+				task: latestByType.get(type) ?? null,
+			}));
+		},
+	),
 
 	onTaskUpdate: protectedProcedure.subscription(async function* ({ signal }) {
 		let lastSnapshot = "";

@@ -231,6 +231,20 @@ export function assertPermission(
 }
 
 /**
+ * A protectedProcedure that also requires one or more permissions, checked before
+ * the input is parsed and the handler runs. Prefer this to calling assertPermission
+ * in the handler; use assertPermission only when the requirement depends on the
+ * input or on what the handler loads.
+ */
+export const permissionProcedure = (
+	permission: PermissionId | PermissionId[],
+) =>
+	protectedProcedure.use(({ ctx, next }) => {
+		assertPermission(ctx.session.user, permission);
+		return next();
+	});
+
+/**
  * Like assertPermission, but also passes for clients:referral:babynet-limited
  * holders when the client is BabyNet (see isBabyNetInsurance in ~/lib/utils).
  */

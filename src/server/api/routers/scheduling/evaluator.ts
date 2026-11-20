@@ -7,8 +7,8 @@ import { USER_COLOR_COUNT } from "~/lib/user-colors";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/clients/client";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -88,7 +88,7 @@ export const evaluatorRouter = createTRPCRouter({
 	}),
 
 	// Colors are assigned by admins.
-	setColor: protectedProcedure
+	setColor: permissionProcedure("settings:evaluators")
 		.input(
 			z.object({
 				npi: z.number().int(),
@@ -101,7 +101,6 @@ export const evaluatorRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			if (input.color !== null) {
 				const holder = await ctx.db.query.evaluators.findFirst({
 					where: and(
@@ -201,11 +200,9 @@ export const evaluatorRouter = createTRPCRouter({
 			return correctedEvaluatorsByClient;
 		}),
 
-	getEligibilityDebug: protectedProcedure
+	getEligibilityDebug: permissionProcedure("settings:evaluators")
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(
 				`${env.PY_API}/clients/${input}/eligibility-debug`,
@@ -242,15 +239,13 @@ export const evaluatorRouter = createTRPCRouter({
 			};
 		}),
 
-	create: protectedProcedure
+	create: permissionProcedure("settings:evaluators")
 		.input(
 			z.object({
 				...evaluatorInputSchema.shape,
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			ctx.logger.info(input, "Creating evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
@@ -332,11 +327,9 @@ export const evaluatorRouter = createTRPCRouter({
 			return result;
 		}),
 
-	update: protectedProcedure
+	update: permissionProcedure("settings:evaluators")
 		.input(evaluatorInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			const npiAsInt = parseInt(input.npi, 10);
 			const {
 				offices,
@@ -474,10 +467,9 @@ export const evaluatorRouter = createTRPCRouter({
 			return result;
 		}),
 
-	archive: protectedProcedure
+	archive: permissionProcedure("settings:evaluators")
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			ctx.logger.info(
 				{ ...input, archivedBy: ctx.session.user.email },
 				"Archiving evaluator",
@@ -502,10 +494,9 @@ export const evaluatorRouter = createTRPCRouter({
 			);
 		}),
 
-	unarchive: protectedProcedure
+	unarchive: permissionProcedure("settings:evaluators")
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			ctx.logger.info(
 				{ ...input, unarchivedBy: ctx.session.user.email },
 				"Unarchiving evaluator",
@@ -530,11 +521,9 @@ export const evaluatorRouter = createTRPCRouter({
 			);
 		}),
 
-	delete: protectedProcedure
+	delete: permissionProcedure("settings:evaluators")
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			ctx.logger.info(input, "Deleting evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
@@ -573,10 +562,9 @@ export const evaluatorRouter = createTRPCRouter({
 		return evaluator?.outOfOfficePriority ?? false;
 	}),
 
-	setEvaluatorDashboard: protectedProcedure
+	setEvaluatorDashboard: permissionProcedure("settings:evaluators")
 		.input(z.object({ npi: z.number().int(), enabled: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting evaluator dashboard evaluator",

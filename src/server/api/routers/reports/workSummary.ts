@@ -3,11 +3,7 @@ import type { MySqlColumn } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
-import {
-	assertPermission,
-	createTRPCRouter,
-	protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import {
 	appointmentCheckins,
 	appointments,
@@ -72,11 +68,9 @@ function lookupExpectedDuration(
 }
 
 export const workSummaryRouter = createTRPCRouter({
-	getSummary: protectedProcedure
+	getSummary: permissionProcedure("pages:work-summary")
 		.input(z.object({ startDate: z.date(), endDate: z.date() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "pages:work-summary");
-
 			const apptRows = await ctx.db
 				.select({
 					npi: evaluators.npi,
@@ -521,17 +515,16 @@ export const workSummaryRouter = createTRPCRouter({
 			};
 		}),
 
-	getDefaults: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "settings:evaluators");
-		const row = await ctx.db.query.workSummaryConfig.findFirst();
-		return (row?.appointmentDurationDefaults ?? {}) as Record<string, number>;
-	}),
+	getDefaults: permissionProcedure("settings:evaluators").query(
+		async ({ ctx }) => {
+			const row = await ctx.db.query.workSummaryConfig.findFirst();
+			return (row?.appointmentDurationDefaults ?? {}) as Record<string, number>;
+		},
+	),
 
-	setDefaults: protectedProcedure
+	setDefaults: permissionProcedure("settings:evaluators")
 		.input(z.record(z.string(), z.number().nonnegative().int()))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
-
 			const existing = await ctx.db.query.workSummaryConfig.findFirst();
 			setAuditDetail(
 				ctx,
@@ -553,101 +546,101 @@ export const workSummaryRouter = createTRPCRouter({
 	 * check-in times and expected length, for the Database page.
 	 * Filtering, sorting, and counts happen in the browser.
 	 */
-	listAppointments: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "pages:database");
+	listAppointments: permissionProcedure("pages:database").query(
+		async ({ ctx }) => {
+			const rows = await ctx.db
+				.select({
+					id: appointments.id,
+					startTime: appointments.startTime,
+					daEval: appointments.daEval,
+					asdAdhd: appointments.asdAdhd,
+					cancelled: appointments.cancelled,
+					clientName: clients.fullName,
+					clientHash: clients.hash,
+					clientActive: clients.status,
+					evaluatorNpi: evaluators.npi,
+					evaluatorName: evaluators.providerName,
+					evaluatorDurations: evaluators.appointmentDurations,
+					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					startedAt: appointmentCheckins.startedAt,
+					leftAt: appointmentCheckins.leftAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					startedBy: appointmentCheckins.startedBy,
+					leftBy: appointmentCheckins.leftBy,
+				})
+				.from(appointments)
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
+				.where(
+					and(
+						eq(appointments.placeholder, false),
+						eq(appointments.billingOnly, false),
+					),
+				)
+				.orderBy(asc(appointments.startTime));
 
-		const rows = await ctx.db
-			.select({
-				id: appointments.id,
-				startTime: appointments.startTime,
-				daEval: appointments.daEval,
-				asdAdhd: appointments.asdAdhd,
-				cancelled: appointments.cancelled,
-				clientName: clients.fullName,
-				clientHash: clients.hash,
-				clientActive: clients.status,
-				evaluatorNpi: evaluators.npi,
-				evaluatorName: evaluators.providerName,
-				evaluatorDurations: evaluators.appointmentDurations,
-				ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
-				arrivedAt: appointmentCheckins.arrivedAt,
-				startedAt: appointmentCheckins.startedAt,
-				leftAt: appointmentCheckins.leftAt,
-				arrivedBy: appointmentCheckins.arrivedBy,
-				startedBy: appointmentCheckins.startedBy,
-				leftBy: appointmentCheckins.leftBy,
-			})
-			.from(appointments)
-			.innerJoin(clients, eq(appointments.clientId, clients.id))
-			.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
-			.leftJoin(
-				appointmentCheckins,
-				eq(appointmentCheckins.appointmentId, appointments.id),
-			)
-			.where(
-				and(
-					eq(appointments.placeholder, false),
-					eq(appointments.billingOnly, false),
-				),
-			)
-			.orderBy(asc(appointments.startTime));
+			const configRow = await ctx.db.query.workSummaryConfig.findFirst();
+			const durationDefaults = (configRow?.appointmentDurationDefaults ??
+				{}) as Record<string, number>;
 
-		const configRow = await ctx.db.query.workSummaryConfig.findFirst();
-		const durationDefaults = (configRow?.appointmentDurationDefaults ??
-			{}) as Record<string, number>;
+			// Check-in staff are shown by name, the same way the work summary names them.
+			const staffRows = await ctx.db
+				.select({ email: users.email, name: users.name })
+				.from(users);
+			const staffNameByEmail = new Map(
+				staffRows.map((row) => [row.email, row.name]),
+			);
+			const staffName = (email: string | null) =>
+				email ? (staffNameByEmail.get(email) ?? email) : null;
 
-		// Check-in staff are shown by name, the same way the work summary names them.
-		const staffRows = await ctx.db
-			.select({ email: users.email, name: users.name })
-			.from(users);
-		const staffNameByEmail = new Map(
-			staffRows.map((row) => [row.email, row.name]),
-		);
-		const staffName = (email: string | null) =>
-			email ? (staffNameByEmail.get(email) ?? email) : null;
-
-		return rows.map(
-			({
-				evaluatorDurations,
-				ageGroup,
-				arrivedBy,
-				startedBy,
-				leftBy,
-				...row
-			}) => {
-				const scheduledStart = row.startTime.getTime();
-				// Same rule as the work summary: lateness counts from arrival when the
-				// client arrived after the scheduled time.
-				const expectedStart = Math.max(
-					scheduledStart,
-					row.arrivedAt?.getTime() ?? 0,
-				);
-				return {
-					...row,
-					arrivedByName: staffName(arrivedBy),
-					startedByName: staffName(startedBy),
-					leftByName: staffName(leftBy),
-					status: row.cancelled ? "Cancelled" : "Scheduled",
+			return rows.map(
+				({
+					evaluatorDurations,
 					ageGroup,
-					projectedMinutes: row.daEval
-						? lookupExpectedDuration(
-								row.daEval,
-								row.asdAdhd,
-								ageGroup,
-								row.daEval === "DA",
-								(evaluatorDurations ?? {}) as Record<string, number>,
-								durationDefaults,
-							)
-						: undefined,
-					loggedMinutes:
-						row.startedAt && row.leftAt
-							? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+					arrivedBy,
+					startedBy,
+					leftBy,
+					...row
+				}) => {
+					const scheduledStart = row.startTime.getTime();
+					// Same rule as the work summary: lateness counts from arrival when the
+					// client arrived after the scheduled time.
+					const expectedStart = Math.max(
+						scheduledStart,
+						row.arrivedAt?.getTime() ?? 0,
+					);
+					return {
+						...row,
+						arrivedByName: staffName(arrivedBy),
+						startedByName: staffName(startedBy),
+						leftByName: staffName(leftBy),
+						status: row.cancelled ? "Cancelled" : "Scheduled",
+						ageGroup,
+						projectedMinutes: row.daEval
+							? lookupExpectedDuration(
+									row.daEval,
+									row.asdAdhd,
+									ageGroup,
+									row.daEval === "DA",
+									(evaluatorDurations ?? {}) as Record<string, number>,
+									durationDefaults,
+								)
 							: undefined,
-					lateStartMinutes: row.startedAt
-						? (row.startedAt.getTime() - expectedStart) / 60000
-						: undefined,
-				};
-			},
-		);
-	}),
+						loggedMinutes:
+							row.startedAt && row.leftAt
+								? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+								: undefined,
+						lateStartMinutes: row.startedAt
+							? (row.startedAt.getTime() - expectedStart) / 60000
+							: undefined,
+					};
+				},
+			);
+		},
+	),
 });

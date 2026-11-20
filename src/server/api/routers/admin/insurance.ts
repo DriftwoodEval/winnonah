@@ -6,8 +6,8 @@ import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/clients/client";
 import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/scheduling/evaluator";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -75,7 +75,7 @@ export const insuranceRouter = createTRPCRouter({
 		return Array.from(allNames).sort();
 	}),
 
-	create: protectedProcedure
+	create: permissionProcedure("settings:insurances")
 		.input(
 			z.object({
 				shortName: z.string().min(1),
@@ -89,8 +89,6 @@ export const insuranceRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:insurances");
-
 			ctx.logger.info(input, "Creating insurance");
 
 			const { aliases, evaluatorNpis, ...insuranceData } = input;
@@ -129,7 +127,7 @@ export const insuranceRouter = createTRPCRouter({
 			return result;
 		}),
 
-	update: protectedProcedure
+	update: permissionProcedure("settings:insurances")
 		.input(
 			z.object({
 				id: z.number(),
@@ -144,8 +142,6 @@ export const insuranceRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:insurances");
-
 			const { id, aliases, evaluatorNpis, ...data } = input;
 
 			const existing = await ctx.db.query.insurances.findFirst({
@@ -214,11 +210,9 @@ export const insuranceRouter = createTRPCRouter({
 			);
 		}),
 
-	delete: protectedProcedure
+	delete: permissionProcedure("settings:insurances")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:insurances");
-
 			ctx.logger.info(input, "Deleting insurance");
 
 			await ctx.db.delete(insurances).where(eq(insurances.id, input.id));

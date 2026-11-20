@@ -1,10 +1,6 @@
 import { and, asc, desc, eq, exists, sql } from "drizzle-orm";
 import z from "zod";
-import {
-	assertPermission,
-	createTRPCRouter,
-	protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import { clients, scriptRunLogs, scriptRuns } from "~/server/db/schema";
 
 const listRunsSchema = z.object({
@@ -37,11 +33,9 @@ const listLinesSchema = z.object({
 });
 
 export const runLogsRouter = createTRPCRouter({
-	listRuns: protectedProcedure
+	listRuns: permissionProcedure("settings:run-logs:view")
 		.input(listRunsSchema)
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:run-logs:view");
-
 			const where = and(
 				input.app ? eq(scriptRuns.app, input.app) : undefined,
 				input.clientId
@@ -84,20 +78,19 @@ export const runLogsRouter = createTRPCRouter({
 			return { rows, total: countRows[0]?.count ?? 0 };
 		}),
 
-	listApps: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "settings:run-logs:view");
-		const rows = await ctx.db
-			.selectDistinct({ app: scriptRuns.app })
-			.from(scriptRuns)
-			.orderBy(scriptRuns.app);
-		return rows.map((r) => r.app);
-	}),
+	listApps: permissionProcedure("settings:run-logs:view").query(
+		async ({ ctx }) => {
+			const rows = await ctx.db
+				.selectDistinct({ app: scriptRuns.app })
+				.from(scriptRuns)
+				.orderBy(scriptRuns.app);
+			return rows.map((r) => r.app);
+		},
+	),
 
-	listLines: protectedProcedure
+	listLines: permissionProcedure("settings:run-logs:view")
 		.input(listLinesSchema)
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:run-logs:view");
-
 			const levels = LEVEL_ORDER.slice(LEVEL_ORDER.indexOf(input.minLevel));
 			const where = and(
 				input.runId ? eq(scriptRunLogs.runId, input.runId) : undefined,

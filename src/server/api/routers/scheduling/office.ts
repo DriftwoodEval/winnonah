@@ -4,8 +4,8 @@ import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/scheduling/evaluator";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { officeDriveTimes, offices } from "~/server/db/schema";
@@ -45,10 +45,9 @@ export const officeRouter = createTRPCRouter({
 				: allOffices.filter((office) => !office.archived);
 		}),
 
-	setArchived: protectedProcedure
+	setArchived: permissionProcedure("settings:evaluators")
 		.input(z.object({ key: z.string(), archived: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			ctx.logger.info(
 				{ ...input, changedBy: ctx.session.user.email },
 				input.archived ? "Archiving office" : "Unarchiving office",
@@ -66,10 +65,9 @@ export const officeRouter = createTRPCRouter({
 
 	// Candidate addresses from the Python sidecar's geocoder, for the person
 	// editing an office to confirm before saving.
-	lookupAddress: protectedProcedure
+	lookupAddress: permissionProcedure("settings:evaluators")
 		.input(z.object({ query: z.string().trim().min(5) }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			const response = await fetch(
 				`${env.PY_API}/offices/address-lookup?q=${encodeURIComponent(input.query)}`,
 				{ headers: { Cookie: ctx.headers.get("cookie") ?? "" } },
@@ -87,10 +85,9 @@ export const officeRouter = createTRPCRouter({
 			>;
 		}),
 
-	create: protectedProcedure
+	create: permissionProcedure("settings:evaluators")
 		.input(officeFields)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			const key = slugify(input.prettyName);
 			if (!key) {
 				throw new Error("Office name needs letters or numbers");
@@ -116,10 +113,9 @@ export const officeRouter = createTRPCRouter({
 			await invalidateCache(ctx, CACHE_KEY_ALL_OFFICES);
 		}),
 
-	update: protectedProcedure
+	update: permissionProcedure("settings:evaluators")
 		.input(officeFields.extend({ key: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:evaluators");
 			const { key, ...fields } = input;
 			const current = await ctx.db.query.offices.findFirst({
 				where: (o, { eq }) => eq(o.key, key),

@@ -21,9 +21,9 @@ import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
-	assertPermission,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -594,11 +594,9 @@ export const appointmentRouter = createTRPCRouter({
 				.orderBy(desc(appointments.startTime));
 		}),
 
-	getInfoBlock: protectedProcedure
+	getInfoBlock: permissionProcedure("clients:appointments:copyinfo")
 		.input(z.object({ appointmentId: z.string() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:copyinfo");
-
 			const appointment = await ctx.db.query.appointments.findFirst({
 				where: eq(appointments.id, input.appointmentId),
 				columns: { startTime: true, calendarEventTitle: true, clientId: true },
@@ -677,8 +675,9 @@ export const appointmentRouter = createTRPCRouter({
 	// Appointments whose DA/EVAL/DAEVAL has happened (DA only counts for ADHD)
 	// and whose post-visit TherapyAppointment message hasn't been sent yet.
 	// Visits older than 14 days drop off the list.
-	getPostVisitMessageList: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:appointments:postvisitmessage");
+	getPostVisitMessageList: permissionProcedure(
+		"clients:appointments:postvisitmessage",
+	).query(async ({ ctx }) => {
 		const now = new Date();
 		const windowStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 		return ctx.db
@@ -714,13 +713,11 @@ export const appointmentRouter = createTRPCRouter({
 			.orderBy(desc(appointments.startTime));
 	}),
 
-	queuePostVisitMessage: protectedProcedure
+	queuePostVisitMessage: permissionProcedure(
+		"clients:appointments:postvisitmessage",
+	)
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"clients:appointments:postvisitmessage",
-			);
 			await ctx.db
 				.update(appointments)
 				.set({ postVisitMessageQueuedAt: new Date() })
@@ -780,11 +777,9 @@ export const appointmentRouter = createTRPCRouter({
 			};
 		}),
 
-	arrive: protectedProcedure
+	arrive: permissionProcedure("clients:appointments:checkin")
 		.input(checkinInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
-
 			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
@@ -796,11 +791,9 @@ export const appointmentRouter = createTRPCRouter({
 			);
 		}),
 
-	start: protectedProcedure
+	start: permissionProcedure("clients:appointments:checkin")
 		.input(checkinInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
-
 			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
@@ -812,11 +805,9 @@ export const appointmentRouter = createTRPCRouter({
 			);
 		}),
 
-	depart: protectedProcedure
+	depart: permissionProcedure("clients:appointments:checkin")
 		.input(checkinInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
-
 			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
@@ -828,11 +819,9 @@ export const appointmentRouter = createTRPCRouter({
 			);
 		}),
 
-	undoLastCheckinStep: protectedProcedure
+	undoLastCheckinStep: permissionProcedure("clients:appointments:checkin")
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
-
 			const existing = await ctx.db.query.appointmentCheckins.findFirst({
 				where: eq(appointmentCheckins.appointmentId, input.appointmentId),
 			});
@@ -881,10 +870,9 @@ export const appointmentRouter = createTRPCRouter({
 				),
 		),
 
-	evaluatorArrive: protectedProcedure
+	evaluatorArrive: permissionProcedure("clients:appointments:checkin")
 		.input(evaluatorCheckinInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
 			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
@@ -907,10 +895,9 @@ export const appointmentRouter = createTRPCRouter({
 			);
 		}),
 
-	evaluatorDepart: protectedProcedure
+	evaluatorDepart: permissionProcedure("clients:appointments:checkin")
 		.input(evaluatorCheckinInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
 			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
@@ -933,10 +920,11 @@ export const appointmentRouter = createTRPCRouter({
 			);
 		}),
 
-	undoLastEvaluatorCheckinStep: protectedProcedure
+	undoLastEvaluatorCheckinStep: permissionProcedure(
+		"clients:appointments:checkin",
+	)
 		.input(z.object({ evaluatorNpi: z.number(), date: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
 
 			ctx.logger.info(

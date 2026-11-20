@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm";
 import z from "zod";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { reportQueueConfig } from "~/server/db/schema";
@@ -20,7 +20,7 @@ export const reportQueueRouter = createTRPCRouter({
 		};
 	}),
 
-	setConfig: protectedProcedure
+	setConfig: permissionProcedure("reports:approve")
 		.input(
 			z.object({
 				defaultMaxClaimedReports: z.number().int().min(1).max(10),
@@ -29,8 +29,6 @@ export const reportQueueRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "reports:approve");
-
 			const existing = await ctx.db.query.reportQueueConfig.findFirst({
 				where: eq(reportQueueConfig.id, 1),
 			});

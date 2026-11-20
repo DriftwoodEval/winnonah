@@ -96,6 +96,7 @@ import {
 	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
@@ -1482,10 +1483,9 @@ export const clientRouter = createTRPCRouter({
 				.filter((entry) => entry.description !== NOT_A_REFERRAL_CHANGE);
 		}),
 
-	resolveFailure: protectedProcedure
+	resolveFailure: permissionProcedure("clients:resolvefailure")
 		.input(z.object({ clientId: z.number(), reason: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:resolvefailure");
 			ctx.logger.info(input, "Resolving failure");
 
 			await ctx.db
@@ -1499,10 +1499,9 @@ export const clientRouter = createTRPCRouter({
 				);
 		}),
 
-	requestMedicaidRecheck: protectedProcedure
+	requestMedicaidRecheck: permissionProcedure("clients:medicaid-recheck")
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:medicaid-recheck");
 			ctx.logger.info(input, "Requesting Medicaid recheck");
 
 			await ctx.db
@@ -1552,82 +1551,84 @@ export const clientRouter = createTRPCRouter({
 			return results;
 		}),
 
-	getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:district-issues");
-
-		return fetchIssueList(ctx, "getDistrictErrors", async () => {
-			const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
-				await Promise.all([
-					ctx.db.query.clients.findMany({
-						where: and(
-							or(
-								eq(clients.schoolDistrict, "Unknown"),
-								isNull(clients.schoolDistrict),
+	getDistrictErrors: permissionProcedure("issues:district-issues").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getDistrictErrors", async () => {
+				const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
+					await Promise.all([
+						ctx.db.query.clients.findMany({
+							where: and(
+								or(
+									eq(clients.schoolDistrict, "Unknown"),
+									isNull(clients.schoolDistrict),
+								),
+								gt(
+									clients.dob,
+									localDateToDateOnly(subYears(new Date(), 21)) as string,
+								),
+								not(isNotesOnly),
+								eq(clients.status, true),
 							),
-							gt(
-								clients.dob,
-								localDateToDateOnly(subYears(new Date(), 21)) as string,
+						}),
+						ctx.db.query.clients.findMany({
+							where: and(
+								eq(clients.flag, "poor_address_lookup"),
+								not(isNotesOnly),
+								eq(clients.status, true),
 							),
-							not(isNotesOnly),
-							eq(clients.status, true),
+						}),
+					]);
+
+				return {
+					clientsWithoutDistrict,
+					clientsWithPoorAddressLookup,
+				};
+			});
+		},
+	),
+
+	getBabyNetErrors: permissionProcedure("issues:babynet-ageout").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getBabyNetErrors", async () => {
+				const ageOutDate = localDateToDateOnly(
+					subYears(new Date(), 3),
+				) as string;
+
+				const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
+					where: and(
+						or(
+							like(clients.primaryInsurance, "%BabyNet%"),
+							sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
 						),
-					}),
-					ctx.db.query.clients.findMany({
-						where: and(
-							eq(clients.flag, "poor_address_lookup"),
-							not(isNotesOnly),
-							eq(clients.status, true),
-						),
-					}),
-				]);
-
-			return {
-				clientsWithoutDistrict,
-				clientsWithPoorAddressLookup,
-			};
-		});
-	}),
-
-	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:babynet-ageout");
-
-		return fetchIssueList(ctx, "getBabyNetErrors", async () => {
-			const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
-
-			const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
-				where: and(
-					or(
-						like(clients.primaryInsurance, "%BabyNet%"),
-						sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
+						lt(clients.dob, ageOutDate),
+						eq(clients.status, true),
 					),
-					lt(clients.dob, ageOutDate),
-					eq(clients.status, true),
-				),
-				orderBy: clients.addedDate,
+					orderBy: clients.addedDate,
+				});
+
+				return clientsTooOldForBabyNet;
 			});
+		},
+	),
 
-			return clientsTooOldForBabyNet;
-		});
-	}),
+	getAdultClients: permissionProcedure("issues:adult-clients").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getAdultClients", async () => {
+				const adultCutOff = localDateToDateOnly(
+					subYears(new Date(), SCHOOL_RECORDS_ADULT_AGE),
+				) as string;
 
-	getAdultClients: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:adult-clients");
-
-		return fetchIssueList(ctx, "getAdultClients", async () => {
-			const adultCutOff = localDateToDateOnly(
-				subYears(new Date(), SCHOOL_RECORDS_ADULT_AGE),
-			) as string;
-
-			return ctx.db.query.clients.findMany({
-				where: and(
-					eq(clients.status, true),
-					not(isNotesOnly),
-					lte(clients.dob, adultCutOff),
-				),
-				orderBy: clients.dob,
+				return ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.status, true),
+						not(isNotesOnly),
+						lte(clients.dob, adultCutOff),
+					),
+					orderBy: clients.dob,
+				});
 			});
-		});
-	}),
+		},
+	),
 
 	autoUpdateBabyNet: protectedProcedure.mutation(async ({ ctx }) => {
 		const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
@@ -1667,22 +1668,20 @@ export const clientRouter = createTRPCRouter({
 		return { count: clientsTooOldForBabyNetBool.length };
 	}),
 
-	getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:not-in-ta");
+	getNotInTAErrors: permissionProcedure("issues:not-in-ta").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getNotInTAErrors", async () => {
+				const clientsNotInTA = await ctx.db.query.clients.findMany({
+					where: isNull(clients.addedDate),
+					orderBy: clients.addedDate,
+				});
 
-		return fetchIssueList(ctx, "getNotInTAErrors", async () => {
-			const clientsNotInTA = await ctx.db.query.clients.findMany({
-				where: isNull(clients.addedDate),
-				orderBy: clients.addedDate,
+				return clientsNotInTA;
 			});
+		},
+	),
 
-			return clientsNotInTA;
-		});
-	}),
-
-	getDropList: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:droplist");
-
+	getDropList: permissionProcedure("issues:droplist").query(async ({ ctx }) => {
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_DROP_LIST,
@@ -1848,18 +1847,18 @@ export const clientRouter = createTRPCRouter({
 		);
 	}),
 
-	getNotesOnlyClients: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:merge");
+	getNotesOnlyClients: permissionProcedure("clients:merge").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getNotesOnlyClients", async () => {
+				const notesOnlyClients = await ctx.db.query.clients.findMany({
+					where: and(isNotesOnly, eq(clients.status, true)),
+					orderBy: asc(clients.addedDate),
+				});
 
-		return fetchIssueList(ctx, "getNotesOnlyClients", async () => {
-			const notesOnlyClients = await ctx.db.query.clients.findMany({
-				where: and(isNotesOnly, eq(clients.status, true)),
-				orderBy: asc(clients.addedDate),
+				return notesOnlyClients;
 			});
-
-			return notesOnlyClients;
-		});
-	}),
+		},
+	),
 
 	getMergeSuggestionsForClient: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
@@ -1914,68 +1913,68 @@ export const clientRouter = createTRPCRouter({
 			};
 		}),
 
-	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:merge");
+	getMergeSuggestions: permissionProcedure("clients:merge").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getMergeSuggestions", async () => {
+				const allClients = await ctx.db.query.clients.findMany({
+					where: eq(clients.status, true),
+				});
 
-		return fetchIssueList(ctx, "getMergeSuggestions", async () => {
-			const allClients = await ctx.db.query.clients.findMany({
-				where: eq(clients.status, true),
-			});
+				const notesOnlyClients = allClients.filter((c) =>
+					isNotesOnlyClientId(c.id),
+				);
+				const realClients = allClients.filter(
+					(c) => !isNotesOnlyClientId(c.id),
+				);
 
-			const notesOnlyClients = allClients.filter((c) =>
-				isNotesOnlyClientId(c.id),
-			);
-			const realClients = allClients.filter((c) => !isNotesOnlyClientId(c.id));
+				const suggestions: {
+					notesOnlyClient: typeof clients.$inferSelect;
+					suggestedRealClients: (typeof clients.$inferSelect & {
+						distance: number;
+					})[];
+				}[] = [];
 
-			const suggestions: {
-				notesOnlyClient: typeof clients.$inferSelect;
-				suggestedRealClients: (typeof clients.$inferSelect & {
-					distance: number;
-				})[];
-			}[] = [];
+				for (const notesOnly of notesOnlyClients) {
+					const notesOnlyName = notesOnly.fullName.toLowerCase();
 
-			for (const notesOnly of notesOnlyClients) {
-				const notesOnlyName = notesOnly.fullName.toLowerCase();
+					const matchingRealClients = preferExactMatches(
+						realClients
+							.map((real) => ({
+								...real,
+								...matchNotesOnlyToReal(notesOnlyName, real),
+							}))
+							.filter((c) => c.isMatch),
+					)
+						.sort((a, b) => a.distance - b.distance)
+						.slice(0, 5);
 
-				const matchingRealClients = preferExactMatches(
-					realClients
-						.map((real) => ({
-							...real,
-							...matchNotesOnlyToReal(notesOnlyName, real),
-						}))
-						.filter((c) => c.isMatch),
-				)
-					.sort((a, b) => a.distance - b.distance)
-					.slice(0, 5);
-
-				if (matchingRealClients.length > 0) {
-					suggestions.push({
-						notesOnlyClient: notesOnly,
-						suggestedRealClients: matchingRealClients,
-					});
+					if (matchingRealClients.length > 0) {
+						suggestions.push({
+							notesOnlyClient: notesOnly,
+							suggestedRealClients: matchingRealClients,
+						});
+					}
 				}
-			}
 
-			return suggestions;
-		});
-	}),
-
-	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:no-drive-ids");
-
-		return fetchIssueList(ctx, "getNoDriveIdErrors", async () => {
-			const noDriveId = await ctx.db.query.clients.findMany({
-				where: and(not(isNotesOnly), isNull(clients.driveId)),
-				orderBy: clients.addedDate,
+				return suggestions;
 			});
+		},
+	),
 
-			return noDriveId;
-		});
-	}),
+	getNoDriveIdErrors: permissionProcedure("issues:no-drive-ids").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getNoDriveIdErrors", async () => {
+				const noDriveId = await ctx.db.query.clients.findMany({
+					where: and(not(isNotesOnly), isNull(clients.driveId)),
+					orderBy: clients.addedDate,
+				});
 
-	getDD4: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:dd4");
+				return noDriveId;
+			});
+		},
+	),
 
+	getDD4: permissionProcedure("issues:dd4").query(async ({ ctx }) => {
 		return fetchIssueList(ctx, "getDD4", async () => {
 			const dd4 = await ctx.db.query.clients.findMany({
 				where: and(
@@ -1988,129 +1987,134 @@ export const clientRouter = createTRPCRouter({
 		});
 	}),
 
-	getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:private-pay");
-
-		return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
-			const noPaymentMethodOrNoEligors = await ctx.db
-				.select({
-					...getTableColumns(clients),
-					referralMessageSentAt: referralMsgLog.sentAt,
-				})
-				.from(clients)
-				.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
-				.leftJoin(
-					referralMsgLog,
-					and(
-						eq(clients.id, referralMsgLog.clientId),
-						eq(referralMsgLog.isPrivatePayOutreach, true),
-					),
-				)
-				.where(
-					and(
-						or(
-							and(
-								isNull(clients.primaryInsurance),
-								isNull(clients.secondaryInsurance),
-								eq(clients.privatePay, false),
-								not(eq(clients.schoolDistrict, "Dorchester School District 4")), // We can't work with anyone in DD4
+	getPossiblePrivatePay: permissionProcedure("issues:private-pay").query(
+		async ({ ctx }) => {
+			return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
+				const noPaymentMethodOrNoEligors = await ctx.db
+					.select({
+						...getTableColumns(clients),
+						referralMessageSentAt: referralMsgLog.sentAt,
+					})
+					.from(clients)
+					.leftJoin(
+						clientsEvaluators,
+						eq(clients.id, clientsEvaluators.clientId),
+					)
+					.leftJoin(
+						referralMsgLog,
+						and(
+							eq(clients.id, referralMsgLog.clientId),
+							eq(referralMsgLog.isPrivatePayOutreach, true),
+						),
+					)
+					.where(
+						and(
+							or(
+								and(
+									isNull(clients.primaryInsurance),
+									isNull(clients.secondaryInsurance),
+									eq(clients.privatePay, false),
+									not(
+										eq(clients.schoolDistrict, "Dorchester School District 4"),
+									), // We can't work with anyone in DD4
+								),
+								isNull(clientsEvaluators.clientId),
 							),
-							isNull(clientsEvaluators.clientId),
+							eq(clients.status, true),
+							not(isNotesOnly),
+						),
+					)
+					.orderBy(clients.addedDate);
+
+				if (noPaymentMethodOrNoEligors.length === 0) return [];
+
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+				const response = await fetch(
+					`${env.PY_API}/clients/possible-private-pay-reasons`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Cookie: cookieHeader,
+						},
+						body: JSON.stringify({
+							client_ids: noPaymentMethodOrNoEligors.map((c) => c.id),
+						}),
+					},
+				);
+
+				if (!response.ok) {
+					throw new Error(
+						`Failed to fetch private-pay reasons: ${response.status}`,
+					);
+				}
+
+				const reasonsByClientId = (await response.json()) as Record<
+					string,
+					string
+				>;
+
+				const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors
+					.filter((client) => reasonsByClientId[String(client.id)])
+					.map((client) => ({
+						...client,
+						additionalInfo: reasonsByClientId[String(client.id)],
+					}));
+
+				return result;
+			});
+		},
+	),
+
+	getAutismStops: permissionProcedure("issues:autism-stops").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getAutismStops", async () => {
+				const autismStops = await ctx.db.query.clients.findMany({
+					where: and(eq(clients.autismStop, true), eq(clients.status, true)),
+					orderBy: clients.addedDate,
+				});
+
+				return autismStops;
+			});
+		},
+	),
+
+	getNoReferralSource: permissionProcedure("issues:no-referral-source").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getNoReferralSource", async () => {
+				const noReferralSource = await ctx.db.query.clients.findMany({
+					where: and(
+						or(
+							eq(clients.referralSource, "No Referral Source"),
+							isNull(clients.referralSource),
 						),
 						eq(clients.status, true),
 						not(isNotesOnly),
 					),
-				)
-				.orderBy(clients.addedDate);
+					orderBy: clients.addedDate,
+				});
 
-			if (noPaymentMethodOrNoEligors.length === 0) return [];
-
-			const cookieHeader = ctx.headers.get("cookie") ?? "";
-			const response = await fetch(
-				`${env.PY_API}/clients/possible-private-pay-reasons`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Cookie: cookieHeader,
-					},
-					body: JSON.stringify({
-						client_ids: noPaymentMethodOrNoEligors.map((c) => c.id),
-					}),
-				},
-			);
-
-			if (!response.ok) {
-				throw new Error(
-					`Failed to fetch private-pay reasons: ${response.status}`,
-				);
-			}
-
-			const reasonsByClientId = (await response.json()) as Record<
-				string,
-				string
-			>;
-
-			const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors
-				.filter((client) => reasonsByClientId[String(client.id)])
-				.map((client) => ({
-					...client,
-					additionalInfo: reasonsByClientId[String(client.id)],
-				}));
-
-			return result;
-		});
-	}),
-
-	getAutismStops: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:autism-stops");
-
-		return fetchIssueList(ctx, "getAutismStops", async () => {
-			const autismStops = await ctx.db.query.clients.findMany({
-				where: and(eq(clients.autismStop, true), eq(clients.status, true)),
-				orderBy: clients.addedDate,
+				return noReferralSource;
 			});
+		},
+	),
 
-			return autismStops;
-		});
-	}),
+	getPaused: permissionProcedure("issues:paused-clients").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getPaused", async () => {
+				const pausedClients = await ctx.db.query.clients.findMany({
+					where: eq(clients.pause, true),
+					orderBy: clients.addedDate,
+				});
 
-	getNoReferralSource: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:no-referral-source");
-
-		return fetchIssueList(ctx, "getNoReferralSource", async () => {
-			const noReferralSource = await ctx.db.query.clients.findMany({
-				where: and(
-					or(
-						eq(clients.referralSource, "No Referral Source"),
-						isNull(clients.referralSource),
-					),
-					eq(clients.status, true),
-					not(isNotesOnly),
-				),
-				orderBy: clients.addedDate,
+				return pausedClients;
 			});
+		},
+	),
 
-			return noReferralSource;
-		});
-	}),
-
-	getPaused: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:paused-clients");
-
-		return fetchIssueList(ctx, "getPaused", async () => {
-			const pausedClients = await ctx.db.query.clients.findMany({
-				where: eq(clients.pause, true),
-				orderBy: clients.addedDate,
-			});
-
-			return pausedClients;
-		});
-	}),
-
-	getEvaluationInProcess: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:evaluation-in-process");
-
+	getEvaluationInProcess: permissionProcedure(
+		"issues:evaluation-in-process",
+	).query(async ({ ctx }) => {
 		return fetchIssueList(ctx, "getEvaluationInProcess", async () => {
 			const evaluationClients = await ctx.db.query.clients.findMany({
 				where: and(
@@ -2124,19 +2128,17 @@ export const clientRouter = createTRPCRouter({
 		});
 	}),
 
-	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:duplicate-names");
+	getDuplicateNames: permissionProcedure("issues:duplicate-names").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getDuplicateNames", () =>
+				getDuplicateNamesList(ctx.db),
+			);
+		},
+	),
 
-		return fetchIssueList(ctx, "getDuplicateNames", () =>
-			getDuplicateNamesList(ctx.db),
-		);
-	}),
-
-	ignoreDuplicateNamePair: protectedProcedure
+	ignoreDuplicateNamePair: permissionProcedure("issues:duplicate-names")
 		.input(z.object({ clientIdA: z.number(), clientIdB: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:duplicate-names");
-
 			const idA = Math.min(input.clientIdA, input.clientIdB);
 			const idB = Math.max(input.clientIdA, input.clientIdB);
 
@@ -2146,13 +2148,11 @@ export const clientRouter = createTRPCRouter({
 				.onDuplicateKeyUpdate({ set: { clientIdA: idA } });
 		}),
 
-	computeAssessmentMinutes: protectedProcedure
+	computeAssessmentMinutes: permissionProcedure(
+		"clients:additional-insurance-appointments",
+	)
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"clients:additional-insurance-appointments",
-			);
 			const snapshot = await computeAndStoreAssessmentSnapshot(
 				ctx.db,
 				input.clientId,
@@ -2161,9 +2161,9 @@ export const clientRouter = createTRPCRouter({
 			return snapshot;
 		}),
 
-	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:missing-appointments");
-
+	getMissingAppointments: permissionProcedure(
+		"issues:missing-appointments",
+	).query(async ({ ctx }) => {
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_MISSING_APPOINTMENTS,
@@ -2172,11 +2172,9 @@ export const clientRouter = createTRPCRouter({
 		);
 	}),
 
-	claimOutreach: protectedProcedure
+	claimOutreach: permissionProcedure(["clients:referral:claim"])
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, ["clients:referral:claim"]);
-
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 			});
@@ -2332,11 +2330,9 @@ export const clientRouter = createTRPCRouter({
 			return { added: true };
 		}),
 
-	logPrivatePayOutreachAttempt: protectedProcedure
+	logPrivatePayOutreachAttempt: permissionProcedure("issues:private-pay")
 		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:private-pay");
-
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 			});
@@ -2378,49 +2374,51 @@ export const clientRouter = createTRPCRouter({
 			await invalidateCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY);
 		}),
 
-	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:unreviewed-records");
+	getUnreviewedRecords: permissionProcedure("issues:unreviewed-records").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getUnreviewedRecords", () =>
+				getUnreviewedRecordsList(ctx.db),
+			);
+		},
+	),
 
-		return fetchIssueList(ctx, "getUnreviewedRecords", () =>
-			getUnreviewedRecordsList(ctx.db),
-		);
-	}),
-
-	getUnconfirmedCharterSchool: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:charter-school-confirm");
-
+	getUnconfirmedCharterSchool: permissionProcedure(
+		"issues:charter-school-confirm",
+	).query(async ({ ctx }) => {
 		return fetchIssueList(ctx, "getUnconfirmedCharterSchool", () =>
 			getUnconfirmedCharterSchoolList(ctx.db),
 		);
 	}),
 
-	getInsuranceMismatch: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+	getInsuranceMismatch: permissionProcedure("issues:insurance-mismatch").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getInsuranceMismatch", () =>
+				getInsuranceMismatchList(ctx.db),
+			);
+		},
+	),
 
-		return fetchIssueList(ctx, "getInsuranceMismatch", () =>
-			getInsuranceMismatchList(ctx.db),
-		);
-	}),
-
-	getSpecialAccommodations: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:special-accommodations");
-
+	getSpecialAccommodations: permissionProcedure(
+		"issues:special-accommodations",
+	).query(async ({ ctx }) => {
 		return fetchIssueList(ctx, "getSpecialAccommodations", () =>
 			getSpecialAccommodationsList(ctx.db),
 		);
 	}),
 
-	getDdsRequests: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:dds-requests");
-
-		return fetchIssueList(ctx, "getDdsRequests", () =>
-			getDdsRequestsList(ctx.db),
-		);
-	}),
+	getDdsRequests: permissionProcedure("issues:dds-requests").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getDdsRequests", () =>
+				getDdsRequestsList(ctx.db),
+			);
+		},
+	),
 
 	// Approving queues the notice for the appointment sync to send; denying
 	// keeps the row so the client is never queued again.
-	decideSpecialAccommodations: protectedProcedure
+	decideSpecialAccommodations: permissionProcedure(
+		"issues:special-accommodations",
+	)
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -2428,8 +2426,6 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:special-accommodations");
-
 			await ctx.db
 				.update(specialAccommodationsNotices)
 				.set({ status: input.decision })
@@ -2441,23 +2437,23 @@ export const clientRouter = createTRPCRouter({
 				);
 		}),
 
-	getMedicaidNotFound: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+	getMedicaidNotFound: permissionProcedure("issues:insurance-mismatch").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getMedicaidNotFound", () =>
+				getMedicaidNotFoundList(ctx.db),
+			);
+		},
+	),
 
-		return fetchIssueList(ctx, "getMedicaidNotFound", () =>
-			getMedicaidNotFoundList(ctx.db),
-		);
-	}),
+	getMedicaidIneligible: permissionProcedure("issues:insurance-mismatch").query(
+		async ({ ctx }) => {
+			return fetchIssueList(ctx, "getMedicaidIneligible", () =>
+				getMedicaidIneligibleList(ctx.db),
+			);
+		},
+	),
 
-	getMedicaidIneligible: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:insurance-mismatch");
-
-		return fetchIssueList(ctx, "getMedicaidIneligible", () =>
-			getMedicaidIneligibleList(ctx.db),
-		);
-	}),
-
-	createNotesOnly: protectedProcedure
+	createNotesOnly: permissionProcedure("clients:notes-only")
 		.input(
 			z.object({
 				firstName: z
@@ -2469,8 +2465,6 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:notes-only");
-
 			ctx.logger.info(input, "Creating notes only client");
 
 			const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
@@ -2891,7 +2885,7 @@ export const clientRouter = createTRPCRouter({
 			return updatedClient;
 		}),
 
-	linkRelated: protectedProcedure
+	linkRelated: permissionProcedure("clients:related")
 		.input(
 			z.object({
 				idA: z.number(),
@@ -2899,8 +2893,6 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:related");
-
 			if (input.idA === input.idB)
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -2923,7 +2915,7 @@ export const clientRouter = createTRPCRouter({
 			});
 		}),
 
-	unlinkRelated: protectedProcedure
+	unlinkRelated: permissionProcedure("clients:related")
 		.input(
 			z.object({
 				idA: z.number(),
@@ -2931,8 +2923,6 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:related");
-
 			if (input.idA === input.idB)
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -3392,7 +3382,7 @@ export const clientRouter = createTRPCRouter({
 			);
 		}),
 
-	replaceNotes: protectedProcedure
+	replaceNotes: permissionProcedure("clients:merge")
 		.input(
 			z.object({
 				clientId: z.number(),
@@ -3400,8 +3390,6 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:merge");
-
 			ctx.logger.info(input, "Merging notes only client");
 
 			const { clientId, fakeClientId } = input;
@@ -3612,45 +3600,45 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	// TODO: move this?
-	getCsvFileInfo: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:download");
+	getCsvFileInfo: permissionProcedure("clients:download").query(
+		async ({ ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
-		const cookieHeader = ctx.headers.get("cookie") ?? "";
-
-		const response = await fetch(`${env.PY_API}/download-info`, {
-			headers: { Cookie: cookieHeader },
-		});
-
-		if (!response.ok) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to fetch file info",
+			const response = await fetch(`${env.PY_API}/download-info`, {
+				headers: { Cookie: cookieHeader },
 			});
-		}
 
-		return response.json() as Promise<Record<string, number | null>>;
-	}),
+			if (!response.ok) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to fetch file info",
+				});
+			}
 
-	getScriptRunInfo: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:download");
+			return response.json() as Promise<Record<string, number | null>>;
+		},
+	),
 
-		const cookieHeader = ctx.headers.get("cookie") ?? "";
+	getScriptRunInfo: permissionProcedure("clients:download").query(
+		async ({ ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
-		const response = await fetch(`${env.PY_API}/script-run-info`, {
-			headers: { Cookie: cookieHeader },
-		});
-
-		if (!response.ok) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to fetch script run info",
+			const response = await fetch(`${env.PY_API}/script-run-info`, {
+				headers: { Cookie: cookieHeader },
 			});
-		}
 
-		return response.json() as Promise<Record<string, number | null>>;
-	}),
+			if (!response.ok) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to fetch script run info",
+				});
+			}
 
-	downloadCsv: protectedProcedure
+			return response.json() as Promise<Record<string, number | null>>;
+		},
+	),
+
+	downloadCsv: permissionProcedure("clients:download")
 		.input(
 			z.enum([
 				"billing",
@@ -3663,8 +3651,6 @@ export const clientRouter = createTRPCRouter({
 			]),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:download");
-
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 			const response = await fetch(`${env.PY_API}/download/${input}`, {
@@ -3684,11 +3670,9 @@ export const clientRouter = createTRPCRouter({
 			return response.text();
 		}),
 
-	downloadSelectHealthForm: protectedProcedure
+	downloadSelectHealthForm: permissionProcedure("clients:pa-forms")
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:pa-forms");
-
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 			const client = await ctx.db.query.clients.findFirst({
@@ -3817,11 +3801,9 @@ export const clientRouter = createTRPCRouter({
 			};
 		}),
 
-	ignoreInsuranceMismatch: protectedProcedure
+	ignoreInsuranceMismatch: permissionProcedure("issues:insurance-mismatch")
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:insurance-mismatch");
-
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 				columns: {

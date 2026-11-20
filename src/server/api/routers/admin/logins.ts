@@ -13,8 +13,8 @@ import { hasPermission } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { ensureBuiltInLogins } from "~/server/api/login-access";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import type { db } from "~/server/db";
@@ -133,7 +133,7 @@ export const loginsRouter = createTRPCRouter({
 		});
 	}),
 
-	create: protectedProcedure
+	create: permissionProcedure("settings:qsuite:logins:create")
 		.input(
 			loginDetailsSchema.extend({
 				username: textField,
@@ -141,8 +141,6 @@ export const loginsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:qsuite:logins:create");
-
 			const [result] = await ctx.db.insert(logins).values(input);
 
 			// The creator keeps full access to what they create.
@@ -312,17 +310,18 @@ export const loginsRouter = createTRPCRouter({
 		}),
 
 	// Every login, for the per-login checkboxes in the permissions editor.
-	permissionList: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "settings:users:edit");
-		await ensureBuiltInLogins(ctx.db);
-		const rows = await ctx.db.query.logins.findMany({
-			columns: { id: true, name: true, builtInKey: true },
-			orderBy: (logins, { asc }) => [asc(logins.name)],
-		});
-		return rows
-			.filter((row) => !HIDDEN_BUILT_IN_KEYS.includes(row.builtInKey ?? ""))
-			.map(({ id, name }) => ({ id, name }));
-	}),
+	permissionList: permissionProcedure("settings:users:edit").query(
+		async ({ ctx }) => {
+			await ensureBuiltInLogins(ctx.db);
+			const rows = await ctx.db.query.logins.findMany({
+				columns: { id: true, name: true, builtInKey: true },
+				orderBy: (logins, { asc }) => [asc(logins.name)],
+			});
+			return rows
+				.filter((row) => !HIDDEN_BUILT_IN_KEYS.includes(row.builtInKey ?? ""))
+				.map(({ id, name }) => ({ id, name }));
+		},
+	),
 
 	// Changes to one login, newest first. Needs edit access to that login.
 	history: protectedProcedure

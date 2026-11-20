@@ -1,0 +1,442 @@
+{
+	"clients:notes": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:priority": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:color": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:drive": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:schooldistrict": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:asdadhd": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:language": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:related": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:babynet": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:ei-reminders": {
+		"heading": "clients:details:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:pause": {
+		"heading": "clients:status:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:autismstop:disable": {
+		"heading": "clients:status:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:alreadydx": {
+		"heading": "clients:status:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:protocolsscanned": {
+		"heading": "clients:status:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:resolvefailure": {
+		"heading": "clients:status:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:appointments:checkin": {
+		"heading": "clients:appointments:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:appointments:postvisitmessage": {
+		"heading": "clients:appointments:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:appointments:copyinfo": {
+		"heading": "clients:appointments:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:questionnaires:create": {
+		"heading": "clients:questionnaires:all",
+		"legacy": null
+	},
+	"clients:questionnaires:createexternal": {
+		"heading": "clients:questionnaires:all",
+		"legacy": null
+	},
+	"clients:questionnaires:createbulk": {
+		"heading": "clients:questionnaires:all",
+		"legacy": null
+	},
+	"clients:questionnaires:in-person": {
+		"heading": "clients:questionnaires:all",
+		"legacy": null
+	},
+	"clients:questionnaires:overridereminder": {
+		"heading": "clients:questionnaires:all",
+		"legacy": null
+	},
+	"clients:records:needed": {
+		"heading": "clients:records:all",
+		"legacy": null
+	},
+	"clients:records:requested": {
+		"heading": "clients:records:all",
+		"legacy": null
+	},
+	"clients:records:reviewed": {
+		"heading": "clients:records:all",
+		"legacy": null
+	},
+	"clients:records:babynet": {
+		"heading": "clients:records:all",
+		"legacy": null
+	},
+	"clients:records:evaluation": {
+		"heading": "clients:records:all",
+		"legacy": null
+	},
+	"clients:referral:tab": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:infobox": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:fillout": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:claim": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:pushtopunch": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:confirmcharterschool": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:referral:babynet-limited": {
+		"heading": "clients:referrals:all",
+		"legacy": null
+	},
+	"clients:additional-insurance-appointments": {
+		"heading": "clients:insurance:all",
+		"legacy": null
+	},
+	"clients:admin:review": {
+		"heading": "clients:insurance:all",
+		"legacy": null
+	},
+	"clients:pa-forms": {
+		"heading": "clients:insurance:all",
+		"legacy": null
+	},
+	"clients:pa-assigned-to": {
+		"heading": "clients:insurance:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:medicaid-recheck": {
+		"heading": "clients:insurance:all",
+		"legacy": "clients:general:all"
+	},
+	"clients:notes-only": {
+		"heading": "clients:admin:all",
+		"legacy": null
+	},
+	"clients:merge": {
+		"heading": "clients:admin:all",
+		"legacy": null
+	},
+	"clients:download": {
+		"heading": "clients:admin:all",
+		"legacy": null
+	},
+	"reports:approve": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:view-all": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:edit-any": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:billed": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:first-review": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:second-review-needed": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"reports:second-review-done": {
+		"heading": "reports:reports:all",
+		"legacy": "clients:admin:all"
+	},
+	"fax:categorization:review": {
+		"heading": "reports:fax:all",
+		"legacy": "clients:admin:all"
+	},
+	"settings:users:edit": {
+		"heading": "system:people:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:users:invite": {
+		"heading": "system:people:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:roles:edit": {
+		"heading": "system:people:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:evaluators": {
+		"heading": "system:practice:all",
+		"legacy": "system:settings:all"
+	},
+	"evaluator-dashboard:admin": {
+		"heading": "system:practice:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:appointments-sync": {
+		"heading": "system:practice:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:insurances": {
+		"heading": "system:practice:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:questionnaireRules": {
+		"heading": "system:practice:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:post-visit-attachment:edit": {
+		"heading": "system:messages:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:issue-report:edit": {
+		"heading": "system:messages:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:run-logs:view": {
+		"heading": "system:logs:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:babynet-report:view": {
+		"heading": "system:logs:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:audit-log:view": {
+		"heading": "system:logs:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:impersonate": {
+		"heading": "system:tools:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:pii-redaction": {
+		"heading": "system:tools:all",
+		"legacy": "system:settings:all"
+	},
+	"reports:notifications": {
+		"heading": "system:notifications:all",
+		"legacy": "clients:admin:all"
+	},
+	"clients:admin:review:email-notifications": {
+		"heading": "system:notifications:all",
+		"legacy": "clients:insurance:all"
+	},
+	"settings:exclusion-check:notifications": {
+		"heading": "system:notifications:all",
+		"legacy": "system:settings:all"
+	},
+	"settings:qsuite:general": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:services": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:services:view": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:logins:create": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:logins:delete": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:records": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"settings:qsuite:piecework": {
+		"heading": "system:qsuite:all",
+		"legacy": null
+	},
+	"issues:dd4": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:just-added": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:paused-clients": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:autism-stops": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:clients-not-in-db": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:punchlist-inactive": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:punchlist-duplicates": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:no-referral-source": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:district-issues": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:babynet-ageout": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:adult-clients": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:not-in-ta": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:droplist": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:no-drive-ids": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:private-pay": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:unreviewed-records": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:charter-school-confirm": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:special-accommodations": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:dds-requests": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:duplicate-drive": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:duplicate-questionnaires": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:evaluation-in-process": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:missing-appointments": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:duplicate-names": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:partial-battery": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"issues:insurance-mismatch": {
+		"heading": "system:issues:all",
+		"legacy": null
+	},
+	"pages:availability": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:dashboard": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:calculator": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:database": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:scheduling": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:scheduling-helper": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"pages:work-summary": {
+		"heading": "pages:access:all",
+		"legacy": null
+	},
+	"reports:beta": {
+		"heading": "pages:access:all",
+		"legacy": "clients:admin:all"
+	}
+}

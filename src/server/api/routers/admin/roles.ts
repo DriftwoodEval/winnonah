@@ -4,8 +4,8 @@ import z from "zod";
 import { permissionsSchema } from "~/lib/types";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
-	assertPermission,
 	createTRPCRouter,
+	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { invitations, roles, users } from "~/server/db/schema";
@@ -17,7 +17,7 @@ export const rolesRouter = createTRPCRouter({
 		});
 	}),
 
-	create: protectedProcedure
+	create: permissionProcedure("settings:roles:edit")
 		.input(
 			z.object({
 				name: z.string().min(1),
@@ -26,8 +26,6 @@ export const rolesRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:roles:edit");
-
 			ctx.logger.info(input, "Creating role");
 
 			await ctx.db.transaction(async (tx) => {
@@ -42,7 +40,7 @@ export const rolesRouter = createTRPCRouter({
 			});
 		}),
 
-	update: protectedProcedure
+	update: permissionProcedure("settings:roles:edit")
 		.input(
 			z.object({
 				id: z.number(),
@@ -52,8 +50,6 @@ export const rolesRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:roles:edit");
-
 			const existing = await ctx.db.query.roles.findFirst({
 				where: eq(roles.id, input.id),
 			});
@@ -89,11 +85,9 @@ export const rolesRouter = createTRPCRouter({
 			});
 		}),
 
-	delete: protectedProcedure
+	delete: permissionProcedure("settings:roles:edit")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:roles:edit");
-
 			const role = await ctx.db.query.roles.findFirst({
 				where: eq(roles.id, input.id),
 			});

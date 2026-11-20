@@ -1,15 +1,11 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { getDriveClient } from "~/lib/integrations/google";
-import {
-	assertPermission,
-	createTRPCRouter,
-	protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import { clients, ddsFaxRequests } from "~/server/db/schema";
 
 export const ddsQueueRouter = createTRPCRouter({
-	decide: protectedProcedure
+	decide: permissionProcedure("issues:dds-requests")
 		.input(
 			z.object({
 				id: z.number(),
@@ -17,7 +13,6 @@ export const ddsQueueRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:dds-requests");
 			await ctx.db
 				.update(ddsFaxRequests)
 				.set({
@@ -29,10 +24,9 @@ export const ddsQueueRouter = createTRPCRouter({
 		}),
 
 	/** PDFs in the client's Drive folder, newest first, for swapping the selection. */
-	listClientPdfs: protectedProcedure
+	listClientPdfs: permissionProcedure("issues:dds-requests")
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:dds-requests");
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 				columns: { driveId: true },
@@ -50,7 +44,7 @@ export const ddsQueueRouter = createTRPCRouter({
 			);
 		}),
 
-	setFile: protectedProcedure
+	setFile: permissionProcedure("issues:dds-requests")
 		.input(
 			z.object({
 				id: z.number(),
@@ -59,7 +53,6 @@ export const ddsQueueRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:dds-requests");
 			await ctx.db
 				.update(ddsFaxRequests)
 				.set({
@@ -71,10 +64,9 @@ export const ddsQueueRouter = createTRPCRouter({
 		}),
 
 	/** Sends the cover page alone with this note at its bottom, instead of a PDF. */
-	setCoverNote: protectedProcedure
+	setCoverNote: permissionProcedure("issues:dds-requests")
 		.input(z.object({ id: z.number(), note: z.string().trim().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:dds-requests");
 			await ctx.db
 				.update(ddsFaxRequests)
 				.set({

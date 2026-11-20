@@ -1,38 +1,28 @@
 """Permission checks matching hasPermission in src/lib/utils.ts."""
 
 import json
+from pathlib import Path
 
-# The heading ("<category>:<subgroup>:all") flag that covers each permission checked
-# on the Python side, mirroring PERMISSIONS in src/lib/constants.ts.
-# src/lib/python-permissions.test.ts fails if an entry here disagrees with it.
-PERMISSION_GROUPS = {
-    "clients:admin:review": "clients:insurance:all",
-    "clients:admin:review:email-notifications": "clients:insurance:all",
-    "clients:download": "clients:admin:all",
-    "clients:pa-forms": "clients:insurance:all",
-    "issues:dds-requests": "system:issues:all",
-    "pages:scheduling-helper": "pages:access:all",
-    "reports:approve": "clients:admin:all",
-    "reports:notifications": "clients:admin:all",
-    "settings:evaluators": "system:settings:all",
-    "settings:exclusion-check:notifications": "system:settings:all",
-    "settings:impersonate": "system:settings:all",
-    "settings:post-visit-attachment:edit": "system:settings:all",
-    "settings:qsuite:services": "system:qsuite:all",
-    "settings:qsuite:services:view": "system:qsuite:all",
-}
+# Generated from PERMISSIONS in src/lib/constants.ts by
+# src/lib/python-permissions.test.ts, which fails if the file is stale.
+# Maps each permission to its heading ("<category>:<subgroup>:all") flag and, for a
+# permission that moved groups, the heading flag it used to sit under.
+_PERMISSIONS = json.loads((Path(__file__).parent / "permissions.json").read_text())
 
 
 def has_permission(permissions: dict, permission: str) -> bool:
     """Whether a permissions object grants a permission.
 
     An explicit value for the permission wins; otherwise its heading's "all" flag
-    decides. The permission must be listed in PERMISSION_GROUPS.
+    decides, then the heading flag it used to sit under. The permission must be
+    listed in permissions.json.
     """
-    value = permissions.get(permission)
-    if value is None:
-        value = permissions.get(PERMISSION_GROUPS[permission])
-    return bool(value)
+    entry = _PERMISSIONS[permission]
+    for key in (permission, entry["heading"], entry["legacy"]):
+        value = permissions.get(key)
+        if value is not None:
+            return bool(value)
+    return False
 
 
 def effective_permissions(

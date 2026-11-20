@@ -1,10 +1,6 @@
 import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import z from "zod";
-import {
-	assertPermission,
-	createTRPCRouter,
-	protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import { auditLogs, clients, users } from "~/server/db/schema";
 
 const filterSchema = z.object({
@@ -43,69 +39,69 @@ function buildWhere(input: z.infer<typeof filterSchema>) {
 }
 
 export const auditLogRouter = createTRPCRouter({
-	list: protectedProcedure.input(filterSchema).query(async ({ ctx, input }) => {
-		assertPermission(ctx.session.user, "settings:audit-log:view");
+	list: permissionProcedure("settings:audit-log:view")
+		.input(filterSchema)
+		.query(async ({ ctx, input }) => {
+			const where = buildWhere(input);
 
-		const where = buildWhere(input);
+			const [rows, countRows] = await Promise.all([
+				ctx.db
+					.select({
+						id: auditLogs.id,
+						createdAt: auditLogs.createdAt,
+						userId: auditLogs.userId,
+						userEmail: auditLogs.userEmail,
+						impersonatedBy: auditLogs.impersonatedBy,
+						action: auditLogs.action,
+						clientId: auditLogs.clientId,
+						detail: auditLogs.detail,
+						success: auditLogs.success,
+						errorMessage: auditLogs.errorMessage,
+						userName: users.name,
+						clientFirstName: clients.firstName,
+						clientLastName: clients.lastName,
+						clientHash: clients.hash,
+					})
+					.from(auditLogs)
+					.leftJoin(users, eq(auditLogs.userId, users.id))
+					.leftJoin(clients, eq(auditLogs.clientId, clients.id))
+					.where(where)
+					.orderBy(desc(auditLogs.createdAt))
+					.limit(input.limit)
+					.offset(input.offset),
+				ctx.db
+					.select({ count: sql<number>`count(*)` })
+					.from(auditLogs)
+					.where(where),
+			]);
 
-		const [rows, countRows] = await Promise.all([
-			ctx.db
-				.select({
-					id: auditLogs.id,
-					createdAt: auditLogs.createdAt,
+			return { rows, total: countRows[0]?.count ?? 0 };
+		}),
+
+	getActionNames: permissionProcedure("settings:audit-log:view").query(
+		async ({ ctx }) => {
+			const rows = await ctx.db
+				.selectDistinct({ action: auditLogs.action })
+				.from(auditLogs)
+				.orderBy(auditLogs.action);
+
+			return rows.map((r) => r.action);
+		},
+	),
+
+	getDistinctUsers: permissionProcedure("settings:audit-log:view").query(
+		async ({ ctx }) => {
+			const rows = await ctx.db
+				.selectDistinct({
 					userId: auditLogs.userId,
 					userEmail: auditLogs.userEmail,
-					impersonatedBy: auditLogs.impersonatedBy,
-					action: auditLogs.action,
-					clientId: auditLogs.clientId,
-					detail: auditLogs.detail,
-					success: auditLogs.success,
-					errorMessage: auditLogs.errorMessage,
 					userName: users.name,
-					clientFirstName: clients.firstName,
-					clientLastName: clients.lastName,
-					clientHash: clients.hash,
 				})
 				.from(auditLogs)
 				.leftJoin(users, eq(auditLogs.userId, users.id))
-				.leftJoin(clients, eq(auditLogs.clientId, clients.id))
-				.where(where)
-				.orderBy(desc(auditLogs.createdAt))
-				.limit(input.limit)
-				.offset(input.offset),
-			ctx.db
-				.select({ count: sql<number>`count(*)` })
-				.from(auditLogs)
-				.where(where),
-		]);
+				.orderBy(auditLogs.userEmail);
 
-		return { rows, total: countRows[0]?.count ?? 0 };
-	}),
-
-	getActionNames: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "settings:audit-log:view");
-
-		const rows = await ctx.db
-			.selectDistinct({ action: auditLogs.action })
-			.from(auditLogs)
-			.orderBy(auditLogs.action);
-
-		return rows.map((r) => r.action);
-	}),
-
-	getDistinctUsers: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "settings:audit-log:view");
-
-		const rows = await ctx.db
-			.selectDistinct({
-				userId: auditLogs.userId,
-				userEmail: auditLogs.userEmail,
-				userName: users.name,
-			})
-			.from(auditLogs)
-			.leftJoin(users, eq(auditLogs.userId, users.id))
-			.orderBy(auditLogs.userEmail);
-
-		return rows;
-	}),
+			return rows;
+		},
+	),
 });
