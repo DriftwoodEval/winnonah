@@ -147,6 +147,23 @@ function ManualAddressForm({
 										<CommandList>
 											<CommandEmpty>No district found.</CommandEmpty>
 											<CommandGroup>
+												<CommandItem
+													onSelect={() => {
+														form.setValue("schoolDistrict", "Unknown");
+														setDistrictsOpen(false);
+													}}
+													value="Unknown"
+												>
+													Unknown
+													<Check
+														className={cn(
+															"ml-auto",
+															field.value === "Unknown"
+																? "opacity-100"
+																: "opacity-0",
+														)}
+													/>
+												</CommandItem>
 												{allSchoolDistricts
 													?.filter((district) => !district.isCharter)
 													.map((district) => (
