@@ -988,10 +988,14 @@ export const clientRouter = createTRPCRouter({
 					.where(and(...asdAdhdConditions))
 					.groupBy(clients.asdAdhd),
 				ctx.db
-					.select({ value: clients.primaryInsurance, count: count() })
+					.select({
+						value: clients.primaryInsurance,
+						babyNet: clients.babyNet,
+						count: count(),
+					})
 					.from(clients)
 					.where(and(...insuranceConditions))
-					.groupBy(clients.primaryInsurance),
+					.groupBy(clients.primaryInsurance, clients.babyNet),
 				ctx.db
 					.select({ secondaryInsurance: clients.secondaryInsurance })
 					.from(clients)
@@ -1045,15 +1049,19 @@ export const clientRouter = createTRPCRouter({
 			let insuranceTotal = 0;
 			for (const row of insuranceRows) {
 				insuranceTotal += row.count;
-				if (row.value === null) {
-					insuranceCounts[NONE_FILTER_VALUE] =
-						(insuranceCounts[NONE_FILTER_VALUE] ?? 0) + row.count;
-					continue;
+				const shortName =
+					row.value === null
+						? NONE_FILTER_VALUE
+						: getInsuranceShortName(row.value, allInsurances);
+				if (shortName) {
+					insuranceCounts[shortName] =
+						(insuranceCounts[shortName] ?? 0) + row.count;
 				}
-				const shortName = getInsuranceShortName(row.value, allInsurances);
-				if (!shortName) continue;
-				insuranceCounts[shortName] =
-					(insuranceCounts[shortName] ?? 0) + row.count;
+				// Clients flagged BabyNet also match the BabyNet filter, whatever
+				// their primary insurance is.
+				if (row.babyNet && shortName?.toLowerCase() !== "babynet") {
+					insuranceCounts.BabyNet = (insuranceCounts.BabyNet ?? 0) + row.count;
+				}
 			}
 
 			// secondaryInsurance is a JSON array, so counts are computed in JS:
@@ -3186,29 +3194,27 @@ export const clientRouter = createTRPCRouter({
 					}
 
 					if (insuranceFilter && insuranceFilter.length > 0) {
-						const aliases = await ctx.db
-							.select({ name: insuranceAliases.name })
-							.from(insuranceAliases)
-							.innerJoin(
-								insurances,
-								eq(insuranceAliases.insuranceId, insurances.id),
-							)
-							.where(inArray(insurances.shortName, insuranceFilter));
-
-						const aliasNames = aliases.map((a) => a.name);
-						if (aliasNames.length > 0) {
-							conditions.push(
-								or(
-									inArray(clients.primaryInsurance, aliasNames),
-									or(
-										...aliasNames.map(
-											(name) =>
-												sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
-										),
-									),
+						// Each short name matches itself plus its aliases.
+						const aliasNames = (
+							await Promise.all(
+								insuranceFilter.map((v) =>
+									resolveInsuranceAliasNames(ctx.db, v),
 								),
-							);
-						}
+							)
+						).flat();
+						conditions.push(
+							or(
+								inArray(clients.primaryInsurance, aliasNames),
+								...aliasNames.map(
+									(name) =>
+										sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
+								),
+								// Clients flagged BabyNet count as BabyNet even when no insurance field says so.
+								insuranceFilter.some((v) => v.toLowerCase() === "babynet")
+									? eq(clients.babyNet, true)
+									: undefined,
+							),
+						);
 					}
 
 					let { sortReasonSQL, orderBySQL } = getPriorityInfo();

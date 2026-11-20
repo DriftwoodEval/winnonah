@@ -18,6 +18,8 @@ export interface FilterOption {
 	value: string;
 	label: string;
 	swatch?: string;
+	// Extra text the dropdown search also matches (e.g. insurance aliases).
+	searchTerms?: string[];
 }
 
 // Mirrors NONE_FILTER_VALUE in src/server/api/filters.ts: the sentinel a facet
@@ -70,9 +72,12 @@ export function ColumnFilter({
 	const [search, setSearch] = useState("");
 
 	const filteredOptions = useMemo(() => {
+		const query = search.toLowerCase();
 		return options
 			.filter((option) =>
-				option.label.toLowerCase().includes(search.toLowerCase()),
+				[option.label, ...(option.searchTerms ?? [])].some((text) =>
+					text.toLowerCase().includes(query),
+				),
 			)
 			.sort((a, b) => (keepOrder ? 0 : compareOptions(a, b)));
 	}, [options, search, keepOrder]);

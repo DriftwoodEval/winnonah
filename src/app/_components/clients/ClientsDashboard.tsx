@@ -522,41 +522,46 @@ export function ClientsDashboard() {
 								</div>
 							</div>
 							<Separator />
-							<div className="flex items-center space-x-2">
-								<Checkbox
-									checked={queryParams.hideBabyNet}
-									id={hideBabyNetId}
-									onCheckedChange={(checked) =>
-										handleUrlParamChange("hideBabyNet", !!checked)
-									}
-								/>
-								<Label className="text-sm font-medium" htmlFor={hideBabyNetId}>
-									Hide BabyNet Clients
-								</Label>
-							</div>
-							<div className="flex items-center space-x-2">
-								<Checkbox
-									checked={queryParams.privatePay}
-									id={privatePayId}
-									onCheckedChange={(checked) =>
-										handleUrlParamChange("privatePay", !!checked)
-									}
-								/>
-								<Label className="text-sm font-medium" htmlFor={privatePayId}>
-									Private Pay Only
-								</Label>
-							</div>
-							<div className="flex items-center space-x-2">
-								<Checkbox
-									checked={queryParams.autismStop}
-									id={autismStopId}
-									onCheckedChange={(checked) =>
-										handleUrlParamChange("autismStop", !!checked)
-									}
-								/>
-								<Label className="text-sm font-medium" htmlFor={autismStopId}>
-									"Autism" in Records
-								</Label>
+							<div className="space-y-2">
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										checked={queryParams.hideBabyNet}
+										id={hideBabyNetId}
+										onCheckedChange={(checked) =>
+											handleUrlParamChange("hideBabyNet", !!checked)
+										}
+									/>
+									<Label
+										className="text-sm font-medium"
+										htmlFor={hideBabyNetId}
+									>
+										Hide BabyNet Clients
+									</Label>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										checked={queryParams.privatePay}
+										id={privatePayId}
+										onCheckedChange={(checked) =>
+											handleUrlParamChange("privatePay", !!checked)
+										}
+									/>
+									<Label className="text-sm font-medium" htmlFor={privatePayId}>
+										Private Pay Only
+									</Label>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										checked={queryParams.autismStop}
+										id={autismStopId}
+										onCheckedChange={(checked) =>
+											handleUrlParamChange("autismStop", !!checked)
+										}
+									/>
+									<Label className="text-sm font-medium" htmlFor={autismStopId}>
+										"Autism" in Records
+									</Label>
+								</div>
 							</div>
 							{allInsurances && allInsurances.length > 0 && (
 								<>

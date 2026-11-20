@@ -1641,6 +1641,7 @@ export function ClientDirectory() {
 			(allInsurances ?? []).map((insurance) => ({
 				value: insurance.shortName,
 				label: insurance.shortName,
+				searchTerms: insurance.aliases.map((alias) => alias.name),
 			})),
 		[allInsurances],
 	);
