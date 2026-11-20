@@ -61,7 +61,10 @@ export const PERMISSIONS = {
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
 					{ id: "clients:language", title: "Edit Language" },
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
-					{ id: "clients:pa-assigned-to", title: "Edit PA Assigned To" },
+					{
+						id: "clients:pa-assigned-to",
+						title: "Edit PA Assigned To and Status",
+					},
 					{
 						id: "clients:medicaid-recheck",
 						title: "Request Medicaid Eligibility Recheck",
@@ -477,6 +480,21 @@ export const NOTE_TEMPLATES = [
 		text: "No records.",
 	},
 ] as const;
+
+// Statuses staff pick in the Punchlist's "PA Expiration" cell until the real
+// expiration date arrives, at which point the cell holds the date instead.
+export const PA_STATUSES = [
+	"Ready",
+	"Review needed",
+	"Submitted",
+	"Not moving forward",
+	"Denied",
+	"N/A",
+] as const;
+
+// getPunchData returns date cells as "YYYY-MM-DD".
+export const isPunchDate = (value: string | undefined): value is string =>
+	/^\d{4}-\d{2}-\d{2}$/.test(value ?? "");
 
 export const ALLOWED_ASD_ADHD_VALUES = [
 	"ASD",

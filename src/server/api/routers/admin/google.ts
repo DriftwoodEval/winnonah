@@ -8,6 +8,7 @@ import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { isCharterSchoolUnconfirmed } from "~/lib/client-blockers";
 import {
+	PA_STATUSES,
 	REPORT_QUEUE_FOLDER_ID,
 	REPORT_WRITERS_FOLDER_ID,
 	TEST_NAMES,
@@ -384,6 +385,33 @@ export const googleRouter = createTRPCRouter({
 				success: true,
 				message: "Protocols Scanned updated successfully",
 			};
+		}),
+
+	setPaExpiration: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				paExpiration: z.enum(PA_STATUSES),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pa-assigned-to");
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			ctx.logger.info(input, "Updating PA Expiration status");
+
+			await updatePunchData(ctx.session, input.clientId.toString(), {
+				paExpiration: input.paExpiration,
+			});
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_PUNCHLIST,
+				CACHE_KEY_MISSING_PUNCHLIST,
+			);
+
+			return { success: true };
 		}),
 
 	setPaAssignedTo: protectedProcedure

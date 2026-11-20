@@ -5,11 +5,13 @@ title: Changelog
 ## 2026-11-20
 
 **New**
+- The client directory's Prior Auth Date column now has a status dropdown (Ready, Review needed, Submitted, Not moving forward, Denied, N/A) until the date arrives, and the choice is saved to the punchlist. The "Edit PA Assigned To" permission is now "Edit PA Assigned To and Status" and covers it. Once a PA expiration date appears on the punchlist, EVAL Qs Needed is checked automatically.
 - On the Work Summary page, clicking an evaluator row now opens the Database Appointments table for the same dates, filtered to that evaluator, instead of a popup.
 - On the Work Summary check-ins card, click a client count or an Out of order count to open the Database Appointments table for the same dates, filtered to that person.
 - The Arrived, Started, and Left filters in the Database Appointments table now list who entered each time, and the Logged filter lists who entered out-of-order times.
 
 **Improved**
+- Rows in the client directory now alternate in shade, so it is easier to tell which row you are working on.
 - The Database Questionnaires table now lists only clients whose appointment is tomorrow or earlier by default. Change the Appointment filter (Past, Through tomorrow, Later, None) to see the rest.
 - The Database Appointments table now marks a started time earlier than the arrived time as "Out of order", the same as a left time earlier than the started time.
 

@@ -17,6 +17,8 @@ import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
@@ -47,6 +49,8 @@ import {
 	useState,
 	useTransition,
 } from "react";
+import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import {
 	CLIENT_COLOR_KEYS,
@@ -54,7 +58,12 @@ import {
 	formatColorName,
 	getHexFromColor,
 } from "~/lib/colors";
-import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "~/lib/constants";
+import {
+	ALLOWED_ASD_ADHD_VALUES,
+	isPunchDate,
+	PA_STATUSES,
+	type PUNCH_SCHEMA,
+} from "~/lib/constants";
 import {
 	cn,
 	compareDateOnly,
@@ -587,6 +596,7 @@ function renderColumnCellContent(
 	key: ColumnKey,
 	client: DirectoryClient,
 	punchRow: PUNCH_SCHEMA | undefined,
+	punchLoaded: boolean,
 	isPriority: boolean,
 ): React.ReactNode {
 	switch (key) {
@@ -639,9 +649,11 @@ function renderColumnCellContent(
 			);
 		case "priorAuthDate":
 			return (
-				<span className="text-muted-foreground">
-					{formatShortDate(client.priorAuthDate, "—")}
-				</span>
+				<PriorAuthCell
+					client={client}
+					punchLoaded={punchLoaded}
+					punchRow={punchRow}
+				/>
 			);
 		case "daScheduled":
 			return (
@@ -695,6 +707,97 @@ function renderColumnCellContent(
 	}
 }
 
+// The Punchlist's "PA Expiration" cell holds a status until the real date
+// arrives. The EMR's prior auth date wins, then a date typed in the sheet.
+function getPriorAuthText(
+	client: DirectoryClient,
+	punchRow: PUNCH_SCHEMA | undefined,
+	punchLoaded: boolean,
+) {
+	if (client.priorAuthDate) return formatShortDate(client.priorAuthDate, "—");
+	const sheetValue = punchRow?.["PA Expiration"];
+	if (isPunchDate(sheetValue)) return formatShortDate(sheetValue, "—");
+	if (!punchRow) return punchLoaded ? "Not on list" : "—";
+	return sheetValue ?? "—";
+}
+
+// Shows the date once there is one; before that, a status dropdown that
+// writes to the Punchlist for staff who can edit PA fields.
+function PriorAuthCell({
+	client,
+	punchRow,
+	punchLoaded,
+}: {
+	client: DirectoryClient;
+	punchRow: PUNCH_SCHEMA | undefined;
+	punchLoaded: boolean;
+}) {
+	const can = useCheckPermission();
+	const utils = api.useUtils();
+	const setPaExpiration = api.google.setPaExpiration.useMutation({
+		onSuccess: () => utils.google.getPunch.invalidate(),
+		onError: (error) =>
+			toast.error("Failed to update PA status", {
+				description: error.message,
+			}),
+	});
+
+	const sheetValue = punchRow?.["PA Expiration"];
+	const hasDate = Boolean(client.priorAuthDate) || isPunchDate(sheetValue);
+	const isStatus = (PA_STATUSES as readonly string[]).includes(
+		sheetValue ?? "",
+	);
+	// Other sheet text (such as "PP" for private pay) stays read-only.
+	const isOtherText = Boolean(sheetValue) && !hasDate && !isStatus;
+
+	if (!punchRow || hasDate || isOtherText || !can("clients:pa-assigned-to")) {
+		return (
+			<span className="text-muted-foreground">
+				{getPriorAuthText(client, punchRow, punchLoaded)}
+			</span>
+		);
+	}
+
+	const current = setPaExpiration.isPending
+		? setPaExpiration.variables.paExpiration
+		: isStatus
+			? sheetValue
+			: "";
+
+	// DropdownMenu only mounts its list when opened, so hundreds of rows stay cheap.
+	return (
+		// Non-modal: a modal menu hides and locks the whole page, which is slow
+		// with hundreds of table rows in the DOM.
+		<DropdownMenu modal={false}>
+			<DropdownMenuTrigger asChild>
+				<button
+					className="text-muted-foreground underline decoration-dotted underline-offset-4"
+					type="button"
+				>
+					{current || "Set status"}
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				<DropdownMenuRadioGroup
+					onValueChange={(paExpiration) =>
+						setPaExpiration.mutate({
+							clientId: client.id,
+							paExpiration: paExpiration as (typeof PA_STATUSES)[number],
+						})
+					}
+					value={current ?? ""}
+				>
+					{PA_STATUSES.map((status) => (
+						<DropdownMenuRadioItem key={status} value={status}>
+							{status}
+						</DropdownMenuRadioItem>
+					))}
+				</DropdownMenuRadioGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 // Read-only: click to toggle between a one-line preview and the full text.
 function NoteTitleCell({ title }: { title: string | null }) {
 	const [expanded, setExpanded] = useState(false);
@@ -721,6 +824,7 @@ const ClientTableRow = memo(function ClientTableRow({
 	columnOrder,
 	isScrolledLeft,
 	punchRow,
+	punchLoaded,
 }: {
 	client: DirectoryClient;
 	statusColumnVisible: boolean;
@@ -728,11 +832,13 @@ const ClientTableRow = memo(function ClientTableRow({
 	columnOrder: ColumnKey[];
 	isScrolledLeft: boolean;
 	punchRow: PUNCH_SCHEMA | undefined;
+	punchLoaded: boolean;
 }) {
 	const isPriority = PRIORITY_REASONS.has(client.sortReason);
 
 	return (
 		<TableRow
+			className="group even:bg-muted/30"
 			style={{
 				contentVisibility: "auto",
 				containIntrinsicSize: "auto 41px",
@@ -740,7 +846,7 @@ const ClientTableRow = memo(function ClientTableRow({
 		>
 			<TableCell
 				className={cn(
-					"sticky left-0 z-10 bg-background font-medium transition-shadow duration-200",
+					"sticky left-0 z-10 bg-background font-medium transition-shadow duration-200 group-even:bg-[color-mix(in_oklab,var(--muted)_30%,var(--background))]",
 					isScrolledLeft && "shadow-lg",
 				)}
 			>
@@ -785,7 +891,13 @@ const ClientTableRow = memo(function ClientTableRow({
 					key={key}
 				>
 					<AnimatedCellContent visible={visibleColumns[key]}>
-						{renderColumnCellContent(key, client, punchRow, isPriority)}
+						{renderColumnCellContent(
+							key,
+							client,
+							punchRow,
+							punchLoaded,
+							isPriority,
+						)}
 					</AnimatedCellContent>
 				</TableCell>
 			))}
@@ -801,6 +913,7 @@ function renderColumnField(
 	key: ColumnKey,
 	client: DirectoryClient,
 	punchRow: PUNCH_SCHEMA | undefined,
+	punchLoaded: boolean,
 	isPriority: boolean,
 ): React.ReactNode {
 	switch (key) {
@@ -865,7 +978,7 @@ function renderColumnField(
 				<InfoField
 					key={key}
 					label="Prior Auth Date"
-					value={formatShortDate(client.priorAuthDate, "—")}
+					value={getPriorAuthText(client, punchRow, punchLoaded)}
 				/>
 			);
 		case "daScheduled":
@@ -943,12 +1056,14 @@ const ClientCard = memo(function ClientCard({
 	visibleColumns,
 	columnOrder,
 	punchRow,
+	punchLoaded,
 }: {
 	client: DirectoryClient;
 	statusColumnVisible: boolean;
 	visibleColumns: Record<ToggleKey, boolean>;
 	columnOrder: ColumnKey[];
 	punchRow: PUNCH_SCHEMA | undefined;
+	punchLoaded: boolean;
 }) {
 	const isPriority = PRIORITY_REASONS.has(client.sortReason);
 
@@ -998,7 +1113,7 @@ const ClientCard = memo(function ClientCard({
 				{columnOrder.map(
 					(key) =>
 						visibleColumns[key] &&
-						renderColumnField(key, client, punchRow, isPriority),
+						renderColumnField(key, client, punchRow, punchLoaded, isPriority),
 				)}
 			</div>
 		</div>
@@ -1231,7 +1346,8 @@ export function ClientDirectory() {
 
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
 	const { data: languageOptions } = api.clients.getUniqueLanguages.useQuery();
-	const { data: punchData } = api.google.getPunch.useQuery();
+	const { data: punchData, isSuccess: isPunchLoaded } =
+		api.google.getPunch.useQuery();
 
 	const punchByClientId = useMemo(() => {
 		const map = new Map<string, NonNullable<typeof punchData>[number]>();
@@ -2064,6 +2180,7 @@ export function ClientDirectory() {
 									columnOrder={columnOrder}
 									isScrolledLeft={isScrolledLeft}
 									key={client.id}
+									punchLoaded={isPunchLoaded}
 									punchRow={punchByClientId.get(String(client.id))}
 									statusColumnVisible={statusColumnVisible}
 									visibleColumns={visibleColumns}
@@ -2112,6 +2229,7 @@ export function ClientDirectory() {
 								client={client}
 								columnOrder={columnOrder}
 								key={client.id}
+								punchLoaded={isPunchLoaded}
 								punchRow={punchByClientId.get(String(client.id))}
 								statusColumnVisible={statusColumnVisible}
 								visibleColumns={visibleColumns}

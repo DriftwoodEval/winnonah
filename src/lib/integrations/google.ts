@@ -16,10 +16,11 @@ import { chunk } from "es-toolkit/array";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
-import { fetchWithCache } from "~/lib/cache";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	ALLOWED_ASD_ADHD_VALUES,
 	BUSINESS_TIMEZONE,
+	isPunchDate,
 	type PUNCH_SCHEMA,
 	TEST_NAMES,
 } from "~/lib/constants";
@@ -442,6 +443,8 @@ export const updatePunchData = async (
 		language?: string;
 		protocolsScanned?: boolean;
 		paAssignedTo?: string;
+		paExpiration?: string;
+		evalQsNeeded?: boolean;
 		newId?: number;
 	},
 ) => {
@@ -477,6 +480,8 @@ export const updatePunchData = async (
 	const languageIndex = headers.indexOf("Language");
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
 	const paAssignedToIndex = headers.indexOf("PA Assigned to");
+	const paExpirationIndex = headers.indexOf("PA Expiration");
+	const evalQsNeededIndex = headers.indexOf("EVAL Qs Needed");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
 
@@ -593,6 +598,32 @@ export const updatePunchData = async (
 		updateRequests.push({
 			range: cellAddress,
 			values: [[updates.paAssignedTo]],
+		});
+	}
+
+	if (updates.paExpiration !== undefined) {
+		if (paExpirationIndex === -1) {
+			throw new Error("PA Expiration column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + paExpirationIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.paExpiration]],
+		});
+	}
+
+	if (updates.evalQsNeeded !== undefined) {
+		if (evalQsNeededIndex === -1) {
+			throw new Error("EVAL Qs Needed column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + evalQsNeededIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.evalQsNeeded ? "TRUE" : "FALSE"]],
 		});
 	}
 
@@ -902,6 +933,32 @@ const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
 const punchCellIsChecked = (val: string | undefined) =>
 	(val ?? "").trim().toUpperCase() === "TRUE";
 
+// Redis key per client holding the PA Expiration date the sync last acted on.
+const PA_DATE_SEEN_PREFIX = "punchlist:pa-date-seen:";
+
+// Checks "EVAL Qs Needed" once per client and PA date. A date already seen is
+// skipped, so a box staff later uncheck stays unchecked until a new date lands.
+const checkEvalQsForNewPaDates = async (
+	ctx: Context & { session: Session },
+	paDates: { id: number; date: string; checkBox: boolean }[],
+) => {
+	if (paDates.length === 0) return;
+	const keys = paDates.map((p) => `${PA_DATE_SEEN_PREFIX}${p.id}`);
+	const seen = await ctx.redis.mget(keys);
+	let wroteSheet = false;
+
+	// Sequential: each write re-reads the sheet to find the client's row.
+	for (const [i, p] of paDates.entries()) {
+		if (seen[i] === p.date) continue;
+		if (p.checkBox) {
+			await updatePunchData(ctx.session, String(p.id), { evalQsNeeded: true });
+			wroteSheet = true;
+		}
+		await ctx.redis.set(keys[i] as string, p.date);
+	}
+	if (wroteSheet) await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
+};
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
@@ -913,6 +970,9 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const secondReviewColors = await getSecondReviewColors(ctx.session);
 
 	const updatePromises: Promise<unknown>[] = [];
+	// Clients whose sheet date is new since the last sync, and which of those
+	// also need the "EVAL Qs Needed" box checked.
+	const newPaDates: { id: number; date: string; checkBox: boolean }[] = [];
 
 	// Current billing/review state of every open report, to skip no-op writes.
 	const openReports = await db
@@ -960,6 +1020,22 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			updatePromises.push(
 				db.update(clients).set(updates).where(eq(clients.id, client.id)),
 			);
+		}
+
+		// A PA expiration date means the authorization came through, so the eval
+		// questionnaires are now needed (unless already needed, sent, or done).
+		// Each date is acted on once (see PA_DATE_SEEN_PREFIX), so unchecking the
+		// box by hand sticks.
+		const paDate = client["PA Expiration"];
+		if (client.id && isPunchDate(paDate)) {
+			newPaDates.push({
+				id: client.id,
+				date: paDate,
+				checkBox:
+					!punchCellIsChecked(client["EVAL Qs Needed"]) &&
+					!punchCellIsChecked(client["EVAL Qs Sent"]) &&
+					!punchCellIsChecked(client["EVAL Qs Done"]),
+			});
 		}
 
 		// Report billing/review checkboxes -> emr_report.
@@ -1053,6 +1129,8 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	}
 
 	await Promise.all(updatePromises);
+
+	await checkEvalQsForNewPaDates(ctx, newPaDates);
 };
 
 export const pushToPunch = async (
