@@ -2109,7 +2109,12 @@ function InternalSchedulingTable({
 						isStale && "opacity-60 transition-opacity",
 					)}
 					classNameWrapper={cn(
-						"min-h-0 flex-1",
+						// Always reserve both scrollbars. Column widths follow the
+						// mounted (virtualized) rows, so total width can cross the
+						// container width while scrolling. Without a fixed gutter,
+						// the scrollbar toggles, which changes the viewport height,
+						// which remounts rows, which changes widths again.
+						"min-h-0 flex-1 [scrollbar-gutter:stable] overflow-x-scroll",
 						isScrolledLeft && "scrolled-left",
 						isScrolledTop && "scrolled-top",
 					)}

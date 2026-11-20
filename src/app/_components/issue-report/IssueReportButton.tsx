@@ -78,6 +78,25 @@ async function withScrollFlattened<T>(capture: () => Promise<T>): Promise<T> {
 }
 
 /**
+ * Runs `capture` with every element forced to a system sans-serif font. Used
+ * when web fonts are skipped: the renderer copies each element's computed font
+ * family, which names the page's web font. That font is not embedded in the
+ * screenshot, so the text would otherwise fall back to the browser's default
+ * serif font.
+ */
+async function withSystemFont<T>(capture: () => Promise<T>): Promise<T> {
+	const style = document.createElement("style");
+	style.textContent =
+		"*, *::before, *::after { font-family: system-ui, sans-serif !important; }";
+	document.head.appendChild(style);
+	try {
+		return await capture();
+	} finally {
+		style.remove();
+	}
+}
+
+/**
  * Renders the current page to a PNG data URL, or null if it cannot be captured.
  * A failed first attempt is retried without web fonts and with a placeholder for
  * images that fail to load, which are the usual causes of a failed render.
@@ -124,7 +143,11 @@ async function capturePage(): Promise<string | null> {
 	];
 	for (const attempt of attempts) {
 		try {
-			return await withScrollFlattened(() => toPng(document.body, attempt));
+			return await withScrollFlattened(() =>
+				"skipFonts" in attempt
+					? withSystemFont(() => toPng(document.body, attempt))
+					: toPng(document.body, attempt),
+			);
 		} catch (error) {
 			// html-to-image rejects with the failing image's error Event, so log its
 			// target to show which element could not be loaded.
