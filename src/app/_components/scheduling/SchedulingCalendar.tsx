@@ -13,7 +13,7 @@ import {
 } from "@ui/select";
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
-import { Eye, Star, X } from "lucide-react";
+import { Check, Eye, Star, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
@@ -143,6 +143,7 @@ export function SchedulingCalendar({
 	onSelect,
 	onDelete,
 	onCancel,
+	onBooked,
 	onShadow,
 	offices,
 }: {
@@ -183,6 +184,7 @@ export function SchedulingCalendar({
 	onDelete: (appointmentId: string) => void;
 	/** Called to free the slot of a real appointment TA hasn't reported as cancelled or rescheduled yet. */
 	onCancel: (appointmentId: string) => void;
+	onBooked: (appointmentId: string) => void;
 	/** Called when the shadowing button on an appointment or placeholder is clicked. */
 	onShadow: (appt: CalendarBooking, evaluatorNpi: number) => void;
 	/** Offices a placeholder can be moved to, besides Virtual. */
@@ -663,6 +665,17 @@ export function SchedulingCalendar({
 																		.filter(Boolean)
 																		.join(" · ")}
 																</div>
+															)}
+															{isPlaceholder && (
+																<button
+																	aria-label="Mark as booked"
+																	className="absolute top-0.5 right-9 hidden rounded-sm bg-background/80 p-0.5 text-muted-foreground group-hover:block hover:text-success"
+																	onClick={() => onBooked(appt.id)}
+																	onPointerDown={(e) => e.stopPropagation()}
+																	type="button"
+																>
+																	<Check className="h-3 w-3" />
+																</button>
 															)}
 															<button
 																aria-label="Add shadowing event"

@@ -10,7 +10,7 @@ from utils.appointments import (
     batch_search_calendar_events,
     build_placeholder_description,
     build_placeholder_title,
-    find_matching_placeholder,
+    find_matching_placeholders,
     format_age_at,
     is_shadow_title,
     parse_location_and_type,
@@ -340,10 +340,19 @@ class TestPlaceholderTitlePromotion:
             ),
         ]
 
-        match = find_matching_placeholder(placeholders, "EVAL", REAL_START, "promoted")
+        matches = find_matching_placeholders(placeholders, "EVAL", "promoted")
 
-        assert match is not None
-        assert match["id"] == "owner"
+        assert {m["id"] for m in matches} == {"near", "owner"}
+
+    def test_find_matching_without_type_only_matches_promoted_hold(self):
+        placeholders = [
+            _placeholder("other", "EVAL", REAL_START, event_id="other-event"),
+            _placeholder("owner", "EVAL", REAL_START, event_id="promoted"),
+        ]
+
+        matches = find_matching_placeholders(placeholders, None, "promoted")
+
+        assert [m["id"] for m in matches] == ["owner"]
 
 
 class TestIsPlaceholderTitle:
@@ -371,7 +380,7 @@ class TestIsPlaceholderTitle:
             assert not _is_placeholder_title(title), title
 
 
-REAL_START = datetime(2026, 11, 10, 14, 0)
+REAL_START = datetime(2099, 11, 10, 14, 0)
 
 
 def _placeholder(
@@ -392,12 +401,12 @@ def _placeholder(
 
 class TestFindMatchingPlaceholder:
     @pytest.mark.parametrize(
-        ("placeholders", "da_eval", "expected_id"),
+        ("placeholders", "da_eval", "expected_ids"),
         [
-            ([], "EVAL", None),
-            ([_placeholder("p1", "DA", REAL_START)], "EVAL", None),
-            ([_placeholder("p1", "EVAL", REAL_START)], None, None),
-            ([_placeholder("p1", "EVAL", REAL_START)], "EVAL", "p1"),
+            ([], "EVAL", []),
+            ([_placeholder("p1", "DA", REAL_START)], "EVAL", []),
+            ([_placeholder("p1", "EVAL", REAL_START)], None, []),
+            ([_placeholder("p1", "EVAL", REAL_START)], "EVAL", ["p1"]),
             (
                 [
                     _placeholder("far", "EVAL", REAL_START + timedelta(days=7)),
@@ -405,14 +414,16 @@ class TestFindMatchingPlaceholder:
                     _placeholder("other-type", "DA", REAL_START),
                 ],
                 "EVAL",
-                "near",
+                ["far", "near"],
             ),
         ],
     )
-    def test_picks_same_type_closest_in_time(self, placeholders, da_eval, expected_id):
-        match = find_matching_placeholder(placeholders, da_eval, REAL_START)
+    def test_matches_every_same_type_placeholder(
+        self, placeholders, da_eval, expected_ids
+    ):
+        matches = find_matching_placeholders(placeholders, da_eval)
 
-        assert (match["id"] if match else None) == expected_id
+        assert [m["id"] for m in matches] == expected_ids
 
 
 class TestReplacePlaceholderWithRealAppointment:
@@ -428,7 +439,7 @@ class TestReplacePlaceholderWithRealAppointment:
             7, "ta-123", "EVAL", REAL_START, "real-event"
         )
 
-        assert replaced
+        assert replaced == 1
         delete_event.assert_called_once_with(
             "eval@example.com",
             "hold-event",
@@ -450,7 +461,7 @@ class TestReplacePlaceholderWithRealAppointment:
             7, "ta-123", "EVAL", REAL_START, "real-event"
         )
 
-        assert not replaced
+        assert replaced == 0
         delete_event.assert_not_called()
         delete_row.assert_not_called()
 
@@ -467,7 +478,7 @@ class TestReplacePlaceholderWithRealAppointment:
             7, "ta-123", "EVAL", REAL_START, "real-event"
         )
 
-        assert replaced
+        assert replaced == 1
         delete_row.assert_called_once()
         assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
         assert delete_row.call_args.args[3]["eventOutcome"] == "delete_failed"
@@ -490,6 +501,46 @@ class TestReplacePlaceholderWithRealAppointment:
         delete_row.assert_called_once()
         assert delete_row.call_args.args[:3] == ("p1", 7, "ta-123")
         assert delete_row.call_args.args[3]["eventOutcome"] == "promoted"
+
+
+class TestReplaceMultiplePlaceholders:
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_removes_all_same_type_and_keeps_other_types(
+        self, get_placeholders, _delete_event, delete_row
+    ):
+        get_placeholders.return_value = [
+            _placeholder("a", "EVAL", REAL_START),
+            _placeholder("b", "EVAL", REAL_START + timedelta(days=5)),
+            _placeholder("c", "DA", REAL_START),
+        ]
+
+        removed = replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", REAL_START, "real-event"
+        )
+
+        assert removed == 2
+        assert [c.args[0] for c in delete_row.call_args_list] == ["a", "b"]
+
+    @patch("utils.appointments.delete_superseded_placeholder")
+    @patch("utils.appointments.delete_calendar_event")
+    @patch("utils.appointments.get_client_placeholder_appointments")
+    def test_past_appointment_only_removes_the_promoted_hold(
+        self, get_placeholders, _delete_event, delete_row
+    ):
+        past = datetime(2020, 1, 1, 14, 0)
+        get_placeholders.return_value = [
+            _placeholder("rebook", "EVAL", REAL_START),
+            _placeholder("owner", "EVAL", past, event_id="real-event"),
+        ]
+
+        removed = replace_placeholder_with_real_appointment(
+            7, "ta-123", "EVAL", past, "real-event"
+        )
+
+        assert removed == 1
+        assert delete_row.call_args.args[0] == "owner"
 
 
 class TestFormatAgeAt:

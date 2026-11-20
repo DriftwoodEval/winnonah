@@ -2427,22 +2427,50 @@ def get_placeholder_appointment(
         return cursor.fetchone()
 
 
+# Placeholders are created with this id prefix. A placeholder staff marked as
+# booked stops being flagged `placeholder` (so it shows as a real appointment)
+# but keeps the prefix, so the TA sync still recognizes it as the hold to replace.
+PLACEHOLDER_ID_PREFIX = "plchldr-"
+# `%%` is a literal `%` in a parameterized query.
+_HOLD_ROW_CONDITION = f"(a.placeholder = 1 OR a.id LIKE '{PLACEHOLDER_ID_PREFIX}%%')"
+
+
+@provide_connection
+def mark_placeholder_booked(
+    appointment_id: str, title: str, connection: Connection[DictCursor]
+) -> None:
+    """Turns a placeholder into a regular (non-placeholder) appointment with the
+    given calendar event title. The row keeps its id until TA's real appointment
+    replaces it."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            UPDATE `{TABLE_APPOINTMENT}`
+            SET placeholder = 0, calendarEventTitle = %s
+            WHERE id = %s AND placeholder = 1
+            """,
+            (title, appointment_id),
+        )
+        connection.commit()
+
+
 @provide_connection
 def get_client_placeholder_appointments(
     client_id: int, connection: Connection[DictCursor]
 ) -> list[dict]:
-    """Returns a client's placeholder appointments (id, daEval, startTime,
+    """Returns a client's placeholder appointments, including ones marked as
+    booked that TA hasn't replaced yet (id, placeholder flag, daEval, startTime,
     calendarEventId, and the evaluator's email, which is their calendar id).
     startTime is a naive datetime representing UTC.
     """
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT a.id, a.daEval, a.startTime, a.calendarEventId,
+            SELECT a.id, a.placeholder, a.daEval, a.startTime, a.calendarEventId,
                    e.email AS evaluatorEmail
             FROM `{TABLE_APPOINTMENT}` a
             LEFT JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
-            WHERE a.clientId = %s AND a.placeholder = 1
+            WHERE a.clientId = %s AND {_HOLD_ROW_CONDITION}
             """,
             (client_id,),
         )
@@ -2474,7 +2502,11 @@ def delete_superseded_placeholder(
     )
     with connection.cursor() as cursor:
         cursor.execute(
-            f"DELETE FROM `{TABLE_APPOINTMENT}` WHERE id = %s AND placeholder = 1",
+            f"""
+            DELETE FROM `{TABLE_APPOINTMENT}`
+            WHERE id = %s
+              AND (placeholder = 1 OR id LIKE '{PLACEHOLDER_ID_PREFIX}%%')
+            """,
             (placeholder_id,),
         )
         connection.commit()

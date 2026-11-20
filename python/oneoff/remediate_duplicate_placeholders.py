@@ -7,10 +7,10 @@ on every sync. Placeholders left over from before that fix still show up next
 to the real appointment as duplicates.
 
 For each client, every non-cancelled real appointment starting on or after
---since (default: today, business time) is paired with at most one of the
-client's remaining placeholders, using the same matching the sync uses
-(`find_matching_placeholder`): the promoted hold event first, else the same
-appointment type closest in time. Each pair's placeholder is removed through
+--since (default: today, business time) is paired with all of the
+client's remaining placeholders the sync would remove
+(`find_matching_placeholders`): the promoted hold event and every placeholder of
+the same appointment type. They are removed through
 `replace_placeholder_with_real_appointment`, which also deletes the hold event
 from Google Calendar and writes the audit log entry.
 
@@ -26,7 +26,7 @@ from driftwood_common.timezone import business_date_to_utc, now_business
 from loguru import logger
 
 from utils.appointments import (
-    find_matching_placeholder,
+    find_matching_placeholders,
     replace_placeholder_with_real_appointment,
 )
 from utils.constants import TABLE_APPOINTMENT
@@ -77,18 +77,19 @@ def main() -> None:
                 for p in get_client_placeholder_appointments(appt["clientId"])
                 if p["id"] not in paired
             ]
-            match = find_matching_placeholder(
-                placeholders, appt["daEval"], appt["startTime"], appt["calendarEventId"]
+            matches = find_matching_placeholders(
+                placeholders, appt["daEval"], appt["calendarEventId"]
             )
-            if match is None:
+            if not matches:
                 continue
-            paired.add(match["id"])
-            removed += 1
-            logger.info(
-                f"client {appt['clientId']}: placeholder {match['id']} "
-                f"({match['daEval']} {match['startTime']}) superseded by "
-                f"appointment {appt['id']} ({appt['daEval']} {appt['startTime']})"
-            )
+            for match in matches:
+                paired.add(match["id"])
+                removed += 1
+                logger.info(
+                    f"client {appt['clientId']}: placeholder {match['id']} "
+                    f"({match['daEval']} {match['startTime']}) superseded by "
+                    f"appointment {appt['id']} ({appt['daEval']} {appt['startTime']})"
+                )
             if args.apply:
                 replace_placeholder_with_real_appointment(
                     appt["clientId"],

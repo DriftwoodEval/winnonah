@@ -1315,6 +1315,26 @@ function SchedulingHelperGrid({
 		},
 	});
 
+	const markBooked = api.schedulingHelper.markPlaceholderBooked.useMutation({
+		onSuccess: ({ deleted }) => {
+			toast.success(
+				deleted > 0
+					? `Marked as booked, removed ${deleted} other placeholder${deleted === 1 ? "" : "s"}`
+					: "Marked as booked, no other placeholders to remove",
+			);
+			void utils.appointments.getByClientId.invalidate();
+			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+			void utils.schedulingHelper.getOfficeCalendar.invalidate();
+			void utils.schedulingHelper.getAvailability.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to mark placeholder as booked", {
+				description: error.message,
+			});
+		},
+	});
+
 	const router = useRouter();
 	const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
@@ -1985,6 +2005,7 @@ function SchedulingHelperGrid({
 									hiddenNpis={hiddenNpis}
 									noteFor={calendarNoteFor}
 									offices={(offices ?? []).filter((o) => !o.archived)}
+									onBooked={(id) => markBooked.mutate({ appointmentId: id })}
 									onCancel={setPendingCancelId}
 									onChangeWeek={(delta) =>
 										setWeekOffset((w) => Math.max(0, w + delta))
@@ -2420,6 +2441,9 @@ function SchedulingHelperGrid({
 										}
 										messages={{}}
 										messagesLoading={false}
+										onBookedPlaceholder={(id) =>
+											markBooked.mutate({ appointmentId: id })
+										}
 										onCancelAppointment={setPendingCancelId}
 										onDeletePlaceholder={setPendingDeleteId}
 										onMovePlaceholder={handleMovePlaceholderDrop}

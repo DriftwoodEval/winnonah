@@ -424,6 +424,24 @@ export const schedulingHelperRouter = createTRPCRouter({
 			return { status: "ok" as const };
 		}),
 
+	markPlaceholderBooked: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/appointments/placeholder/${input.appointmentId}/booked`,
+				{ method: "POST", headers: { Cookie: cookieHeader } },
+			);
+
+			if (!response.ok) {
+				throw new Error(await parsePyApiError(response));
+			}
+
+			return response.json() as Promise<{ deleted: number }>;
+		}),
+
 	movePlaceholder: protectedProcedure
 		.input(
 			z.object({

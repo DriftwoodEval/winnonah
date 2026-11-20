@@ -441,58 +441,37 @@ def _is_placeholder_title(title: str) -> bool:
     return any(variant in letters for variant in _PLACEHOLDER_VARIANTS)
 
 
-def find_matching_placeholder(
+def find_matching_placeholders(
     placeholders: list[dict],
     da_eval: DAEvalType | None,
-    start_time: datetime,
     event_id: str | None = None,
-) -> dict | None:
-    """Pick the placeholder a newly imported real appointment replaces.
+) -> list[dict]:
+    """Pick the placeholders a newly imported real appointment replaces.
 
     A placeholder whose hold event is the appointment's own event (the event was
-    promoted) always matches. Otherwise a placeholder matches when it has the
-    same appointment type; appointments without a parsed type never match, since
-    the right hold can't be told apart. Evaluator and date may differ from the
-    hold (the real booking can land on another day or evaluator), so the
-    placeholder closest in time wins.
-    start_time and each placeholder's startTime must both be naive UTC.
+    promoted) always matches. Every placeholder with the same appointment type
+    also matches, since staff may have made several holds for one booking and
+    only one real appointment arrives. Appointments without a parsed type match
+    only a promoted hold, since the right holds can't be told apart.
     """
-    if event_id:
-        for placeholder in placeholders:
-            if placeholder["calendarEventId"] == event_id:
-                return placeholder
-    if da_eval is None:
-        return None
-    same_type = [p for p in placeholders if p["daEval"] == da_eval]
-    return min(
-        same_type,
-        key=lambda p: abs(p["startTime"] - start_time),
-        default=None,
-    )
+    return [
+        p
+        for p in placeholders
+        if (event_id and p["calendarEventId"] == event_id)
+        or (da_eval is not None and p["daEval"] == da_eval)
+    ]
 
 
-def replace_placeholder_with_real_appointment(
+def _remove_placeholder(
+    placeholder: dict,
     client_id: int,
     appointment_id: str,
-    da_eval: DAEvalType | None,
     start_time: datetime,
     real_gcal_event_id: str | None,
-    real_gcal_event_title: str | None = None,
-) -> bool:
-    """Remove the client's placeholder that a real appointment supersedes: its DB
-    row, and its hold event on the evaluator's calendar unless that event is the
-    real appointment's own (a promoted hold). The real event's title is only
-    recorded in the audit log.
-
-    start_time must be naive UTC. Returns whether a placeholder was removed.
-    """
-    placeholders = get_client_placeholder_appointments(client_id)
-    placeholder = find_matching_placeholder(
-        placeholders, da_eval, start_time, real_gcal_event_id
-    )
-    if placeholder is None:
-        return False
-
+    real_gcal_event_title: str | None,
+) -> None:
+    """Delete one placeholder's hold event (unless it is the real appointment's
+    own) and its DB row, recording the swap in the audit log."""
     hold_event_id = placeholder["calendarEventId"]
     # Outcome of the hold's calendar event, for the audit log:
     # "promoted" (it is the real event, kept), "deleted", "delete_failed", or
@@ -540,7 +519,44 @@ def replace_placeholder_with_real_appointment(
         f"Replaced placeholder {placeholder['id']} with appointment {appointment_id} "
         f"for client {client_id}"
     )
-    return True
+
+
+def replace_placeholder_with_real_appointment(
+    client_id: int,
+    appointment_id: str,
+    da_eval: DAEvalType | None,
+    start_time: datetime,
+    real_gcal_event_id: str | None,
+    real_gcal_event_title: str | None = None,
+) -> int:
+    """Remove every placeholder of the client that a real appointment supersedes
+    (same appointment type, or the promoted hold): each DB row, and its hold
+    event on the evaluator's calendar unless that event is the real
+    appointment's own (a promoted hold). The real event's title is only recorded
+    in the audit log.
+
+    Same-type holds are only removed for an appointment that has not started yet.
+    For one in the past, a hold of the same type is more likely a newer rebooking
+    than a duplicate, so only the promoted hold is removed.
+
+    start_time must be naive UTC. Returns how many placeholders were removed.
+    """
+    is_upcoming = start_time >= now_utc().replace(tzinfo=None)
+    matches = find_matching_placeholders(
+        get_client_placeholder_appointments(client_id),
+        da_eval if is_upcoming else None,
+        real_gcal_event_id,
+    )
+    for placeholder in matches:
+        _remove_placeholder(
+            placeholder,
+            client_id,
+            appointment_id,
+            start_time,
+            real_gcal_event_id,
+            real_gcal_event_title,
+        )
+    return len(matches)
 
 
 def _fetch_events_page(
@@ -1410,8 +1426,8 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             if was_new_appointment and not cancelled:
                 newly_scheduled_client_ids.add(client_id)
 
-            # Drop the placeholder this appointment replaces: the promoted hold's
-            # own row, or the closest same-type hold when a real event matched.
+            # Drop the placeholders this appointment replaces: the promoted hold's
+            # own row and every same-type hold for the client.
             # Runs on every sync, not just for new rows, so a hold left behind by
             # an earlier failed cleanup is removed on the next run.
             if (

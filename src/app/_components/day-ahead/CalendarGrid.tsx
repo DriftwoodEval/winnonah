@@ -5,7 +5,7 @@ import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
-import { DoorOpen, Eye, LogIn, LogOut, X } from "lucide-react";
+import { Check, DoorOpen, Eye, LogIn, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
@@ -339,6 +339,7 @@ export function ApptBlock({
 	onDragStart,
 	onDelete,
 	onCancel,
+	onBooked,
 	onShadow,
 }: {
 	appt: CalAppt;
@@ -358,6 +359,7 @@ export function ApptBlock({
 	onDelete?: () => void;
 	/** Shows a button to mark a real appointment cancelled or rescheduled before TA reports it. */
 	onCancel?: () => void;
+	onBooked?: () => void;
 	/** Shows a button to add a shadowing event for this appointment on another evaluator's calendar. */
 	onShadow?: () => void;
 }) {
@@ -495,6 +497,22 @@ export function ApptBlock({
 							<X className="h-3 w-3" />
 						</button>
 					)}
+					{!appt.isPreview && appt.placeholder && onBooked && (
+						<button
+							aria-label="Mark as booked"
+							className={cn(
+								"absolute top-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-success",
+								onShadow ? "right-9" : "right-5",
+							)}
+							onClick={(e) => {
+								e.stopPropagation();
+								onBooked();
+							}}
+							type="button"
+						>
+							<Check className="h-3 w-3" />
+						</button>
+					)}
 					{!appt.isPreview && !appt.placeholder && onCancel && (
 						<button
 							aria-label="Mark cancelled or rescheduled"
@@ -589,6 +607,7 @@ export function CalendarDayView({
 	onMovePlaceholder,
 	onDeletePlaceholder,
 	onCancelAppointment,
+	onBookedPlaceholder,
 	onShadowAppointment,
 }: {
 	appointments: CalAppt[];
@@ -633,6 +652,7 @@ export function CalendarDayView({
 	onDeletePlaceholder?: (appointmentId: string) => void;
 	/** Shows a button on real appointments to mark them cancelled or rescheduled ahead of the TA sync. */
 	onCancelAppointment?: (appointmentId: string) => void;
+	onBookedPlaceholder?: (appointmentId: string) => void;
 	/** Shows a shadowing button on each block, called with that appointment. */
 	onShadowAppointment?: (appt: CalAppt) => void;
 }) {
@@ -788,6 +808,11 @@ export function CalendarDayView({
 									key={appt.id}
 									messages={messages}
 									messagesLoading={messagesLoading}
+									onBooked={
+										onBookedPlaceholder && appt.placeholder === true
+											? () => onBookedPlaceholder(appt.id)
+											: undefined
+									}
 									onCancel={
 										onCancelAppointment && appt.placeholder !== true
 											? () => onCancelAppointment(appt.id)

@@ -22,6 +22,7 @@ from utils.appointments import (
     DAEvalType,
     build_placeholder_description,
     build_placeholder_title,
+    real_title_for_placeholder_event,
 )
 from utils.constants import (
     MAX_POST_VISIT_ATTACHMENT_BYTES,
@@ -37,12 +38,14 @@ from utils.constants import (
     TABLE_USER,
 )
 from utils.database import (
+    PLACEHOLDER_ID_PREFIX,
     delete_appointment,
     get_appointment_calendar_title,
     get_client_dob,
     get_client_drive_id,
     get_client_eligibility_debug,
     get_client_name,
+    get_client_placeholder_appointments,
     get_db,
     get_evaluator_email,
     get_evaluator_emails,
@@ -50,6 +53,7 @@ from utils.database import (
     get_placeholder_appointment,
     get_possible_private_pay_reasons,
     get_python_config,
+    mark_placeholder_booked,
     put_appointment_in_db,
     reconcile_pool_report_queue_state,
     rematch_client,
@@ -1059,7 +1063,7 @@ async def create_placeholder_appointment(
     description = build_placeholder_description(
         request.client_id, client_dob, client_drive_id, start_time_business.date()
     )
-    appointment_id = f"plchldr-{uuid4()}"
+    appointment_id = f"{PLACEHOLDER_ID_PREFIX}{uuid4()}"
     calendar_event_id = create_placeholder_event(
         evaluator_email,
         title,
@@ -1162,6 +1166,70 @@ async def delete_placeholder_appointment(
 
     delete_appointment(appointment_id)
     return {"status": "ok"}
+
+
+@app.post("/appointments/placeholder/{appointment_id}/booked")
+async def confirm_placeholder_booked(
+    appointment_id: str, current_user: dict = Depends(get_current_user)
+):
+    """Staff confirmed this placeholder is solidly booked. It becomes a regular
+    appointment (real calendar title, no placeholder flag) until the real one
+    arrives from TA, and the client's other placeholders of the same type are
+    deleted (hold events and rows)."""
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    booked = get_placeholder_appointment(appointment_id)
+    if booked is None:
+        raise HTTPException(status_code=404, detail="Placeholder appointment not found")
+
+    # Book this hold first so a failure while cleaning up the others never
+    # leaves it still showing as a placeholder. Take on the real title, as a
+    # promoted hold does in the TA sync.
+    old_title = get_appointment_calendar_title(appointment_id)
+    client_name = get_client_name(booked["clientId"])
+    new_title = (
+        real_title_for_placeholder_event(old_title, client_name)
+        if old_title and client_name
+        else None
+    )
+    if new_title and booked["calendarEventId"] and booked["evaluatorEmail"]:
+        update_gcal_event_title(
+            booked["calendarEventId"],
+            new_title,
+            calendar_id=booked["evaluatorEmail"],
+            client_id=booked["clientId"],
+            reason="placeholder_booked",
+            appointment_id=appointment_id,
+            actor=_audit_actor(current_user),
+        )
+    mark_placeholder_booked(appointment_id, new_title or old_title or "")
+
+    others = [
+        p
+        for p in get_client_placeholder_appointments(booked["clientId"])
+        if p["id"] != appointment_id
+        and p["placeholder"]
+        and p["daEval"] == booked["daEval"]
+    ]
+    for other in others:
+        if other["calendarEventId"] and other["evaluatorEmail"]:
+            try:
+                delete_calendar_event(
+                    other["evaluatorEmail"],
+                    other["calendarEventId"],
+                    client_id=booked["clientId"],
+                    reason="placeholder_booked",
+                    appointment_id=other["id"],
+                    actor=_audit_actor(current_user),
+                )
+            except Exception:
+                logger.exception(
+                    f"Could not delete calendar event {other['calendarEventId']}; "
+                    f"removing placeholder {other['id']} anyway"
+                )
+        delete_appointment(other["id"])
+    return {"status": "ok", "deleted": len(others)}
 
 
 @app.patch("/appointments/placeholder/{appointment_id}")
