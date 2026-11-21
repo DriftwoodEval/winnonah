@@ -445,13 +445,15 @@ export function QuestionnairesTable({
 									<span className="flex items-center gap-1">
 										PDF
 										{clientId && needsPdfCheck && (
-											<button
+											<Button
 												aria-label="Check Drive for PDFs now"
-												className="text-muted-foreground hover:text-primary disabled:opacity-50"
+												className="text-muted-foreground hover:text-primary"
 												disabled={checkPdfs.isPending}
 												onClick={() => checkPdfs.mutate({ clientId })}
+												size="icon-xs"
 												title="Check Drive for PDFs now"
 												type="button"
+												variant="ghost"
 											>
 												<RefreshCw
 													className={cn(
@@ -459,7 +461,7 @@ export function QuestionnairesTable({
 														checkPdfs.isPending && "animate-spin",
 													)}
 												/>
-											</button>
+											</Button>
 										)}
 									</span>
 								</TableHead>

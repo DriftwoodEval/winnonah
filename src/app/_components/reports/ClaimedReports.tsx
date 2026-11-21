@@ -97,7 +97,7 @@ export default function ClaimedReports() {
 										</div>
 										<div className="flex items-center gap-1">
 											<Button
-												className="h-8 w-8 text-muted-foreground hover:cursor-pointer"
+												className="text-muted-foreground hover:cursor-pointer"
 												onClick={() =>
 													window.open(
 														`https://drive.google.com/drive/folders/${folder.id}`,
@@ -111,7 +111,7 @@ export default function ClaimedReports() {
 												<span className="sr-only">Open in Drive</span>
 											</Button>
 											<Button
-												className="h-8 w-8 text-success hover:cursor-pointer hover:bg-success/10 hover:text-success"
+												className="text-success hover:cursor-pointer hover:bg-success/10 hover:text-success"
 												disabled={approveMutation.isPending}
 												onClick={() =>
 													handleApprove(userId, folder.id, folder.name)

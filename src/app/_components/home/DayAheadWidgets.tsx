@@ -74,20 +74,10 @@ export function DayNav({
 			<span className="text-xs text-muted-foreground tabular-nums">
 				{format(new Date(`${date}T12:00:00`), "EEE, MMM d")}
 			</span>
-			<Button
-				className="h-6 w-6"
-				onClick={() => onShift(-1)}
-				size="icon"
-				variant="ghost"
-			>
+			<Button onClick={() => onShift(-1)} size="icon-xs" variant="ghost">
 				<ChevronLeft className="h-3.5 w-3.5" />
 			</Button>
-			<Button
-				className="h-6 w-6"
-				onClick={() => onShift(1)}
-				size="icon"
-				variant="ghost"
-			>
+			<Button onClick={() => onShift(1)} size="icon-xs" variant="ghost">
 				<ChevronRight className="h-3.5 w-3.5" />
 			</Button>
 		</div>

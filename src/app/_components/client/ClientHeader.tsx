@@ -288,13 +288,14 @@ export function ClientHeader({
 						{readOnly || !canAsdAdhd ? (
 							<span>{client.asdAdhd}</span>
 						) : (
-							<button
-								className="cursor-pointer hover:underline"
+							<Button
+								className="h-auto p-0 text-inherit max-md:h-auto"
 								onClick={() => setEditAsdAdhdOpen(true)}
 								type="button"
+								variant="link"
 							>
 								{client.asdAdhd}
-							</button>
+							</Button>
 						)}
 					</>
 				)}

@@ -17,6 +17,7 @@ import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTabl
 import RolesTable from "@components/settings/RolesTable";
 import RunLogsTable from "@components/settings/RunLogsTable";
 import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
+import { Button } from "@ui/button";
 import {
 	Command,
 	CommandDialog,
@@ -82,16 +83,18 @@ function SettingsSearch({
 
 	return (
 		<>
-			<button
-				className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-xs"
+			<Button
+				className="justify-start font-normal text-muted-foreground"
 				onClick={() => setOpen(true)}
 				type="button"
+				variant="outline"
 			>
 				<Search className="h-4 w-4" />
 				Search settings...
 				<Kbd>/</Kbd>
-			</button>
+			</Button>
 			<CommandDialog
+				className="top-1/2 -translate-y-1/2 sm:max-w-xl"
 				description="Search settings"
 				onOpenChange={setOpen}
 				open={open}
@@ -99,7 +102,7 @@ function SettingsSearch({
 			>
 				<Command>
 					<CommandInput placeholder="Search settings..." />
-					<CommandList>
+					<CommandList className="h-[min(28rem,60vh)] max-h-none">
 						<CommandEmpty>No results found.</CommandEmpty>
 						{groups.map(({ group, pages }) => (
 							<CommandGroup heading={group.label} key={group.id}>

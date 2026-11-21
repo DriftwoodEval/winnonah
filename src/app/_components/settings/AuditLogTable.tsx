@@ -238,16 +238,18 @@ export default function AuditLogTable() {
 	// The click bubbles to the row's own handler; the button is the keyboard path.
 	const renderToggle = (row: AuditRow) =>
 		hasDetail(row) && (
-			<button
+			<Button
 				aria-expanded={expandedRows.has(row.id)}
 				aria-label={`${expandedRows.has(row.id) ? "Hide" : "Show"} detail for ${row.action}`}
-				className="rounded p-1 text-muted-foreground hover:bg-muted"
+				className="text-muted-foreground"
+				size="icon-xs"
 				type="button"
+				variant="ghost"
 			>
 				<ChevronRight
 					className={`h-4 w-4 transition-transform ${expandedRows.has(row.id) ? "rotate-90" : ""}`}
 				/>
-			</button>
+			</Button>
 		);
 
 	const renderClient = (row: AuditRow) =>

@@ -1729,13 +1729,15 @@ function SchedulingHelperGrid({
 				</Tooltip>
 			</TooltipProvider>
 			{durationOverride !== null && (
-				<button
-					className="text-xs text-muted-foreground underline"
+				<Button
+					className="h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
 					onClick={() => setDurationOverride(null)}
+					size="xs"
 					type="button"
+					variant="link"
 				>
 					reset
-				</button>
+				</Button>
 			)}
 		</div>
 	);
@@ -1779,13 +1781,15 @@ function SchedulingHelperGrid({
 											<span className="font-medium">
 												<Redact>{pendingClient.fullName}</Redact>
 											</span>
-											<button
-												className="text-xs text-muted-foreground underline"
+											<Button
+												className="h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
 												onClick={() => setPendingClient(null)}
+												size="xs"
 												type="button"
+												variant="link"
 											>
 												change
-											</button>
+											</Button>
 										</div>
 									) : (
 										<div className="w-64">
@@ -1894,7 +1898,6 @@ function SchedulingHelperGrid({
 									Today
 								</Button>
 								<Button
-									className="h-8 w-8"
 									onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
 									size="icon"
 									variant="outline"
@@ -1917,7 +1920,6 @@ function SchedulingHelperGrid({
 									})}
 								</span>
 								<Button
-									className="h-8 w-8"
 									onClick={() => setWeekOffset((w) => w + 1)}
 									size="icon"
 									variant="outline"
@@ -1956,13 +1958,15 @@ function SchedulingHelperGrid({
 								</>
 							)}
 							{filterToAssigned && (
-								<button
-									className="ml-auto text-xs text-muted-foreground underline"
+								<Button
+									className="ml-auto h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
 									onClick={() => setShowAllEvaluators(true)}
+									size="xs"
 									type="button"
+									variant="link"
 								>
 									Showing only the assigned evaluator. Show all
-								</button>
+								</Button>
 							)}
 						</Card>
 					)}

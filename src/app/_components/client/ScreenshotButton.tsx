@@ -50,7 +50,6 @@ export function ScreenshotButton({
 					</button>
 				) : (
 					<Button
-						className="h-8 w-8"
 						onClick={handleFetch}
 						size="icon"
 						title="View Latest Screenshot"

@@ -294,7 +294,6 @@ export default function CostCalculator() {
 							<TableRow className="hover:bg-inherit" key={item.id}>
 								<TableCell>
 									<Button
-										className="h-8 w-8"
 										onClick={() =>
 											handleCostItemChange(item.id, "isLocked", !item.isLocked)
 										}

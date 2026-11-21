@@ -984,15 +984,17 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 			>
 				<div className="flex items-center gap-2 overflow-hidden">
 					{isEditable && (
-						<button
+						<Button
 							aria-label="Drag to reorder"
-							className="cursor-grab touch-none rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary active:cursor-grabbing"
+							className="cursor-grab touch-none text-muted-foreground hover:text-primary active:cursor-grabbing"
+							size="icon-xs"
 							type="button"
+							variant="ghost"
 							{...dragHandleAttributes}
 							{...dragHandleListeners}
 						>
 							<GripVertical className="h-4 w-4" />
-						</button>
+						</Button>
 					)}
 					<ColorPicker
 						disabled={!isEditable}

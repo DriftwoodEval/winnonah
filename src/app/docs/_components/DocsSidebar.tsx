@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@ui/button";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -157,16 +158,17 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 
 	return (
 		<nav className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-			<button
-				className="flex items-center justify-between rounded-md border border-input px-3 py-1.5 text-sm lg:hidden"
+			<Button
+				className="justify-between font-normal lg:hidden"
 				onClick={() => setOpen((prev) => !prev)}
 				type="button"
+				variant="outline"
 			>
 				Browse docs
 				<ChevronDown
 					className={cn("size-4 transition-transform", open && "rotate-180")}
 				/>
-			</button>
+			</Button>
 			<div className={cn("flex-col gap-6 lg:flex", open ? "flex" : "hidden")}>
 				{groupNav(nav).map((group) =>
 					group[0]?.standalone ? (

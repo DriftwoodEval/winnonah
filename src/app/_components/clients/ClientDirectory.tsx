@@ -2029,10 +2029,9 @@ export function ClientDirectory() {
 									{COLUMN_LABELS[key]}
 								</label>
 								<Button
-									className="h-6 w-6"
 									disabled={index === 0}
 									onClick={() => moveColumn(key, -1)}
-									size="icon"
+									size="icon-xs"
 									type="button"
 									variant="ghost"
 								>
@@ -2040,10 +2039,9 @@ export function ClientDirectory() {
 									<span className="sr-only">Move {COLUMN_LABELS[key]} up</span>
 								</Button>
 								<Button
-									className="h-6 w-6"
 									disabled={index === columnOrder.length - 1}
 									onClick={() => moveColumn(key, 1)}
-									size="icon"
+									size="icon-xs"
 									type="button"
 									variant="ghost"
 								>

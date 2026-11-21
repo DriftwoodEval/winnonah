@@ -185,7 +185,7 @@ export default function ReportQueue({
 														</span>
 													</div>
 													<Button
-														className="h-8 w-8 text-warning hover:cursor-pointer hover:bg-warning/10 hover:text-warning"
+														className="text-warning hover:cursor-pointer hover:bg-warning/10 hover:text-warning"
 														onClick={() =>
 															window.open(
 																`https://drive.google.com/drive/folders/${folder.id}`,

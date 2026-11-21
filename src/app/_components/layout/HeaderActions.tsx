@@ -54,7 +54,7 @@ export function HeaderActions() {
 			{session && !isHidden("recent-clients") && !!recentClients?.length && (
 				<Popover>
 					<PopoverTrigger asChild>
-						<Button size="icon" variant="ghost">
+						<Button className="max-md:size-8" size="icon" variant="ghost">
 							<Clock className="h-4 w-4" />
 							<span className="sr-only">Recent clients</span>
 						</Button>

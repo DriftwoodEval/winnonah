@@ -173,15 +173,16 @@ export function HomeWidgetsEditor({
 										{WIDGET_CATEGORY_LABELS[cat]}
 									</p>
 									{defs.map((def) => (
-										<button
-											className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted"
+										<Button
+											className="w-full justify-start font-normal"
 											key={def.id}
 											onClick={() => addWidget(def.id)}
 											type="button"
+											variant="ghost"
 										>
 											<span className="text-muted-foreground">+</span>
 											{def.label}
-										</button>
+										</Button>
 									))}
 								</div>
 							);

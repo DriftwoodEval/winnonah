@@ -352,7 +352,7 @@ export function IssueReportButton() {
 		>
 			<HoverCardTrigger asChild>
 				<Button
-					className="pointer-events-auto cursor-pointer rounded-full"
+					className="pointer-events-auto cursor-pointer rounded-full max-md:size-8"
 					disabled={capturing}
 					onClick={startBug}
 					onMouseDown={(event) => event.preventDefault()}

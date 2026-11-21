@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@ui/button";
 import {
 	Command,
 	CommandDialog,
@@ -143,16 +144,17 @@ export function DocsSearch() {
 
 	return (
 		<>
-			<button
-				className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-sm text-muted-foreground shadow-xs"
+			<Button
+				className="w-full justify-between font-normal text-muted-foreground"
 				onClick={() => setOpen(true)}
 				type="button"
+				variant="outline"
 			>
 				Search docs...
 				<kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">
 					/
 				</kbd>
-			</button>
+			</Button>
 			<CommandDialog
 				className="sm:max-w-xl"
 				description="Search documentation"

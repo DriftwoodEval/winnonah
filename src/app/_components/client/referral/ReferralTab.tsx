@@ -1211,7 +1211,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										</h3>
 										<div className="flex items-center gap-2">
 											<Button
-												className="h-8 w-8"
 												onClick={() => {
 													void navigator.clipboard.writeText(TA_MESSAGE);
 													toast.success("Copied to clipboard");

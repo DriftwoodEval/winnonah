@@ -182,9 +182,8 @@ export function ClientAppointments({
 							</div>
 							{!isBilling && canCopyInfo && (
 								<Button
-									className="h-6 w-6"
 									onClick={() => void copyInfoBlock(appt.id)}
-									size="icon"
+									size="icon-xs"
 									title="Copy appointment info"
 									variant="ghost"
 								>
@@ -194,7 +193,7 @@ export function ClientAppointments({
 							{!isBilling && (
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
-										<Button className="h-6 w-6" size="icon" variant="ghost">
+										<Button size="icon-xs" variant="ghost">
 											<MoreHorizontal className="h-3.5 w-3.5" />
 										</Button>
 									</DropdownMenuTrigger>

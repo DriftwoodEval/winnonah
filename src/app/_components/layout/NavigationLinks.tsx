@@ -259,7 +259,7 @@ export default function NavigationLinks() {
 			<div className="md:hidden">
 				<Drawer direction="left">
 					<DrawerTrigger asChild>
-						<Button size="icon" variant="ghost">
+						<Button className="max-md:size-8" size="icon" variant="ghost">
 							<Menu className="h-5 w-5" />
 							<span className="sr-only">Toggle navigation</span>
 						</Button>

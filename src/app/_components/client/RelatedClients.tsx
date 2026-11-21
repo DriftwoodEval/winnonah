@@ -152,14 +152,14 @@ export function RelatedClients({
 							</Link>
 							{canEdit && (
 								<Button
-									className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all hover:bg-destructive! hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
+									className="absolute right-1 cursor-pointer opacity-100 transition-all hover:bg-destructive! hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
 									disabled={unlinkMutation.isPending}
 									onClick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
 										handleUnlink(conn.relatedClientData.id);
 									}}
-									size="icon"
+									size="icon-sm"
 									variant="ghost"
 								>
 									<X className="h-3.5 w-3.5" />

@@ -214,15 +214,17 @@ function PdfCell({
 		<span className="flex items-center gap-2">
 			<PdfStatus pdfCheckedAt={row.pdfCheckedAt} pdfFileId={row.pdfFileId} />
 			{row.status === "COMPLETED" && !row.pdfFileId && (
-				<button
+				<Button
 					aria-label="Check Drive for this PDF now"
-					className="text-muted-foreground hover:text-primary disabled:opacity-50"
+					className="text-muted-foreground hover:text-primary"
 					onClick={onCheck}
+					size="icon-xs"
 					title="Check Drive for this PDF now"
 					type="button"
+					variant="ghost"
 				>
 					<RefreshCw className={cn("h-3 w-3", checking && "animate-spin")} />
-				</button>
+				</Button>
 			)}
 			{row.clientDriveId && (
 				<a
@@ -261,18 +263,20 @@ function GroupPdfSummary({
 		>
 			{found} of {completed.length} found
 			{found < completed.length && (
-				<button
+				<Button
 					aria-label={`Check Drive for ${group.clientName}'s PDFs now`}
 					className="text-muted-foreground hover:text-primary"
 					onClick={(e) => {
 						e.stopPropagation();
 						onCheck();
 					}}
+					size="icon-xs"
 					title="Check Drive for PDFs now"
 					type="button"
+					variant="ghost"
 				>
 					<RefreshCw className={cn("h-3 w-3", checking && "animate-spin")} />
-				</button>
+				</Button>
 			)}
 		</span>
 	);
@@ -999,7 +1003,7 @@ export function QuestionnaireDataView() {
 											>
 												<TableCell>
 													<div className="flex items-center gap-1">
-														<button
+														<Button
 															aria-expanded={isOpen}
 															aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.clientName}`}
 															className="text-muted-foreground hover:text-foreground"
@@ -1007,10 +1011,12 @@ export function QuestionnaireDataView() {
 																e.stopPropagation();
 																toggleExpanded(group.clientId);
 															}}
+															size="icon-xs"
 															type="button"
+															variant="ghost"
 														>
 															<Chevron className="h-4 w-4 shrink-0" />
-														</button>
+														</Button>
 														{/* Clicking the client link opens the client, not the row. */}
 														{/* biome-ignore lint/a11y/noStaticElementInteractions: only stops the click reaching the row */}
 														{/* biome-ignore lint/a11y/useKeyWithClickEvents: only stops the click reaching the row */}

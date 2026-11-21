@@ -54,13 +54,15 @@ export function CreateDocPageDialog({
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
 			<DialogTrigger asChild>
-				<button
-					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+				<Button
+					className="w-full justify-start font-normal text-muted-foreground"
+					size="sm"
 					type="button"
+					variant="ghost"
 				>
 					<FilePlus2 className="size-3.5" />
 					Create new page
-				</button>
+				</Button>
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>

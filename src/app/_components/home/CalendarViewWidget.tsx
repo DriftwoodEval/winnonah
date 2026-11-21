@@ -167,20 +167,10 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 					Today
 				</Button>
 			)}
-			<Button
-				className="h-6 w-6"
-				onClick={() => navigate(-1)}
-				size="icon"
-				variant="ghost"
-			>
+			<Button onClick={() => navigate(-1)} size="icon-xs" variant="ghost">
 				<ChevronLeft className="h-3 w-3" />
 			</Button>
-			<Button
-				className="h-6 w-6"
-				onClick={() => navigate(1)}
-				size="icon"
-				variant="ghost"
-			>
+			<Button onClick={() => navigate(1)} size="icon-xs" variant="ghost">
 				<ChevronRight className="h-3 w-3" />
 			</Button>
 		</div>

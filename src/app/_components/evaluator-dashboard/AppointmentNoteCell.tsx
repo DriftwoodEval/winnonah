@@ -52,11 +52,7 @@ export function AppointmentNoteCell({
 	}
 
 	const historyTrigger = (
-		<Button
-			className="h-6 w-6 shrink-0 rounded-full"
-			size="icon"
-			variant="ghost"
-		>
+		<Button className="shrink-0 rounded-full" size="icon-xs" variant="ghost">
 			<History className="h-3 w-3" />
 		</Button>
 	);
