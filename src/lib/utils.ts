@@ -1,6 +1,4 @@
-import { type ClassValue, clsx } from "clsx";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
-import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
 import {
 	PERMISSION_GROUP_IDS,
@@ -25,9 +23,7 @@ export function formatCurrency(amount: number) {
 	return currencyFormatter.format(amount);
 }
 
-export function cn(...inputs: ClassValue[]) {
-	return twMerge(clsx(inputs));
-}
+export { cn } from "cn";
 
 export function toTitleCase(str: string): string {
 	return str.replace(
