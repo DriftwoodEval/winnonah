@@ -959,6 +959,25 @@ const checkEvalQsForNewPaDates = async (
 	if (wroteSheet) await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 };
 
+const PUNCH_SYNC_THROTTLE_MS = 60_000;
+// lazy: per server process; a multi-instance deploy syncs once per instance per window.
+let lastPunchSyncAt = 0;
+
+/**
+ * Runs `syncPunchData` at most once per window. The sync reads the punch list
+ * cache (60s), so running it more often only repeats the same work. Returns
+ * whether it ran.
+ */
+export const syncPunchDataThrottled = async (
+	ctx: Context & { session: Session },
+) => {
+	const now = Date.now();
+	if (now - lastPunchSyncAt < PUNCH_SYNC_THROTTLE_MS) return false;
+	lastPunchSyncAt = now;
+	await syncPunchData(ctx);
+	return true;
+};
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,

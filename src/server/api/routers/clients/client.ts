@@ -48,7 +48,7 @@ import { FAILURE_RESOLVED_AT, isDropListFailure } from "~/lib/failures";
 import { appendMissingLines } from "~/lib/insurance-notes-merge";
 import {
 	renameDriveFolder,
-	syncPunchData,
+	syncPunchDataThrottled,
 	updatePunchData,
 } from "~/lib/integrations/google";
 import {
@@ -493,10 +493,6 @@ export async function computeAndStoreAssessmentSnapshot(
 
 	return snapshot;
 }
-
-const PUNCH_SYNC_THROTTLE_MS = 60_000;
-// lazy: per server process; a multi-instance deploy syncs once per instance per window.
-let lastPunchSyncAt = 0;
 
 export const getPriorityInfo = () => {
 	const now = new Date();
@@ -3842,12 +3838,6 @@ export const clientRouter = createTRPCRouter({
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			return { synced: false };
 		}
-		const now = Date.now();
-		if (now - lastPunchSyncAt < PUNCH_SYNC_THROTTLE_MS) {
-			return { synced: false };
-		}
-		lastPunchSyncAt = now;
-		await syncPunchData(ctx);
-		return { synced: true };
+		return { synced: await syncPunchDataThrottled(ctx) };
 	}),
 });
