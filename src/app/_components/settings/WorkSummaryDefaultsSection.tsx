@@ -2,7 +2,7 @@
 
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
@@ -193,7 +193,7 @@ export default function WorkSummaryDefaultsSection() {
 
 					{(["EVAL", "DAEVAL"] as const).map((type) =>
 						EVAL_AGE_VARIANTS.map(({ suffix, label }) => (
-							<>
+							<Fragment key={`${type}${suffix}`}>
 								<div className="font-medium" key={`${type}-label${suffix}`}>
 									{type}
 									{label}
@@ -204,7 +204,7 @@ export default function WorkSummaryDefaultsSection() {
 										{dInput(`${type}/${d.key}${suffix}`)}
 									</span>
 								))}
-							</>
+							</Fragment>
 						)),
 					)}
 				</div>

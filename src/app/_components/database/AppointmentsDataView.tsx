@@ -546,11 +546,11 @@ export function AppointmentsDataView() {
 
 			<div className="rounded-lg border">
 				<Table
-					className={FIXED_TABLE}
+					className={`${FIXED_TABLE} min-w-[1500px]`}
 					classNameWrapper={VIRTUAL_TABLE_HEIGHT}
 					ref={scrollRef}
 				>
-					<FixedCols widths={[8, 7, 12, 10, 7, 8, 8, 9, 9, 8, 8, 6]} />
+					<FixedCols widths={[7, 6, 11, 9, 12, 7, 7, 9, 9, 8, 8, 7]} />
 					<TableHeader className={VIRTUAL_TABLE_HEADER}>
 						<TableRow>
 							<SortableHead {...sortProps} label="Date" sortKey="date" />

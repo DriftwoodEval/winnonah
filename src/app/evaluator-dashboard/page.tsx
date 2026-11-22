@@ -7,10 +7,13 @@ import { evaluators } from "~/server/db/schema";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-	const evaluator = await db.query.evaluators.findFirst({
-		where: eq(evaluators.evaluatorDashboard, true),
-		columns: { providerName: true },
-	});
+	// The title is cosmetic, so a failed lookup falls back to the plain title instead of erroring the page.
+	const evaluator = await db.query.evaluators
+		.findFirst({
+			where: eq(evaluators.evaluatorDashboard, true),
+			columns: { providerName: true },
+		})
+		.catch(() => null);
 	const firstName = evaluator?.providerName?.split(" ")[0];
 	return {
 		title: firstName ? `${firstName}'s Report Dashboard` : "Report Dashboard",

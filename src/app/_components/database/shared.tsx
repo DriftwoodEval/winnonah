@@ -203,8 +203,9 @@ export function useSavedView<T extends object>(
 
 /** Fixed column widths (percentages summing to 100) so a virtualized table's
  * columns don't resize as different rows scroll into view. Pass `FIXED_TABLE`
- * as the Table's `className`. */
-export const FIXED_TABLE = "table-fixed";
+ * as the Table's `className`. The minimum width keeps columns readable on narrow
+ * screens: the table's wrapper scrolls sideways instead of squashing them. */
+export const FIXED_TABLE = "table-fixed min-w-[1000px]";
 
 export function FixedCols({ widths }: { widths: number[] }) {
 	return (
