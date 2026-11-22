@@ -829,14 +829,34 @@ export const appointmentRouter = createTRPCRouter({
 
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> started -> left) never ends up with gaps.
-			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null }
+			const cleared = existing.leftAt
+				? {
+						step: "left",
+						at: existing.leftAt,
+						by: existing.leftBy,
+						payload: { leftAt: null, leftBy: null },
+					}
 				: existing.startedAt
-					? { startedAt: null, startedBy: null }
+					? {
+							step: "started",
+							at: existing.startedAt,
+							by: existing.startedBy,
+							payload: { startedAt: null, startedBy: null },
+						}
 					: existing.arrivedAt
-						? { arrivedAt: null, arrivedBy: null }
+						? {
+								step: "arrived",
+								at: existing.arrivedAt,
+								by: existing.arrivedBy,
+								payload: { arrivedAt: null, arrivedBy: null },
+							}
 						: null;
-			if (!payload) return;
+			if (!cleared) return;
+			const { payload, ...previous } = cleared;
+			setAuditDetail(ctx, {
+				appointmentId: input.appointmentId,
+				cleared: previous,
+			});
 
 			await ctx.db
 				.update(appointmentCheckins)
@@ -946,12 +966,28 @@ export const appointmentRouter = createTRPCRouter({
 
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> left) never ends up with gaps.
-			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null }
+			const cleared = existing.leftAt
+				? {
+						step: "left",
+						at: existing.leftAt,
+						by: existing.leftBy,
+						payload: { leftAt: null, leftBy: null },
+					}
 				: existing.arrivedAt
-					? { arrivedAt: null, arrivedBy: null }
+					? {
+							step: "arrived",
+							at: existing.arrivedAt,
+							by: existing.arrivedBy,
+							payload: { arrivedAt: null, arrivedBy: null },
+						}
 					: null;
-			if (!payload) return;
+			if (!cleared) return;
+			const { payload, ...previous } = cleared;
+			setAuditDetail(ctx, {
+				evaluatorNpi: input.evaluatorNpi,
+				date: input.date,
+				cleared: previous,
+			});
 
 			await ctx.db
 				.update(evaluatorCheckins)

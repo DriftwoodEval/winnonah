@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/scheduling/evaluator";
 import {
 	createTRPCRouter,
@@ -98,6 +99,8 @@ export const officeRouter = createTRPCRouter({
 			if (existing) {
 				throw new Error("An office with that name already exists");
 			}
+			// The key is derived from the name on the server.
+			setAuditDetail(ctx, { ...input, key });
 			ctx.logger.info(
 				{ key, changedBy: ctx.session.user.email },
 				"Creating office",
@@ -123,6 +126,23 @@ export const officeRouter = createTRPCRouter({
 			if (!current) {
 				throw new Error("Office not found");
 			}
+			const coordinatesChanged =
+				Number(current.latitude) !== fields.latitude ||
+				Number(current.longitude) !== fields.longitude;
+			setAuditDetail(ctx, {
+				key,
+				changes: diffValues(
+					{
+						prettyName: current.prettyName,
+						address: current.address,
+						locationPhrase: current.locationPhrase,
+						latitude: Number(current.latitude),
+						longitude: Number(current.longitude),
+					},
+					{ ...fields, locationPhrase: fields.locationPhrase || null },
+				),
+				driveTimesCleared: coordinatesChanged,
+			});
 			ctx.logger.info(
 				{ key, changedBy: ctx.session.user.email },
 				"Updating office",
@@ -139,10 +159,7 @@ export const officeRouter = createTRPCRouter({
 				.where(eq(offices.key, key));
 			// Cached drive times were computed from the old location, so clear
 			// them and let the drive time backfill recompute.
-			if (
-				Number(current.latitude) !== fields.latitude ||
-				Number(current.longitude) !== fields.longitude
-			) {
+			if (coordinatesChanged) {
 				await ctx.db
 					.delete(officeDriveTimes)
 					.where(eq(officeDriveTimes.officeKey, key));

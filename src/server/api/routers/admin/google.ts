@@ -40,6 +40,7 @@ import {
 	getInsuranceShortName,
 	hasPermission,
 } from "~/lib/utils";
+import { setAuditDetail } from "~/server/api/audit";
 import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
 import { saveNoteInternal } from "~/server/api/routers/clients/notes";
@@ -59,6 +60,28 @@ import {
 	reports,
 	users,
 } from "~/server/db/schema";
+
+/** Summary of a calendar event for the audit log; null when it can't be loaded (already gone, no access). */
+async function describeCalendarEvent(
+	session: Parameters<typeof getCalendarClient>[0],
+	eventId: string,
+) {
+	try {
+		const { data } = await getCalendarClient(session).events.get({
+			calendarId: "primary",
+			eventId,
+		});
+		return {
+			eventId,
+			summary: data.summary,
+			start: data.start?.dateTime ?? data.start?.date,
+			end: data.end?.dateTime ?? data.end?.date,
+			recurrence: data.recurrence?.[0],
+		};
+	} catch {
+		return null;
+	}
+}
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
@@ -548,6 +571,13 @@ export const googleRouter = createTRPCRouter({
 				isAllDay: input.isAllDay,
 			});
 
+			setAuditDetail(ctx, {
+				...input,
+				evaluator: ctx.session.user.email,
+				summary,
+				eventId: event.id,
+			});
+
 			ctx.logger.info(
 				{ ...input, createdBy: ctx.session.user.email, eventId: event.id },
 				"Created availability event",
@@ -755,6 +785,22 @@ export const googleRouter = createTRPCRouter({
 					}
 				}
 
+				const targetId =
+					input.scope === "all" && input.recurringEventId
+						? input.recurringEventId
+						: input.eventId;
+				const auditBase = {
+					...input,
+					evaluator: ctx.session.user.email,
+					summary,
+					before: await describeCalendarEvent(
+						ctx.session,
+						input.scope === "future" && input.recurringEventId
+							? input.recurringEventId
+							: targetId,
+					),
+				};
+
 				if (input.scope === "future" && input.recurringEventId) {
 					const calendarApi = getCalendarClient(ctx.session);
 					// 1. Fetch master event to get its current recurrence
@@ -799,17 +845,18 @@ export const googleRouter = createTRPCRouter({
 						isAllDay: input.isAllDay,
 					});
 
+					setAuditDetail(ctx, {
+						...auditBase,
+						newEventId: newEvent.id,
+						endedRecurringEventId: input.recurringEventId,
+					});
+
 					return {
 						success: true,
 						message: "Future events updated successfully.",
 						eventId: newEvent.id,
 					};
 				}
-
-				const targetId =
-					input.scope === "all" && input.recurringEventId
-						? input.recurringEventId
-						: input.eventId;
 
 				const event = await updateAvailabilityEvent(ctx.session, targetId, {
 					summary: summary,
@@ -820,6 +867,8 @@ export const googleRouter = createTRPCRouter({
 					isUnavailability: input.isUnavailability,
 					isAllDay: input.isAllDay,
 				});
+
+				setAuditDetail(ctx, { ...auditBase, eventId: event.id });
 
 				return {
 					success: true,
@@ -862,6 +911,21 @@ export const googleRouter = createTRPCRouter({
 			}
 
 			try {
+				const targetId =
+					input.scope === "all" && input.recurringEventId
+						? input.recurringEventId
+						: input.eventId;
+				setAuditDetail(ctx, {
+					...input,
+					evaluator: ctx.session.user.email,
+					deleted: await describeCalendarEvent(
+						ctx.session,
+						input.scope === "future" && input.recurringEventId
+							? input.recurringEventId
+							: targetId,
+					),
+				});
+
 				if (
 					input.scope === "future" &&
 					input.recurringEventId &&
@@ -901,11 +965,6 @@ export const googleRouter = createTRPCRouter({
 						};
 					}
 				}
-
-				const targetId =
-					input.scope === "all" && input.recurringEventId
-						? input.recurringEventId
-						: input.eventId;
 
 				await deleteAvailabilityEvent(ctx.session, targetId);
 
@@ -1099,6 +1158,13 @@ export const googleRouter = createTRPCRouter({
 			);
 
 			const previewData = await getPreviewData(ctx, input);
+
+			setAuditDetail(ctx, {
+				clientId: input,
+				pushedBy: ctx.session.user.email,
+				pushedData: previewData,
+				appendedReferralToNotes: Boolean(client.referralData),
+			});
 
 			ctx.logger.info({ clientId: input }, "Pushing client to Punchlist");
 
@@ -1485,6 +1551,16 @@ export const googleRouter = createTRPCRouter({
 				"Claimed report folder",
 			);
 
+			setAuditDetail(ctx, {
+				...input,
+				claimedBy: ctx.session.user.email,
+				folderId: data.folder_id,
+				folderName: data.folder_claimed,
+				movedInto: data.moved_into,
+				clientId: data.client_id,
+				claimedFoldersAfter: newFolders,
+			});
+
 			await ctx.db
 				.update(users)
 				.set({ claimedReportFolder: newFolders })
@@ -1553,6 +1629,13 @@ export const googleRouter = createTRPCRouter({
 			const remainingFolders = currentFolders.filter(
 				(f) => f.id !== input.folderId,
 			);
+			setAuditDetail(ctx, {
+				...input,
+				approvedBy: ctx.session.user.email,
+				writerEmail: userToNotify?.email ?? null,
+				approvedFolder: approvedFolder ?? null,
+				remainingClaimedFolders: remainingFolders,
+			});
 
 			await ctx.db
 				.update(users)

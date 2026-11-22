@@ -9,6 +9,7 @@ import {
 	findDefaultInsertAt,
 	mergeNotesContent,
 } from "~/lib/insurance-notes-merge";
+import { setAuditDetail } from "~/server/api/audit";
 import {
 	createTRPCRouter,
 	permissionProcedure,
@@ -151,6 +152,13 @@ export const adminReviewRouter = createTRPCRouter({
 					setBy: ctx.session.user.email,
 				});
 			}
+
+			setAuditDetail(ctx, {
+				enabled: input.enabled,
+				autoClaimedFor: claimedBy,
+				clearedSubmittedToNotes: input.enabled && !!current?.submittedToNotesAt,
+				createdReview: !current,
+			});
 
 			return { success: true };
 		}),
@@ -358,6 +366,13 @@ export const adminReviewRouter = createTRPCRouter({
 				.update(adminReview)
 				.set({ submittedToNotesAt: new Date(), enabled: false })
 				.where(eq(adminReview.clientId, clientId));
+
+			setAuditDetail(ctx, {
+				insertAt: resolvedInsertAt,
+				reviewTextLength: reviewText.length,
+				createdNote: !existingNote,
+				enabled: false,
+			});
 
 			return { success: true };
 		}),

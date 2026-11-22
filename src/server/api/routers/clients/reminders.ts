@@ -96,6 +96,11 @@ export const reminderRouter = createTRPCRouter({
 	deleteTemplate: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.reminderTemplates.findFirst({
+				where: eq(reminderTemplates.id, input.id),
+			});
+			setAuditDetail(ctx, { id: input.id, deleted: existing ?? null });
+
 			ctx.logger.info(
 				{ ...input, deletedBy: ctx.session.user.email },
 				"Deleting reminder template",

@@ -1,14 +1,29 @@
 import { TRPCError } from "@trpc/server";
-import { eq, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import z from "zod";
 import { permissionsSchema } from "~/lib/types";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
+	type Context,
 	createTRPCRouter,
 	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { invitations, roles, users } from "~/server/db/schema";
+
+type Db = Context["db"];
+
+/** The roles that currently hold default status, other than `exceptId`. Making a role default demotes these. */
+async function findOtherDefaultRoles(db: Db, exceptId?: number) {
+	return await db
+		.select({ id: roles.id, name: roles.name })
+		.from(roles)
+		.where(
+			exceptId === undefined
+				? eq(roles.isDefault, true)
+				: and(eq(roles.isDefault, true), ne(roles.id, exceptId)),
+		);
+}
 
 export const rolesRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -26,6 +41,13 @@ export const rolesRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			setAuditDetail(ctx, {
+				...input,
+				demotedDefaultRoles: input.isDefault
+					? await findOtherDefaultRoles(ctx.db)
+					: [],
+			});
+
 			ctx.logger.info(input, "Creating role");
 
 			await ctx.db.transaction(async (tx) => {
@@ -70,7 +92,14 @@ export const rolesRouter = createTRPCRouter({
 				before[key] = existing?.[key as keyof typeof existing];
 				after[key] = updateData[key as keyof typeof updateData];
 			}
-			setAuditDetail(ctx, diffValues(before, after));
+			setAuditDetail(ctx, {
+				roleId: input.id,
+				roleName: existing?.name,
+				changes: diffValues(before, after),
+				demotedDefaultRoles: input.isDefault
+					? await findOtherDefaultRoles(ctx.db, input.id)
+					: [],
+			});
 
 			ctx.logger.info(input, "Updating role");
 
@@ -118,6 +147,14 @@ export const rolesRouter = createTRPCRouter({
 					message: `${assignedCount} ${assignedCount === 1 ? "person is" : "people are"} still assigned to this role. Reassign them before deleting it.`,
 				});
 			}
+
+			// The checks above guarantee no users or invitations reference the role.
+			setAuditDetail(ctx, {
+				...input,
+				deletedRole: role,
+				unlinkedUsers: 0,
+				unlinkedInvitations: 0,
+			});
 
 			ctx.logger.info(input, "Deleting role");
 

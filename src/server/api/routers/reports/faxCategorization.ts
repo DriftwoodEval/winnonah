@@ -1,5 +1,6 @@
-import { count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import z from "zod";
+import { setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
 import {
 	faxCategorizationClientLinks,
@@ -95,6 +96,25 @@ export const faxCategorizationRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const existing =
+				await ctx.db.query.faxCategorizationClientLinks.findFirst({
+					where: and(
+						eq(
+							faxCategorizationClientLinks.faxCategorizationId,
+							input.faxCategorizationId,
+						),
+						eq(faxCategorizationClientLinks.clientId, input.clientId),
+					),
+					columns: { id: true, confirmed: true, rejected: true },
+				});
+			setAuditDetail(ctx, {
+				...input,
+				linkId: existing?.id ?? null,
+				previous: existing
+					? { confirmed: existing.confirmed, rejected: existing.rejected }
+					: null,
+				reversedRejection: existing?.rejected ?? false,
+			});
 			await ctx.db
 				.insert(faxCategorizationClientLinks)
 				.values({

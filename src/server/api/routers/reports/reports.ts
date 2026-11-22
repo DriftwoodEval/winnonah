@@ -32,6 +32,7 @@ import {
 	REPORT_FIELD_PERMISSIONS,
 	reportPaidDate,
 } from "~/lib/utils";
+import { setAuditDetail } from "~/server/api/audit";
 import {
 	type Context,
 	createTRPCRouter,
@@ -350,6 +351,18 @@ export const reportsRouter = createTRPCRouter({
 				columns: { email: true },
 			});
 			if (!writer) throw new TRPCError({ code: "NOT_FOUND" });
+			const current = await ctx.db.query.reports.findFirst({
+				where: eq(reports.id, input.id),
+				columns: { writerUserId: true, writerEmail: true },
+			});
+			// The update only applies to an unclaimed report.
+			setAuditDetail(ctx, {
+				...input,
+				writerEmail: writer.email,
+				changed: !!current && current.writerUserId === null,
+				previousWriterUserId: current?.writerUserId ?? null,
+				previousWriterEmail: current?.writerEmail ?? null,
+			});
 			await ctx.db
 				.update(reports)
 				.set({ writerUserId: input.writerUserId, writerEmail: writer.email })
@@ -483,6 +496,8 @@ export const reportsRouter = createTRPCRouter({
 					writerCompletedAt: true,
 					secondReviewNeeded: true,
 					secondReviewDone: true,
+					billed: true,
+					firstReviewDone: true,
 				},
 			});
 			if (!report) throw new TRPCError({ code: "NOT_FOUND" });
@@ -534,6 +549,27 @@ export const reportsRouter = createTRPCRouter({
 				updateSet.writerCompletedByEmail = email;
 				if (report.status === "claimed") updateSet.status = "submitted";
 			}
+			const previous = report[input.field];
+			// Columns the update changed besides the field itself and its at/by pair.
+			const derived: Record<string, unknown> = {};
+			for (const [key, value] of Object.entries(updateSet)) {
+				if (key !== input.field && key !== meta.at && key !== meta.by) {
+					derived[key] = value;
+				}
+			}
+			const punchMirror = meta.punch
+				? { [meta.punch]: input.value }
+				: (SECOND_REVIEW_FIELDS as readonly string[]).includes(input.field)
+					? { needed: secondReviewNeeded, done: secondReviewDone }
+					: null;
+			setAuditDetail(ctx, {
+				id: input.id,
+				field: input.field,
+				from: previous,
+				to: input.value,
+				derived,
+				punchMirror,
+			});
 			await ctx.db
 				.update(reports)
 				.set(updateSet)
@@ -595,6 +631,14 @@ export const reportsRouter = createTRPCRouter({
 				});
 			}
 
+			const audit: Record<string, unknown> = {
+				id: input.id,
+				previousStatus: report.status,
+				writerUserId: report.writerUserId,
+				freedFolderId: null,
+				notified: false,
+			};
+			setAuditDetail(ctx, audit);
 			await ctx.db
 				.update(reports)
 				.set({
@@ -616,6 +660,10 @@ export const reportsRouter = createTRPCRouter({
 					.update(users)
 					.set({ claimedReportFolder: remaining.length > 0 ? remaining : null })
 					.where(eq(users.id, report.writerUserId));
+				audit.freedFolderId = report.folderId;
+				audit.claimedBefore = current.length;
+				audit.claimedAfter = remaining.length;
+				audit.writerEmail = writer?.email ?? null;
 
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
 				let queueCount = 0;
@@ -636,18 +684,23 @@ export const reportsRouter = createTRPCRouter({
 				}
 
 				try {
-					await fetch(`${env.PY_API}/notifications/report-approved`, {
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Cookie: cookieHeader,
+					const res = await fetch(
+						`${env.PY_API}/notifications/report-approved`,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Cookie: cookieHeader,
+							},
+							body: JSON.stringify({
+								user_email: writer?.email,
+								report_name: report.folderName,
+								queue_count: queueCount,
+							}),
 						},
-						body: JSON.stringify({
-							user_email: writer?.email,
-							report_name: report.folderName,
-							queue_count: queueCount,
-						}),
-					});
+					);
+					audit.notified = res.ok;
+					audit.queueCount = queueCount;
 				} catch (error) {
 					ctx.logger.error(error, "Failed to send approval notification");
 				}
@@ -682,10 +735,19 @@ export const reportsRouter = createTRPCRouter({
 				});
 			}
 
+			const newStatus = report.writerCompletedAt ? "submitted" : "claimed";
+			const audit: Record<string, unknown> = {
+				id: input.id,
+				previousApprovedByEmail: report.approvedByEmail,
+				newStatus,
+				writerUserId: report.writerUserId,
+				restoredFolderId: null,
+			};
+			setAuditDetail(ctx, audit);
 			await ctx.db
 				.update(reports)
 				.set({
-					status: report.writerCompletedAt ? "submitted" : "claimed",
+					status: newStatus,
 					approvedAt: null,
 					approvedByEmail: null,
 				})
@@ -694,10 +756,16 @@ export const reportsRouter = createTRPCRouter({
 			if (report.writerUserId && report.folderId) {
 				const writer = await ctx.db.query.users.findFirst({
 					where: eq(users.id, report.writerUserId),
-					columns: { claimedReportFolder: true },
+					columns: { claimedReportFolder: true, maxClaimedReports: true },
 				});
 				const current = writer?.claimedReportFolder ?? [];
 				if (!current.some((f) => f.id === report.folderId)) {
+					const cap = writer?.maxClaimedReports ?? null;
+					audit.restoredFolderId = report.folderId;
+					audit.claimedBefore = current.length;
+					audit.claimedAfter = current.length + 1;
+					audit.cap = cap;
+					audit.overCap = cap !== null && cap > 0 && current.length + 1 > cap;
 					await ctx.db
 						.update(users)
 						.set({

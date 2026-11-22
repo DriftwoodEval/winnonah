@@ -4,7 +4,7 @@ import { z } from "zod";
 import { parseUsPhoneDigits } from "~/lib/utils";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { eiContacts } from "~/server/db/schema";
+import { clients, eiContacts } from "~/server/db/schema";
 
 export const eiContactsRouter = createTRPCRouter({
 	list: protectedProcedure.query(({ ctx }) => {
@@ -72,6 +72,18 @@ export const eiContactsRouter = createTRPCRouter({
 	delete: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.eiContacts.findFirst({
+				where: eq(eiContacts.id, input.id),
+			});
+			const linked = await ctx.db
+				.select({ id: clients.id })
+				.from(clients)
+				.where(eq(clients.eiContactId, input.id));
+			setAuditDetail(ctx, {
+				deleted: existing ?? null,
+				unlinkedClientIds: linked.map((c) => c.id),
+			});
+
 			ctx.logger.info(
 				{ ...input, deletedBy: ctx.session.user.email },
 				"Deleting EI contact",

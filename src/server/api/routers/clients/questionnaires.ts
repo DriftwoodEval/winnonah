@@ -438,7 +438,15 @@ export const questionnaireRouter = createTRPCRouter({
 					message: "The PDF check failed.",
 				});
 			}
-			return (await res.json()) as { found: number; missing: number };
+			const result = (await res.json()) as { found: number; missing: number };
+			setAuditDetail(ctx, {
+				scope: input.questionnaireId
+					? { questionnaireId: input.questionnaireId }
+					: { clientId: input.clientId },
+				found: result.found,
+				missing: result.missing,
+			});
+			return result;
 		}),
 
 	getAllTypes: protectedProcedure.query(async ({ ctx }) => {
@@ -474,6 +482,11 @@ export const questionnaireRouter = createTRPCRouter({
 	deleteType: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.assessmentTypes.findFirst({
+				where: eq(assessmentTypes.id, input.id),
+			});
+			setAuditDetail(ctx, { deleted: existing ?? null, id: input.id });
+
 			ctx.logger.info(input, "Deleting questionnaire type");
 			await ctx.db
 				.delete(assessmentTypes)
@@ -564,6 +577,11 @@ export const questionnaireRouter = createTRPCRouter({
 	deleteRule: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.questionnaireRules.findFirst({
+				where: eq(questionnaireRules.id, input.id),
+			});
+			setAuditDetail(ctx, { deleted: existing ?? null, id: input.id });
+
 			ctx.logger.info(input, "Deleting questionnaire rule");
 			await ctx.db
 				.delete(questionnaireRules)
@@ -768,6 +786,15 @@ export const questionnaireRouter = createTRPCRouter({
 	updateReminderTemplate: permissionProcedure("settings:questionnaireRules")
 		.input(z.object({ id: z.number(), message: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
+			const existing =
+				await ctx.db.query.questionnaireReminderTemplates.findFirst({
+					where: eq(questionnaireReminderTemplates.id, input.id),
+				});
+			setAuditDetail(
+				ctx,
+				diffValues(existing ?? {}, { message: input.message }),
+			);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating questionnaire reminder template",
@@ -1546,6 +1573,17 @@ export const questionnaireRouter = createTRPCRouter({
 	)
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.inPersonAssessments.findFirst({
+				where: eq(inPersonAssessments.id, input.id),
+				columns: {
+					clientId: true,
+					assessmentType: true,
+					status: true,
+					appointmentId: true,
+				},
+			});
+			setAuditDetail(ctx, { id: input.id, deleted: existing ?? null });
+
 			ctx.logger.info(
 				{ ...input, deletedBy: ctx.session.user.email },
 				"Deleting in-person assessment",

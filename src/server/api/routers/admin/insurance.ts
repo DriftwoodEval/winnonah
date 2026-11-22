@@ -213,6 +213,20 @@ export const insuranceRouter = createTRPCRouter({
 	delete: permissionProcedure("settings:insurances")
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.insurances.findFirst({
+				where: eq(insurances.id, input.id),
+				with: { aliases: true, evaluators: true },
+			});
+			const { aliases, evaluators, ...insurance } = existing ?? {};
+			// The database cascades the delete to the insurance's aliases and evaluator links.
+			setAuditDetail(ctx, {
+				...input,
+				deletedInsurance: existing ? insurance : null,
+				deletedAliases: aliases?.map((link) => link.name) ?? [],
+				unlinkedEvaluatorNpis:
+					evaluators?.map((link) => link.evaluatorNpi) ?? [],
+			});
+
 			ctx.logger.info(input, "Deleting insurance");
 
 			await ctx.db.delete(insurances).where(eq(insurances.id, input.id));

@@ -475,6 +475,12 @@ export const evaluatorRouter = createTRPCRouter({
 				"Archiving evaluator",
 			);
 			const npiAsInt = parseInt(input.npi, 10);
+			// The rematch runs in the background, so which rows it reassigns is not known here.
+			setAuditDetail(ctx, {
+				npi: npiAsInt,
+				archived: true,
+				rematchStarted: true,
+			});
 			await ctx.db
 				.update(evaluators)
 				.set({ archived: true })
@@ -502,6 +508,12 @@ export const evaluatorRouter = createTRPCRouter({
 				"Unarchiving evaluator",
 			);
 			const npiAsInt = parseInt(input.npi, 10);
+			// The rematch runs in the background, so which rows it reassigns is not known here.
+			setAuditDetail(ctx, {
+				npi: npiAsInt,
+				archived: false,
+				rematchStarted: true,
+			});
 			await ctx.db
 				.update(evaluators)
 				.set({ archived: false })
@@ -527,6 +539,11 @@ export const evaluatorRouter = createTRPCRouter({
 			ctx.logger.info(input, "Deleting evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
+
+			const deleted = await ctx.db.query.evaluators.findFirst({
+				where: eq(evaluators.npi, npiAsInt),
+			});
+			setAuditDetail(ctx, { npi: npiAsInt, deleted: deleted ?? null });
 
 			await ctx.db.delete(evaluators).where(eq(evaluators.npi, npiAsInt));
 
@@ -569,6 +586,19 @@ export const evaluatorRouter = createTRPCRouter({
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting evaluator dashboard evaluator",
 			);
+			const previousHolder = input.enabled
+				? await ctx.db.query.evaluators.findFirst({
+						where: eq(evaluators.evaluatorDashboard, true),
+						columns: { npi: true, providerName: true },
+					})
+				: undefined;
+			setAuditDetail(ctx, {
+				...input,
+				previousHolder:
+					previousHolder && previousHolder.npi !== input.npi
+						? previousHolder
+						: null,
+			});
 			await ctx.db.transaction(async (tx) => {
 				if (input.enabled) {
 					// Clear any existing dashboard evaluator first

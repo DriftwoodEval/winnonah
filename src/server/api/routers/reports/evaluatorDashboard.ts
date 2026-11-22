@@ -467,10 +467,16 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				{ ...input, completedBy: evaluatorEmail },
 				"Marking report complete",
 			);
+			const completedAt = new Date();
+			setAuditDetail(ctx, {
+				...input,
+				completedByEmail: evaluatorEmail,
+				completedAt: completedAt.toISOString(),
+			});
 			await ctx.db
 				.update(appointments)
 				.set({
-					reportCompletedAt: new Date(),
+					reportCompletedAt: completedAt,
 					reportCompletedByEmail: evaluatorEmail,
 				})
 				.where(eq(appointments.id, input.appointmentId));

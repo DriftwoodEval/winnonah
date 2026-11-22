@@ -45,7 +45,10 @@ import {
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { FAILURE_RESOLVED_AT, isDropListFailure } from "~/lib/failures";
-import { appendMissingLines } from "~/lib/insurance-notes-merge";
+import {
+	appendMissingLines,
+	extractTextFromContent,
+} from "~/lib/insurance-notes-merge";
 import {
 	renameDriveFolder,
 	syncPunchDataThrottled,
@@ -1651,6 +1654,13 @@ export const clientRouter = createTRPCRouter({
 			columns: { id: true },
 		});
 
+		const changedClientIds = clientsTooOldForBabyNetBool.map((c) => c.id);
+		setAuditDetail(ctx, {
+			ageOutDate,
+			clientIds: changedClientIds,
+			count: changedClientIds.length,
+		});
+
 		if (clientsTooOldForBabyNetBool.length === 0) {
 			return { count: 0 };
 		}
@@ -2161,10 +2171,19 @@ export const clientRouter = createTRPCRouter({
 	)
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			const before = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { assessmentData: true },
+			});
 			const snapshot = await computeAndStoreAssessmentSnapshot(
 				ctx.db,
 				input.clientId,
 			);
+			setAuditDetail(ctx, {
+				clientId: input.clientId,
+				before: before?.assessmentData ?? null,
+				after: snapshot,
+			});
 			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 			return snapshot;
 		}),
@@ -2329,11 +2348,22 @@ export const clientRouter = createTRPCRouter({
 			};
 
 			const merged = appendMissingLines(existingContent, lines);
-			if (!merged) return { added: false };
+			if (!merged) {
+				setAuditDetail(ctx, { added: false, attemptCount: lines.length });
+				return { added: false };
+			}
 
 			await saveNoteInternal(ctx, {
 				clientId: input.clientId,
 				contentJson: merged,
+			});
+			const appendedLines = (merged.content ?? [])
+				.slice(existingContent.content?.length ?? 0)
+				.map(extractTextFromContent);
+			setAuditDetail(ctx, {
+				added: true,
+				count: appendedLines.length,
+				lines: appendedLines,
 			});
 			return { added: true };
 		}),
@@ -2497,6 +2527,12 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
+			setAuditDetail(ctx, {
+				...input,
+				clientId: id,
+				hash: newClient.hash,
+				fullName: newClient.fullName,
+			});
 			return newClient.hash;
 		}),
 
@@ -2726,6 +2762,8 @@ export const clientRouter = createTRPCRouter({
 				language?: string | null;
 				referralData?: z.infer<typeof referralDataSchema>;
 			} = {};
+			let unlinkedDriveIdFromClientId: number | undefined;
+			const punchSynced: string[] = [];
 
 			if (input.color !== undefined) {
 				updateData.color = input.color;
@@ -2787,6 +2825,7 @@ export const clientRouter = createTRPCRouter({
 						.update(clients)
 						.set({ driveId: null })
 						.where(eq(clients.id, existingClient.id));
+					unlinkedDriveIdFromClientId = existingClient.id;
 				}
 				updateData.driveId = input.driveId;
 			}
@@ -2817,6 +2856,7 @@ export const clientRouter = createTRPCRouter({
 						await updatePunchData(ctx.session, input.clientId.toString(), {
 							asdAdhd: input.asdAdhd ?? "",
 						});
+						punchSynced.push("asdAdhd");
 					} catch (e) {
 						ctx.logger.error(
 							e,
@@ -2837,6 +2877,7 @@ export const clientRouter = createTRPCRouter({
 						await updatePunchData(ctx.session, input.clientId.toString(), {
 							language: input.language ?? undefined,
 						});
+						punchSynced.push("language");
 					} catch (e) {
 						ctx.logger.error(
 							e,
@@ -2855,7 +2896,18 @@ export const clientRouter = createTRPCRouter({
 				before[key] = currentClient[key as keyof typeof currentClient];
 				after[key] = updateData[key as keyof typeof updateData];
 			}
-			setAuditDetail(ctx, diffValues(before, after));
+			const extras: Record<string, unknown> = {};
+			if (unlinkedDriveIdFromClientId !== undefined) {
+				extras.unlinkedDriveIdFromClientId = unlinkedDriveIdFromClientId;
+			}
+			if (punchSynced.length > 0) extras.punchSynced = punchSynced;
+			const changes = diffValues(before, after);
+			setAuditDetail(
+				ctx,
+				Object.keys(extras).length > 0
+					? { ...(changes as Record<string, unknown> | undefined), ...extras }
+					: changes,
+			);
 
 			await ctx.db
 				.update(clients)
@@ -3460,6 +3512,9 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			let mergedContent: JSONContent;
+			// Default covers both "kept real" branches below.
+			let mergeMode = "kept real";
+			let fakeDriveIdMoved = false;
 
 			if (realClientNote) {
 				// Real note exists. Check if we need to merge content.
@@ -3476,6 +3531,7 @@ export const clientRouter = createTRPCRouter({
 				const realHasContent = realContent.content.length > 0;
 
 				if (realHasContent && fakeHasContent) {
+					mergeMode = "concatenated";
 					// Both have content. Merge content with a separator.
 					const separator = { type: "paragraph" }; // Using an empty paragraph as separator
 
@@ -3491,6 +3547,7 @@ export const clientRouter = createTRPCRouter({
 					// Only real note has content (fake note has only title, or is empty content). Keep real content.
 					mergedContent = realContent;
 				} else if (fakeHasContent) {
+					mergeMode = "used fake";
 					// SOnly fake note has content (real note has only title, or is empty content). Use fake content.
 					mergedContent = fakeContent;
 				} else {
@@ -3508,6 +3565,7 @@ export const clientRouter = createTRPCRouter({
 					})
 					.where(eq(notes.clientId, clientId));
 			} else {
+				mergeMode = "created";
 				// Real note does not exist. Create a new one.
 				mergedContent = fakeHasContent
 					? fakeContent
@@ -3581,6 +3639,7 @@ export const clientRouter = createTRPCRouter({
 					.update(clients)
 					.set({ driveId: null })
 					.where(eq(clients.id, fakeClientId));
+				fakeDriveIdMoved = true;
 
 				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
 					try {
@@ -3598,6 +3657,15 @@ export const clientRouter = createTRPCRouter({
 					}
 				}
 			}
+
+			setAuditDetail(ctx, {
+				clientId,
+				fakeClientId,
+				mergedTitle,
+				mergeMode,
+				fakeClientArchived: true,
+				fakeClientDriveIdFreed: fakeDriveIdMoved,
+			});
 
 			return {
 				success: true,
@@ -3828,6 +3896,7 @@ export const clientRouter = createTRPCRouter({
 				.insert(insuranceMismatchIgnore)
 				.values({ clientId: input.clientId, signature })
 				.onDuplicateKeyUpdate({ set: { signature } });
+			setAuditDetail(ctx, { clientId: input.clientId, signature, ...client });
 		}),
 
 	// The sync covers every client on the punch list, not just the one being
@@ -3836,8 +3905,14 @@ export const clientRouter = createTRPCRouter({
 	// skip it. Returns whether it ran so callers can skip a refetch.
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			setAuditDetail(ctx, { synced: false, reason: "no Google tokens" });
 			return { synced: false };
 		}
-		return { synced: await syncPunchDataThrottled(ctx) };
+		const synced = await syncPunchDataThrottled(ctx);
+		setAuditDetail(
+			ctx,
+			synced ? { synced } : { synced, reason: "throttled, skipped" },
+		);
+		return { synced };
 	}),
 });

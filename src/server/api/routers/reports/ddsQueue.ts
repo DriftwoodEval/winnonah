@@ -1,8 +1,29 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { getDriveClient } from "~/lib/integrations/google";
+import { setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
+import type { db } from "~/server/db";
 import { clients, ddsFaxRequests } from "~/server/db/schema";
+
+type FileChoice = {
+	selectedFileId: string | null;
+	selectedFileName: string | null;
+	coverNote: string | null;
+};
+
+/** Logs the request's file/cover-note choice before and after; setting one clears the other. */
+async function setChoiceAuditDetail(
+	ctx: Parameters<typeof setAuditDetail>[0] & { db: typeof db },
+	id: number,
+	after: FileChoice,
+) {
+	const before = await ctx.db.query.ddsFaxRequests.findFirst({
+		where: eq(ddsFaxRequests.id, id),
+		columns: { selectedFileId: true, selectedFileName: true, coverNote: true },
+	});
+	setAuditDetail(ctx, { id, before: before ?? null, after });
+}
 
 export const ddsQueueRouter = createTRPCRouter({
 	decide: permissionProcedure("issues:dds-requests")
@@ -53,6 +74,11 @@ export const ddsQueueRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			await setChoiceAuditDetail(ctx, input.id, {
+				selectedFileId: input.fileId,
+				selectedFileName: input.fileName,
+				coverNote: null,
+			});
 			await ctx.db
 				.update(ddsFaxRequests)
 				.set({
@@ -67,6 +93,11 @@ export const ddsQueueRouter = createTRPCRouter({
 	setCoverNote: permissionProcedure("issues:dds-requests")
 		.input(z.object({ id: z.number(), note: z.string().trim().min(1) }))
 		.mutation(async ({ ctx, input }) => {
+			await setChoiceAuditDetail(ctx, input.id, {
+				selectedFileId: null,
+				selectedFileName: null,
+				coverNote: input.note,
+			});
 			await ctx.db
 				.update(ddsFaxRequests)
 				.set({

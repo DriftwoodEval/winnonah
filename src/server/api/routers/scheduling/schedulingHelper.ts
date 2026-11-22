@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
-import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
@@ -10,8 +10,12 @@ import {
 	splitAvailabilityByOOO,
 } from "~/lib/integrations/google";
 import { formatInBusinessTime, getAppointmentsRequired } from "~/lib/utils";
-import { setAuditDetail } from "~/server/api/audit";
-import { createTRPCRouter, permissionProcedure } from "~/server/api/trpc";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
+import {
+	type Context,
+	createTRPCRouter,
+	permissionProcedure,
+} from "~/server/api/trpc";
 import {
 	appointmentCheckins,
 	appointments,
@@ -29,6 +33,37 @@ async function parsePyApiError(response: Response): Promise<string> {
 }
 
 const SCHEDULING_HELPER_PERMISSION = "pages:scheduling-helper";
+
+// Naive business-local wall-clock string, the same shape the mutations accept.
+const toBusinessLocal = (date: Date) =>
+	formatInBusinessTime(date, "yyyy-MM-dd'T'HH:mm:ss");
+
+// A placeholder as it is stored now, for audit detail logged before the
+// Python API deletes or changes it. Null when the row does not exist.
+async function loadPlaceholderForAudit(
+	db: Context["db"],
+	appointmentId: string,
+) {
+	const row = await db.query.appointments.findFirst({
+		where: eq(appointments.id, appointmentId),
+		columns: {
+			clientId: true,
+			evaluatorNpi: true,
+			startTime: true,
+			endTime: true,
+			daEval: true,
+			locationKey: true,
+			calendarEventId: true,
+			calendarEventTitle: true,
+		},
+	});
+	if (!row) return null;
+	return {
+		...row,
+		startTime: toBusinessLocal(row.startTime),
+		endTime: toBusinessLocal(row.endTime),
+	};
+}
 
 export const schedulingHelperRouter = createTRPCRouter({
 	getSchedulingQueueInfo: permissionProcedure(SCHEDULING_HELPER_PERMISSION)
@@ -340,7 +375,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(await parsePyApiError(response));
 			}
 
-			return response.json() as Promise<{
+			const created = (await response.json()) as {
 				id: string;
 				clientId: number;
 				evaluatorNpi: number;
@@ -350,7 +385,14 @@ export const schedulingHelperRouter = createTRPCRouter({
 				locationKey: string;
 				calendarEventId: string;
 				calendarEventTitle: string;
-			}>;
+			};
+			setAuditDetail(ctx, {
+				...input,
+				appointmentId: created.id,
+				calendarEventId: created.calendarEventId,
+				calendarEventTitle: created.calendarEventTitle,
+			});
+			return created;
 		}),
 
 	createShadowEvent: permissionProcedure(SCHEDULING_HELPER_PERMISSION)
@@ -384,12 +426,21 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(await parsePyApiError(response));
 			}
 
-			return response.json() as Promise<{ calendarEventId: string }>;
+			const created = (await response.json()) as { calendarEventId: string };
+			setAuditDetail(ctx, {
+				...input,
+				calendarEventId: created.calendarEventId,
+			});
+			return created;
 		}),
 
 	deletePlaceholder: permissionProcedure(SCHEDULING_HELPER_PERMISSION)
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			const deleted = await loadPlaceholderForAudit(
+				ctx.db,
+				input.appointmentId,
+			);
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(
 				`${env.PY_API}/appointments/placeholder/${input.appointmentId}`,
@@ -402,12 +453,41 @@ export const schedulingHelperRouter = createTRPCRouter({
 				);
 			}
 
+			setAuditDetail(ctx, { ...input, deleted });
+
 			return { status: "ok" as const };
 		}),
 
 	markPlaceholderBooked: permissionProcedure(SCHEDULING_HELPER_PERMISSION)
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			// The API deletes the client's other placeholders of the same type but
+			// only returns a count, so find them before and see which are gone after.
+			const booked = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+				columns: { clientId: true, daEval: true },
+			});
+			const candidates = booked
+				? await ctx.db
+						.select({
+							id: appointments.id,
+							startTime: appointments.startTime,
+							evaluatorNpi: appointments.evaluatorNpi,
+							locationKey: appointments.locationKey,
+						})
+						.from(appointments)
+						.where(
+							and(
+								eq(appointments.clientId, booked.clientId),
+								eq(appointments.placeholder, true),
+								booked.daEval
+									? eq(appointments.daEval, booked.daEval)
+									: isNull(appointments.daEval),
+								ne(appointments.id, input.appointmentId),
+							),
+						)
+				: [];
+
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(
 				`${env.PY_API}/appointments/placeholder/${input.appointmentId}/booked`,
@@ -418,7 +498,28 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(await parsePyApiError(response));
 			}
 
-			return response.json() as Promise<{ deleted: number }>;
+			const result = (await response.json()) as { deleted: number };
+			const remaining =
+				candidates.length > 0
+					? await ctx.db
+							.select({ id: appointments.id })
+							.from(appointments)
+							.where(
+								inArray(
+									appointments.id,
+									candidates.map((c) => c.id),
+								),
+							)
+					: [];
+			const remainingIds = new Set(remaining.map((r) => r.id));
+			setAuditDetail(ctx, {
+				...input,
+				deletedCount: result.deleted,
+				deletedPlaceholders: candidates
+					.filter((c) => !remainingIds.has(c.id))
+					.map((c) => ({ ...c, startTime: toBusinessLocal(c.startTime) })),
+			});
+			return result;
 		}),
 
 	movePlaceholder: permissionProcedure(SCHEDULING_HELPER_PERMISSION)
@@ -435,6 +536,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const before = await loadPlaceholderForAudit(ctx.db, input.appointmentId);
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(
 				`${env.PY_API}/appointments/placeholder/${input.appointmentId}`,
@@ -458,7 +560,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(await parsePyApiError(response));
 			}
 
-			return response.json() as Promise<{
+			const moved = (await response.json()) as {
 				id: string;
 				evaluatorNpi: number;
 				startTime: string;
@@ -467,7 +569,23 @@ export const schedulingHelperRouter = createTRPCRouter({
 				locationKey: string;
 				calendarEventId: string;
 				calendarEventTitle: string;
-			}>;
+			};
+			// Times are compared in the business-local form the input uses; the
+			// response carries UTC instants.
+			setAuditDetail(ctx, {
+				appointmentId: input.appointmentId,
+				changes: diffValues(before, {
+					clientId: before?.clientId,
+					evaluatorNpi: moved.evaluatorNpi,
+					startTime: input.startTime,
+					endTime: input.endTime,
+					daEval: moved.daEval,
+					locationKey: moved.locationKey,
+					calendarEventId: moved.calendarEventId,
+					calendarEventTitle: moved.calendarEventTitle,
+				}),
+			});
+			return moved;
 		}),
 
 	// Batched per-evaluator existing appointments across a date range, so the
@@ -587,7 +705,13 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(`Failed to plan office: ${response.status}`);
 			}
 
-			return response.json() as Promise<{ calendarEventId: string }>;
+			const planned = (await response.json()) as { calendarEventId: string };
+			setAuditDetail(ctx, {
+				...input,
+				calendarEventTitle: `Planned: ${officePrettyName}`,
+				calendarEventId: planned.calendarEventId,
+			});
+			return planned;
 		}),
 
 	unplanOffice: permissionProcedure(SCHEDULING_HELPER_PERMISSION)

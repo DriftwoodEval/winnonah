@@ -22,6 +22,7 @@ import { fetchWithCache } from "~/lib/cache";
 import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { syncPunchDataThrottled } from "~/lib/integrations/google";
 import { getClosestOfficeKey, getInsuranceShortNamesList } from "~/lib/utils";
+import { setAuditDetail } from "~/server/api/audit";
 import {
 	getClosestOfficeKeyByDriveTime,
 	NONE_FILTER_VALUE,
@@ -666,6 +667,8 @@ export const schedulingRouter = createTRPCRouter({
 			const nextSort = (maxSortResult[0]?.maxSort ?? -1) + 1;
 
 			let targetOffice = input.office;
+			// Why the office was chosen, recorded in the audit log.
+			let officeSource = input.office ? "provided" : "none";
 
 			if (!targetOffice) {
 				if (input.code === "96136") {
@@ -680,9 +683,13 @@ export const schedulingRouter = createTRPCRouter({
 							client.latitude,
 							client.longitude,
 						);
+						officeSource = "closest office by drive time (code 96136)";
+					} else {
+						officeSource = "client has no coordinates (code 96136)";
 					}
 				} else if (input.code === "90791") {
 					targetOffice = "Virtual";
+					officeSource = "virtual (code 90791)";
 				} else {
 					const client = await ctx.db.query.clients.findFirst({
 						where: eq(clients.id, input.clientId),
@@ -690,9 +697,19 @@ export const schedulingRouter = createTRPCRouter({
 					});
 					if (client?.referralData?.locationPreference === "virtual") {
 						targetOffice = "Virtual";
+						officeSource = "virtual (referral location preference)";
 					}
 				}
 			}
+
+			// Log the outcome instead of the raw input, which carries the whole
+			// optimistic client and not the office that was actually chosen.
+			setAuditDetail(ctx, {
+				clientId: input.clientId,
+				code: input.code ?? null,
+				office: targetOffice ?? null,
+				officeSource,
+			});
 
 			// Clients whose language is not English get the Interpreter color.
 			const languageClient = await ctx.db.query.clients.findFirst({
@@ -768,7 +785,21 @@ export const schedulingRouter = createTRPCRouter({
 					return;
 				}
 
-				if (over.sort > client.sort) {
+				// Rows between the two positions each shift one place to make room.
+				const movedDown = over.sort > client.sort;
+				setAuditDetail(ctx, {
+					clientId: input.clientId,
+					overClientId: input.overClientId,
+					sort: { from: client.sort, to: over.sort },
+					shiftedRows: {
+						sortRange: movedDown
+							? [client.sort + 1, over.sort]
+							: [over.sort, client.sort - 1],
+						by: movedDown ? -1 : 1,
+					},
+				});
+
+				if (movedDown) {
 					await tx
 						.update(schedulingClients)
 						.set({ sort: sql`${schedulingClients.sort} - 1` })
@@ -893,6 +924,8 @@ export const schedulingRouter = createTRPCRouter({
 			});
 
 			let newOffice: string | undefined;
+			// Why the office was re-picked, recorded in the audit log.
+			let officeSource = "kept (no automatic pick for this code)";
 			if (existing?.code === "96136") {
 				const client = await ctx.db.query.clients.findFirst({
 					where: eq(clients.id, input.clientId),
@@ -905,10 +938,21 @@ export const schedulingRouter = createTRPCRouter({
 						client.latitude,
 						client.longitude,
 					);
+					officeSource = "closest office by drive time (code 96136)";
+				} else {
+					officeSource = "kept (client has no coordinates, code 96136)";
 				}
 			} else if (existing?.code === "90791") {
 				newOffice = "Virtual";
+				officeSource = "virtual (code 90791)";
 			}
+
+			setAuditDetail(ctx, {
+				clientId: input.clientId,
+				code: existing?.code ?? null,
+				office: newOffice ?? null,
+				officeSource,
+			});
 
 			if (newOffice !== undefined) {
 				await ctx.db

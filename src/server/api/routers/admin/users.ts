@@ -16,7 +16,7 @@ import {
 	permissionProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { invitations, users } from "~/server/db/schema";
+import { invitations, roles, users } from "~/server/db/schema";
 import { systemEmitter } from "~/server/services/systemEmitter";
 
 export const userRouter = createTRPCRouter({
@@ -132,6 +132,19 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const role =
+				input.roleId === undefined
+					? null
+					: await ctx.db.query.roles.findFirst({
+							where: eq(roles.id, input.roleId),
+							columns: { name: true },
+						});
+			setAuditDetail(ctx, {
+				...input,
+				roleName: role?.name ?? null,
+				status: "pending",
+			});
+
 			ctx.logger.info(input, "Creating invitation");
 
 			await ctx.db.insert(invitations).values({
@@ -177,6 +190,11 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const invitation = await ctx.db.query.invitations.findFirst({
+				where: eq(invitations.id, input.id),
+			});
+			setAuditDetail(ctx, { ...input, deletedInvitation: invitation ?? null });
+
 			ctx.logger.info(input, "Deleting invitation");
 
 			return {
@@ -531,6 +549,12 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const prefs = await readPreferences(ctx.db, ctx.session.user.id);
+			setAuditDetail(ctx, {
+				table: input.table,
+				previousView: prefs.databaseViews?.[input.table] ?? null,
+				view: input.view,
+			});
 			await patchPreferences(ctx.db, ctx.session.user.id, {
 				databaseViews: { [input.table]: input.view },
 			});
