@@ -89,9 +89,7 @@ jobs:
         id: cache-mounts
         uses: actions/cache@v6
         with:
-          path: |
-            .docker-cache/pnpm-store
-            .docker-cache/next-cache
+          path: .docker-cache/next-cache
           key: docker-mounts-node-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: |
             docker-mounts-node-${{ hashFiles('pnpm-lock.yaml') }}-
@@ -103,7 +101,6 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           cache-map: |
             {
-              ".docker-cache/pnpm-store": { "target": "/pnpm/store", "id": "pnpm" },
               ".docker-cache/next-cache": { "target": "/app/.next/cache", "id": "nextjs" }
             }
           skip-extraction: ${{ steps.cache-mounts.outputs.cache-hit }}
@@ -138,8 +135,10 @@ jobs:
             NEXT_PUBLIC_COMMIT_HASH=${{ env.SHORT_SHA }}
             NEXT_PUBLIC_GIT_BRANCH=${{ github.ref_name }}
             NEXT_PUBLIC_BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          # mode=max also caches the deps stage, so pnpm install is skipped
+          # until the lockfile changes.
           cache-from: type=gha
-          cache-to: type=gha,mode=min
+          cache-to: type=gha,mode=max
 
   build-python:
     runs-on: ubuntu-latest
