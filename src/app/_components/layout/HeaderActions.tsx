@@ -192,14 +192,15 @@ export function HeaderActions() {
 								event.preventDefault();
 							}}
 						>
-							<button
-								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+							<Button
+								className="h-auto justify-start gap-1 p-0 text-xs font-normal text-muted-foreground hover:text-foreground hover:no-underline max-md:h-auto"
 								onClick={() => setAvatarView("menu")}
 								type="button"
+								variant="link"
 							>
 								<ArrowLeft className="h-3 w-3" />
 								Back
-							</button>
+							</Button>
 							<HeaderItemsCustomizer />
 						</PopoverContent>
 					)}

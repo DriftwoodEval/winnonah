@@ -289,7 +289,7 @@ export function ClientHeader({
 							<span>{client.asdAdhd}</span>
 						) : (
 							<Button
-								className="h-auto p-0 text-inherit max-md:h-auto"
+								className="h-auto justify-start p-0 text-inherit max-md:h-auto"
 								onClick={() => setEditAsdAdhdOpen(true)}
 								type="button"
 								variant="link"

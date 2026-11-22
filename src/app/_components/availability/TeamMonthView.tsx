@@ -167,12 +167,13 @@ function DayCell({
 				{overflow > 0 && (
 					<Popover>
 						<PopoverTrigger asChild>
-							<button
-								className="cursor-pointer text-left text-[10px] text-muted-foreground hover:underline"
+							<Button
+								className="h-auto justify-start p-0 text-[10px] font-normal text-muted-foreground max-md:h-auto"
 								type="button"
+								variant="link"
 							>
 								+{overflow} more
-							</button>
+							</Button>
 						</PopoverTrigger>
 						<PopoverContent className="w-64">
 							<p className="mb-1 text-sm font-medium">

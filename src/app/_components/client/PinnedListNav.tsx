@@ -160,13 +160,14 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 						Waiting
 					</button>
 					{filtered && (
-						<button
-							className="ml-auto text-muted-foreground underline"
+						<Button
+							className="ml-auto h-auto justify-start p-0 font-normal text-muted-foreground underline max-md:h-auto"
 							onClick={clearAdminFilters}
 							type="button"
+							variant="link"
 						>
 							Clear
-						</button>
+						</Button>
 					)}
 				</div>
 			)}

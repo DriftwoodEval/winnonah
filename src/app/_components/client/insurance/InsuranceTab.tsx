@@ -89,13 +89,14 @@ function PaAssignedToRow({
 					value={value ?? ""}
 				/>
 			</ResponsiveDialog>
-			<button
-				className="cursor-pointer text-left text-sm hover:underline"
+			<Button
+				className="h-auto justify-start p-0 font-normal text-foreground max-md:h-auto"
 				onClick={() => setOpen(true)}
 				type="button"
+				variant="link"
 			>
 				{value || "Assign"}
-			</button>
+			</Button>
 		</div>
 	);
 }

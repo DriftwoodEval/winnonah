@@ -770,12 +770,13 @@ function PriorAuthCell({
 		// with hundreds of table rows in the DOM.
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
-				<button
-					className="text-muted-foreground underline decoration-dotted underline-offset-4"
+				<Button
+					className="h-auto justify-start p-0 font-normal text-muted-foreground underline decoration-dotted underline-offset-4 max-md:h-auto"
 					type="button"
+					variant="link"
 				>
 					{current || "Set status"}
-				</button>
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
 				<DropdownMenuRadioGroup

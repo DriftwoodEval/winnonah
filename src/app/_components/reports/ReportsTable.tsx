@@ -366,15 +366,16 @@ export function ReportsTable({
 									className="flex items-center justify-between px-2 py-1"
 									key={v.name}
 								>
-									<button
-										className="flex-1 text-left text-sm hover:underline"
+									<Button
+										className="h-auto flex-1 justify-start p-0 font-normal text-foreground max-md:h-auto"
 										onClick={() =>
 											setFilters({ ...EMPTY_FILTERS, ...v.filters })
 										}
 										type="button"
+										variant="link"
 									>
 										{v.name}
-									</button>
+									</Button>
 									<Button
 										onClick={() => deleteView(v.name)}
 										size="sm"

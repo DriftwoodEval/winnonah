@@ -1730,7 +1730,7 @@ function SchedulingHelperGrid({
 			</TooltipProvider>
 			{durationOverride !== null && (
 				<Button
-					className="h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
+					className="h-auto justify-start p-0 text-xs text-muted-foreground underline max-md:h-auto"
 					onClick={() => setDurationOverride(null)}
 					size="xs"
 					type="button"
@@ -1782,7 +1782,7 @@ function SchedulingHelperGrid({
 												<Redact>{pendingClient.fullName}</Redact>
 											</span>
 											<Button
-												className="h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
+												className="h-auto justify-start p-0 text-xs text-muted-foreground underline max-md:h-auto"
 												onClick={() => setPendingClient(null)}
 												size="xs"
 												type="button"
@@ -1959,7 +1959,7 @@ function SchedulingHelperGrid({
 							)}
 							{filterToAssigned && (
 								<Button
-									className="ml-auto h-auto p-0 text-xs text-muted-foreground underline max-md:h-auto"
+									className="ml-auto h-auto justify-start p-0 text-xs text-muted-foreground underline max-md:h-auto"
 									onClick={() => setShowAllEvaluators(true)}
 									size="xs"
 									type="button"
