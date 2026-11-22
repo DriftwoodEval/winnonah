@@ -1,12 +1,6 @@
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { ISSUE_TITLES } from "~/lib/issues/issue-titles";
+import { buildIssueCounts, type IssueCount } from "~/lib/issues/issue-counts";
 import { api } from "~/trpc/react";
-
-export interface IssueCount {
-	title: string;
-	/** Undefined when the user can't see the list or its data hasn't loaded. */
-	count: number | undefined;
-}
 
 interface IssueCountQueryOptions {
 	staleTime?: number;
@@ -141,102 +135,35 @@ export function useIssueCounts(
 		query(can("issues:duplicate-names")),
 	);
 
-	const clientsWithDuplicateLinks =
-		duplicateQLinks &&
-		new Set(
-			duplicateQLinks.duplicatePerClient
-				.map((item) => item.client?.id)
-				.filter((id) => id !== undefined),
-		).size;
-
-	return [
-		{ title: ISSUE_TITLES.dd4, count: dd4?.length },
+	return buildIssueCounts(
 		{
-			title: ISSUE_TITLES.justAddedQuestionnaires,
-			count: justAddedQuestionnaires?.length,
+			dd4,
+			justAdded: justAddedQuestionnaires,
+			paused: pausedClients,
+			evaluationInProcess,
+			missingAppointments,
+			autismStops,
+			punchlist: punchlistIssues,
+			noReferralSource,
+			districtErrors,
+			babyNetErrors,
+			adultClients,
+			notInTA: notInTAErrors,
+			dropList,
+			notesOnly: notesOnlyClients,
+			noDriveIds,
+			possiblePrivatePay,
+			unreviewedRecords,
+			charterSchool: unconfirmedCharterSchool,
+			insuranceMismatch,
+			specialAccommodations,
+			ddsRequests,
+			medicaidNotFound,
+			duplicateFolders: duplicateFolderNames,
+			duplicateLinks: duplicateQLinks,
+			duplicateNames,
+			partialBatteries,
 		},
-		{ title: ISSUE_TITLES.pausedClients, count: pausedClients?.length },
-		{
-			title: ISSUE_TITLES.evaluationInProcess,
-			count: evaluationInProcess?.length,
-		},
-		{
-			title: ISSUE_TITLES.missingAppointments,
-			count: missingAppointments?.length,
-		},
-		{ title: ISSUE_TITLES.autismStops, count: autismStops?.length },
-		{
-			title: ISSUE_TITLES.punchlistNotInDb,
-			count: can("issues:clients-not-in-db")
-				? punchlistIssues?.clientsNotInDb.length
-				: undefined,
-		},
-		{
-			title: ISSUE_TITLES.punchlistInactive,
-			count: can("issues:punchlist-inactive")
-				? punchlistIssues?.inactiveClients.length
-				: undefined,
-		},
-		{
-			title: ISSUE_TITLES.punchlistDuplicateIds,
-			count: can("issues:punchlist-duplicates")
-				? punchlistIssues?.duplicateIdClients.length
-				: undefined,
-		},
-		{ title: ISSUE_TITLES.noReferralSource, count: noReferralSource?.length },
-		{
-			title: ISSUE_TITLES.missingDistricts,
-			count: districtErrors?.clientsWithoutDistrict.length,
-		},
-		{
-			title: ISSUE_TITLES.poorAddressLookup,
-			count: districtErrors?.clientsWithPoorAddressLookup.length,
-		},
-		{ title: ISSUE_TITLES.babyNetAgeOut, count: babyNetErrors?.length },
-		{ title: ISSUE_TITLES.adultClients, count: adultClients?.length },
-		{ title: ISSUE_TITLES.notInTA, count: notInTAErrors?.length },
-		{ title: ISSUE_TITLES.dropList, count: dropList?.length },
-		{ title: ISSUE_TITLES.notesOnly, count: notesOnlyClients?.length },
-		{ title: ISSUE_TITLES.noDriveIds, count: noDriveIds?.length },
-		{
-			title: ISSUE_TITLES.possiblePrivatePay,
-			count: possiblePrivatePay?.length,
-		},
-		{
-			title: ISSUE_TITLES.unreviewedRecords,
-			count: unreviewedRecords?.length,
-		},
-		{
-			title: ISSUE_TITLES.charterSchoolConfirm,
-			count: unconfirmedCharterSchool?.length,
-		},
-		{ title: ISSUE_TITLES.insuranceMismatch, count: insuranceMismatch?.length },
-		{
-			title: ISSUE_TITLES.specialAccommodations,
-			count: specialAccommodations?.length,
-		},
-		{ title: ISSUE_TITLES.ddsRequests, count: ddsRequests?.length },
-		{ title: ISSUE_TITLES.medicaidNotFound, count: medicaidNotFound?.length },
-		{
-			title: ISSUE_TITLES.duplicateDriveFolders,
-			count: duplicateFolderNames?.data.length,
-		},
-		{
-			title: ISSUE_TITLES.duplicateQuestionnaireLinks,
-			count: clientsWithDuplicateLinks,
-		},
-		{
-			title: ISSUE_TITLES.sharedQuestionnaires,
-			count: duplicateQLinks?.sharedAcrossClients.length,
-		},
-		{
-			title: ISSUE_TITLES.duplicateNames,
-			count: duplicateNames?.reduce((sum, g) => sum + g.pairs.length, 0),
-		},
-		{
-			title: ISSUE_TITLES.partialBatteries,
-			count:
-				partialBatteries && new Set(partialBatteries.map((b) => b.id)).size,
-		},
-	];
+		can,
+	);
 }

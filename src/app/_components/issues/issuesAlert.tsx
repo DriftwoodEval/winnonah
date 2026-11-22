@@ -2,12 +2,12 @@
 
 import { Badge } from "@ui/badge";
 import Link from "next/link";
-import { useIssueCounts } from "~/hooks/use-issue-counts";
+import { api } from "~/trpc/react";
 
 export function IssuesAlert() {
-	const counts = useIssueCounts({ staleTime: 1000 * 60 * 5 });
-
-	const errorsLength = counts.reduce((sum, { count }) => sum + (count ?? 0), 0);
+	const { data: errorsLength = 0 } = api.issues.getTotal.useQuery(undefined, {
+		staleTime: 1000 * 60 * 5,
+	});
 
 	if (errorsLength === 0) {
 		return null;

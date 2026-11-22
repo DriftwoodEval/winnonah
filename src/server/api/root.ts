@@ -16,6 +16,7 @@ import { babynetReportRouter } from "./routers/clients/babynetReport";
 import { clientRouter } from "./routers/clients/client";
 import { eiContactsRouter } from "./routers/clients/ei-contacts";
 import { externalRecordRouter } from "./routers/clients/externalRecords";
+import { issuesRouter } from "./routers/clients/issues";
 import { noteRouter } from "./routers/clients/notes";
 import { questionnaireRouter } from "./routers/clients/questionnaires";
 import { quoRouter } from "./routers/clients/quo";
@@ -53,6 +54,7 @@ export const appRouter = createTRPCRouter({
 	ddsQueue: ddsQueueRouter,
 	faxCategorization: faxCategorizationRouter,
 	google: googleRouter,
+	issues: issuesRouter,
 	greeterProxy: greeterProxyRouter,
 	insurances: insuranceRouter,
 	issueReport: issueReportRouter,
