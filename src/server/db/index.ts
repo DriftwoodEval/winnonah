@@ -20,6 +20,10 @@ const conn =
 		// Store/read DATETIME columns as literal UTC instants, no driver-side
 		// local-timezone conversion.
 		timezone: "Z",
+		// A page load fires 30+ queries at once; the driver default of 10
+		// connections makes the rest wait. MySQL allows 151 in total, shared
+		// with the Python sidecar and cron jobs.
+		connectionLimit: 30,
 		// Return DATE columns as plain "YYYY-MM-DD" strings instead of JS Date
 		// objects, since date-only columns have no timezone to convert.
 		dateStrings: ["DATE"],
