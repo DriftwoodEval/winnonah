@@ -22,6 +22,11 @@ run = "docker compose up -d driftwood-db redis cloudflared"
 description = "Turn off Docker containers"
 run = "docker compose down"
 
+[tasks."ui-preview"]
+description = "Start a database-free, login-free dev server on port 3100 for scripts/ui-preview screenshots"
+env = { SKIP_ENV_VALIDATION = "1", NEXT_DIST_DIR = ".next-preview", AUTH_SECRET = "preview", NEXTAUTH_URL = "http://localhost:3100" }
+run = "pnpm exec next dev --turbo -p 3100"
+
 [tasks."python-dev"]
 description = "Start the Python API with hot-reloading"
 dir = "python"

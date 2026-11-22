@@ -1,0 +1,6 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": { "noEmit": true, "incremental": false },
+	"include": ["next-env.d.ts", "scripts/ui-preview/**/*.ts"],
+	"exclude": ["node_modules"]
+}

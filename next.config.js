@@ -47,6 +47,8 @@ const config = {
 		NEXT_PUBLIC_COMMIT_HASH: commitHash,
 	},
 	allowedDevOrigins: [appDomain, `*.${appHost}`],
+	// The UI preview server (scripts/ui-preview) sets this so it can run beside the normal dev server.
+	distDir: process.env.NEXT_DIST_DIR ?? ".next",
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty", "sharp"],
 	// Next's file tracing doesn't follow sharp's dlopen'd libvips .so, so the

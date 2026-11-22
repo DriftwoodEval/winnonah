@@ -31,7 +31,13 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 
 ## Local Development
 
-Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
+Every page requires a logged-in NextAuth session and a database, so the normal dev server can't be used by Claude. To see a UI change, use the UI preview instead: it runs a second dev server with no database or Google login, and a script screenshots a page with a fake all-permissions session and canned tRPC data.
+
+1. Start the server in the background: `mise run ui-preview` (port 3100, build output in `.next-preview`, runs beside the normal dev server on 3000).
+2. Screenshot a page: `pnpm exec tsx scripts/ui-preview/shot.ts /path --phone` (or `--desktop`; options `--dark`, `--full`, `--click "text"`, `--click-selector "css"`, `--wait ms`, `--out file`). Use the scratchpad for `--out`, then Read the PNG.
+3. The script prints `missing fixtures` for each tRPC procedure with no canned data. Add them to `scripts/ui-preview/fixtures.ts` (a list is `[]`; each fixture is typed against the real router output, so `pnpm check` runs `tsc -p tsconfig.ui-preview.json` and fails when a router shape drifts). Pages with no fixtures show empty states, not real data. `pnpm exec tsx scripts/ui-preview/coverage.ts` lists every query the UI calls that still has no fixture.
+
+The preview only fakes data, so it proves layout and styling, not behavior against the real server. Still run `mise run check`, and say which pages were screenshotted.
 
 ## Tests
 
@@ -80,7 +86,7 @@ On the Python side (`driftwood_common.timezone` in `python/common`, shared with 
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
