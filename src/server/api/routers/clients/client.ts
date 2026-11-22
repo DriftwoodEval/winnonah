@@ -494,6 +494,10 @@ export async function computeAndStoreAssessmentSnapshot(
 	return snapshot;
 }
 
+const PUNCH_SYNC_THROTTLE_MS = 60_000;
+// lazy: per server process; a multi-instance deploy syncs once per instance per window.
+let lastPunchSyncAt = 0;
+
 export const getPriorityInfo = () => {
 	const now = new Date();
 	const BNAgeOutDate = subYears(now, 3);
@@ -3830,9 +3834,20 @@ export const clientRouter = createTRPCRouter({
 				.onDuplicateKeyUpdate({ set: { signature } });
 		}),
 
+	// The sync covers every client on the punch list, not just the one being
+	// viewed, and reads the punch list cache (60s). Running it more often than
+	// the cache refreshes only repeats the same work, so views inside the window
+	// skip it. Returns whether it ran so callers can skip a refetch.
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {
-		if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
-			await syncPunchData(ctx);
+		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			return { synced: false };
 		}
+		const now = Date.now();
+		if (now - lastPunchSyncAt < PUNCH_SYNC_THROTTLE_MS) {
+			return { synced: false };
+		}
+		lastPunchSyncAt = now;
+		await syncPunchData(ctx);
+		return { synced: true };
 	}),
 });

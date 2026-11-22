@@ -196,7 +196,9 @@ export function Client({
 	});
 
 	const syncPunchDataMutation = api.clients.syncPunchData.useMutation({
-		onSuccess: () => refetchClient(),
+		onSuccess: ({ synced }) => {
+			if (synced) refetchClient();
+		},
 	});
 
 	useEffect(() => {
