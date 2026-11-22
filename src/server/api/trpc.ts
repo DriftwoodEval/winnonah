@@ -102,6 +102,8 @@ export const createCallerFactory = t.createCallerFactory;
  */
 export const createTRPCRouter = t.router;
 
+const SLOW_PROCEDURE_MS = 500;
+
 /**
  * Middleware for logging and timing procedure execution.
  * Also adds an artificial delay in development to catch unwanted waterfalls.
@@ -131,11 +133,14 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 		},
 	});
 
+	const durationMs = Date.now() - start;
 	if (!result.ok) {
 		procedureLogger.error(
-			{ error: result.error, duration_ms: Date.now() - start },
+			{ error: result.error, duration_ms: durationMs },
 			"query failed",
 		);
+	} else if (durationMs > SLOW_PROCEDURE_MS) {
+		procedureLogger.warn({ duration_ms: durationMs }, "slow procedure");
 	}
 
 	return result;
