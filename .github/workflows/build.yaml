@@ -25,20 +25,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Lists the files changed by this push. If the range can't be diffed
+      # (manual run, new branch, force push), build both images.
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v47
+        run: |
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]] \
+             && git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > "$RUNNER_TEMP/changed-files.txt"; then
+            echo "build_all=false" >> $GITHUB_OUTPUT
+          else
+            echo "Could not determine changed files, building both images."
+            echo "build_all=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check for node changes
         id: check_node_changes
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Manually triggered, building both images regardless of changed files."
+          if [[ "${{ steps.changed-files.outputs.build_all }}" == "true" ]]; then
             echo "build_triggered=true" >> $GITHUB_OUTPUT
             exit 0
           fi
           echo "build_triggered=false" >> $GITHUB_OUTPUT
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          while IFS= read -r file; do
             if [[ ! "$file" == python/* \
                && ! "$file" == worker/* \
                && ! "$file" == caddy/* \
@@ -51,24 +59,23 @@ jobs:
               echo "build_triggered=true" >> $GITHUB_OUTPUT
               break
             fi
-          done
+          done < "$RUNNER_TEMP/changed-files.txt"
 
       - name: Check for python changes
         id: check_python_changes
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Manually triggered, building both images regardless of changed files."
+          if [[ "${{ steps.changed-files.outputs.build_all }}" == "true" ]]; then
             echo "build_triggered=true" >> $GITHUB_OUTPUT
             exit 0
           fi
           echo "build_triggered=false" >> $GITHUB_OUTPUT
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+          while IFS= read -r file; do
             if [[ "$file" == python/* ]]; then
               echo "Detected change in '$file', triggering Python build."
               echo "build_triggered=true" >> $GITHUB_OUTPUT
               break
             fi
-          done
+          done < "$RUNNER_TEMP/changed-files.txt"
 
   build-node:
     runs-on: ubuntu-latest
