@@ -163,8 +163,9 @@ jobs:
           target: test
           load: true
           tags: winnonah-python-test:ci
+          # Read-only: the runner image build below writes the shared cache,
+          # which already contains these base layers.
           cache-from: type=gha
-          cache-to: type=gha,mode=min
 
       - name: Run Python tests
         run: docker run --rm -e HEADLESS=true winnonah-python-test:ci
