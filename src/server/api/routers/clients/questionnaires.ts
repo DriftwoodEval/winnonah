@@ -1140,13 +1140,27 @@ export const questionnaireRouter = createTRPCRouter({
 			const reactivated: string[] = [];
 			const added: string[] = [];
 
-			for (const newQuestionnaire of parsedQuestionnaires) {
-				const existingByLink = await ctx.db.query.questionnaires.findFirst({
-					where: and(
-						eq(questionnaires.clientId, input.clientId),
-						eq(questionnaires.link, newQuestionnaire.link),
+			const existingRows = await ctx.db.query.questionnaires.findMany({
+				where: and(
+					eq(questionnaires.clientId, input.clientId),
+					inArray(
+						questionnaires.link,
+						parsedQuestionnaires.map((q) => q.link),
 					),
-				});
+				),
+			});
+			const existingByLinkMap = new Map<
+				string,
+				(typeof existingRows)[number]
+			>();
+			for (const row of existingRows) {
+				if (row.link && !existingByLinkMap.has(row.link)) {
+					existingByLinkMap.set(row.link, row);
+				}
+			}
+
+			for (const newQuestionnaire of parsedQuestionnaires) {
+				const existingByLink = existingByLinkMap.get(newQuestionnaire.link);
 
 				if (existingByLink) {
 					if (
@@ -1163,6 +1177,8 @@ export const questionnaireRouter = createTRPCRouter({
 								lastReminded: null,
 							})
 							.where(eq(questionnaires.id, existingByLink.id));
+						// A repeated link later in the same text now counts as already active.
+						existingByLink.status = "PENDING";
 						processedTypes.add(newQuestionnaire.questionnaireType);
 						reactivated.push(newQuestionnaire.questionnaireType);
 					}
