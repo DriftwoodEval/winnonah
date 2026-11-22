@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
@@ -34,7 +34,6 @@ import {
 	updateAvailabilityEvent,
 	updatePunchData,
 } from "~/lib/integrations/google";
-import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
 import {
 	getAppointmentsRequired,
@@ -945,7 +944,25 @@ export const googleRouter = createTRPCRouter({
 			() => getPunchData(ctx.session),
 			60,
 		);
-		const dbClients = await ctx.db.select().from(clients);
+		// Match on names only; full rows are loaded below for the few suggestions
+		// that survive. Lowercasing once here avoids repeating it per punch row.
+		const nameRows = await ctx.db
+			.select({
+				id: clients.id,
+				firstName: clients.firstName,
+				lastName: clients.lastName,
+				preferredName: clients.preferredName,
+				fullName: clients.fullName,
+			})
+			.from(clients);
+		const dbClients = nameRows.map((client) => ({
+			id: client.id,
+			preferredName: client.preferredName,
+			legalName: `${client.firstName.toLowerCase()} ${client.lastName.toLowerCase()}`,
+			fullName: client.preferredName
+				? `${client.preferredName} ${client.lastName}`.toLowerCase()
+				: client.fullName,
+		}));
 
 		const clientsNotInDb = punchData.filter(
 			(client) =>
@@ -956,37 +973,50 @@ export const googleRouter = createTRPCRouter({
 				),
 		);
 
-		const clientsWithSuggestions = clientsNotInDb.map((punchClient) => {
+		const suggestedIdsByPunchClient = clientsNotInDb.map((punchClient) => {
 			const punchName = punchClient["Client Name"]?.toLowerCase() ?? "";
-			if (!punchName) return { ...punchClient, suggestions: [] as Client[] };
+			if (!punchName) return [];
 
-			const suggestions = dbClients
+			return dbClients
 				.map((client) => {
-					const legalName = `${client.firstName.toLowerCase()} ${client.lastName.toLowerCase()}`;
-					const fullName = client.preferredName
-						? `${client.preferredName} ${client.lastName}`.toLowerCase()
-						: client.fullName;
-
 					const distance = Math.min(
-						levDistance(punchName, legalName),
-						levDistance(punchName, fullName),
+						levDistance(punchName, client.legalName),
+						levDistance(punchName, client.fullName),
 					);
 
 					const isMatch =
 						distance <= 3 ||
-						punchName.includes(legalName) ||
-						fullName.includes(punchName) ||
+						punchName.includes(client.legalName) ||
+						client.fullName.includes(punchName) ||
 						(client.preferredName &&
-							(punchName.includes(fullName) || fullName.includes(punchName)));
+							(punchName.includes(client.fullName) ||
+								client.fullName.includes(punchName)));
 
-					return { ...client, distance, isMatch };
+					return { id: client.id, distance, isMatch };
 				})
 				.filter((c) => c.isMatch)
 				.sort((a, b) => a.distance - b.distance)
-				.slice(0, 5);
-
-			return { ...punchClient, suggestions };
+				.slice(0, 5)
+				.map((c) => c.id);
 		});
+
+		const suggestedIds = [...new Set(suggestedIdsByPunchClient.flat())];
+		const suggestedRows =
+			suggestedIds.length > 0
+				? await ctx.db
+						.select()
+						.from(clients)
+						.where(inArray(clients.id, suggestedIds))
+				: [];
+		const suggestedById = new Map(suggestedRows.map((c) => [c.id, c]));
+
+		const clientsWithSuggestions = clientsNotInDb.map((punchClient, i) => ({
+			...punchClient,
+			suggestions: (suggestedIdsByPunchClient[i] ?? []).flatMap((id) => {
+				const client = suggestedById.get(id);
+				return client ? [client] : [];
+			}),
+		}));
 
 		const inactiveClients = getInactivePunchClients(punchData);
 
