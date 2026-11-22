@@ -1123,6 +1123,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 								<Button asChild size="sm" variant="outline">
 									<Link
 										href={`/scheduling/helper?clientHash=${scheduledClient.client.hash}`}
+										target="_blank"
 									>
 										<CalendarPlus className="h-4 w-4" />
 									</Link>
