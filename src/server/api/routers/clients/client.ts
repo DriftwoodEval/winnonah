@@ -3908,10 +3908,11 @@ export const clientRouter = createTRPCRouter({
 			setAuditDetail(ctx, { synced: false, reason: "no Google tokens" });
 			return { synced: false };
 		}
-		const synced = await syncPunchDataThrottled(ctx);
+		const updates = await syncPunchDataThrottled(ctx);
+		const synced = updates !== null;
 		setAuditDetail(
 			ctx,
-			synced ? { synced } : { synced, reason: "throttled, skipped" },
+			synced ? { synced, updates } : { synced, reason: "throttled, skipped" },
 		);
 		return { synced };
 	}),

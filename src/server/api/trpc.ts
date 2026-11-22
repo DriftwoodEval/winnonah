@@ -182,6 +182,20 @@ export const protectedProcedure = t.procedure
 		// the same object reference throughout the call, so the assignment is
 		// visible here after `next()` resolves.
 		const auditDetail: AuditDetailBox = { value: undefined, set: false };
+
+		// Resolved before the mutation runs, since a delete removes the related
+		// row that some paths look the client up through.
+		let rawInput: unknown;
+		let clientId: number | null = null;
+		if (type === "mutation") {
+			try {
+				rawInput = await getRawInput().catch(() => undefined);
+				clientId = await extractClientId(ctx.db, path, rawInput);
+			} catch (err) {
+				ctx.logger.error({ err }, "Failed to resolve audit client");
+			}
+		}
+
 		const result = await next({ ctx: { auditDetail } });
 
 		if (type !== "mutation") return result;
@@ -190,7 +204,6 @@ export const protectedProcedure = t.procedure
 		if (result.ok) await invalidateIssueLists(ctx);
 
 		try {
-			const rawInput = await getRawInput().catch(() => undefined);
 			await ctx.db.insert(auditLogs).values({
 				userId: ctx.session.user.id,
 				userEmail: ctx.session.user.email ?? "",
@@ -200,7 +213,7 @@ export const protectedProcedure = t.procedure
 						null)
 					: null,
 				action: path,
-				clientId: await extractClientId(ctx.db, path, rawInput),
+				clientId,
 				detail: auditDetail.set
 					? (auditDetail.value ?? null)
 					: serializeAuditInput(rawInput),

@@ -966,18 +966,18 @@ let lastPunchSyncAt = 0;
 /**
  * Runs `syncPunchData` at most once per window. The sync reads the punch list
  * cache (60s), so running it more often only repeats the same work. Returns
- * whether it ran.
+ * how many database updates it made, or null when the window skipped it.
  */
 export const syncPunchDataThrottled = async (
 	ctx: Context & { session: Session },
 ) => {
 	const now = Date.now();
-	if (now - lastPunchSyncAt < PUNCH_SYNC_THROTTLE_MS) return false;
+	if (now - lastPunchSyncAt < PUNCH_SYNC_THROTTLE_MS) return null;
 	lastPunchSyncAt = now;
-	await syncPunchData(ctx);
-	return true;
+	return syncPunchData(ctx);
 };
 
+/** Returns the number of database updates the sync issued. */
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
@@ -1150,6 +1150,7 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	await Promise.all(updatePromises);
 
 	await checkEvalQsForNewPaDates(ctx, newPaDates);
+	return updatePromises.length;
 };
 
 export const pushToPunch = async (
