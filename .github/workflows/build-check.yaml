@@ -62,19 +62,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The job always reports success so it can stay a required check. The
+      # slow steps below only run when Python code (or this workflow) changed,
+      # and always run for pushes that have no PR base to diff against.
+      - name: Check for Python changes
+        id: python-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ -z "$BASE_SHA" ]] \
+             || git diff --name-only "$BASE_SHA" "${{ github.sha }}" \
+                | grep -qE '^(python/|\.github/workflows/build-check\.yaml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Python changes, skipping Python checks."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup mise (task runner only)
+        if: steps.python-changes.outputs.run == 'true'
         uses: jdx/mise-action@v5
         with:
           install: false
 
       - name: Check Python version matches Dockerfile
+        if: steps.python-changes.outputs.run == 'true'
         run: mise run check:python-version
 
       - name: Set up Docker Buildx
+        if: steps.python-changes.outputs.run == 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Build Python test image
+        if: steps.python-changes.outputs.run == 'true'
         uses: docker/build-push-action@v7
         with:
           context: ./python
@@ -86,4 +109,5 @@ jobs:
           cache-from: type=gha
 
       - name: Run Python tests
+        if: steps.python-changes.outputs.run == 'true'
         run: docker run --rm -e HEADLESS=true winnonah-python-test:ci
