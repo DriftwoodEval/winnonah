@@ -1,6 +1,7 @@
 [tools]
 node = "26"
 uv = "latest"
+actionlint = "latest"
 
 [env]
 _.file = ".env"
@@ -194,6 +195,10 @@ description = "Type-check Python"
 dir = "python"
 run = "uv run pyright"
 
+[tasks."check:actionlint"]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"
+
 [tasks."check:knip"]
 description = "Report unused TS files, exports, and dependencies (advisory, never fails)"
 env = { SKIP_ENV_VALIDATION = "1" }
@@ -229,6 +234,7 @@ depends = [
   "check:pnpm",
   "check:ruff",
   "check:pyright",
+  "check:actionlint",
   "check:changelog",
   "check:knip",
   "check:deptry",
