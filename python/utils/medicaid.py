@@ -17,6 +17,7 @@ QSuite tab), not from environment variables.
 
 import base64
 import re
+from contextlib import suppress
 from time import sleep
 
 from driftwood_common.timezone import now_business
@@ -349,7 +350,12 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
     payment_category = w.find_element(
         driver, By.XPATH, "//li[label[text()='Payment Category:']]/p"
     )
-    # The page has loaded by now, so optional fields are read without waiting.
+    # The response table may render after the category fields, so wait for it
+    # once. The table is optional, so a timeout is not an error.
+    with suppress(TimeoutException):
+        w.find_element(driver, By.ID, "rspTbl")
+    # Optional fields are read without waiting: each missing one would
+    # otherwise block for the full implicit wait.
     with w.no_implicit_wait(driver):
         beneficiary_status = driver.find_elements(
             By.XPATH, "//li[label[text()='Beneficiary is:']]/p"
