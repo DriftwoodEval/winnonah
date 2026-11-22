@@ -192,7 +192,7 @@ export function RelatedClients({
 										</span>
 									</Link>
 									<Button
-										className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all lg:opacity-0 lg:group-hover:opacity-100"
+										className="absolute right-1 cursor-pointer opacity-100 transition-all lg:opacity-0 lg:group-hover:opacity-100"
 										disabled={linkMutation.isPending}
 										onClick={(e) => {
 											e.preventDefault();
@@ -202,7 +202,7 @@ export function RelatedClients({
 												idB: suggestion.id,
 											});
 										}}
-										size="icon"
+										size="icon-sm"
 										title="Link client"
 										variant="ghost"
 									>

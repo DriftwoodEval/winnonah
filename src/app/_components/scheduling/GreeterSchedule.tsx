@@ -48,23 +48,13 @@ export default function GreeterSchedule() {
 							{isToday ? "Today's Greeters" : "Greeters"}
 						</CardTitle>
 						<div className="flex items-center gap-1">
-							<Button
-								className="h-8 w-8 max-md:size-10"
-								onClick={() => navigate(-1)}
-								size="icon"
-								variant="ghost"
-							>
+							<Button onClick={() => navigate(-1)} size="icon" variant="ghost">
 								<ChevronLeft className="h-5 w-5" />
 							</Button>
 							<span className="w-44 shrink-0 text-center text-base font-medium sm:w-64 sm:text-lg">
 								{format(new Date(`${selectedDate}T12:00:00`), "EEEE, MMMM d")}
 							</span>
-							<Button
-								className="h-8 w-8 max-md:size-10"
-								onClick={() => navigate(1)}
-								size="icon"
-								variant="ghost"
-							>
+							<Button onClick={() => navigate(1)} size="icon" variant="ghost">
 								<ChevronRight className="h-5 w-5" />
 							</Button>
 						</div>

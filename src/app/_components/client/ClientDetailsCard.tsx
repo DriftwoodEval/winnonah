@@ -34,9 +34,9 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 	return (
 		<Button
 			aria-label={`Copy ${label.toLowerCase()}`}
-			className="h-5 w-5 text-muted-foreground"
+			className="text-muted-foreground"
 			onClick={copy}
-			size="icon"
+			size="icon-xs"
 			title={`Copy ${label.toLowerCase()}`}
 			type="button"
 			variant="ghost"
