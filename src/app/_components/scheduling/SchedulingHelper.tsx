@@ -1173,20 +1173,6 @@ function SchedulingHelperGrid({
 		return { start, end };
 	}, [selectedCell, manualTime, durationMinutes]);
 
-	// Manually-picked times (no marked availability to constrain them) just
-	// can't overlap an existing appointment.
-	function manualSlotErrorFor(start: Date, end: Date): string | null {
-		const overlapsExisting = busyRanges.some(
-			(busy) => start.getTime() < busy.end && end.getTime() > busy.start,
-		);
-		if (overlapsExisting) return "Overlaps an existing appointment";
-		return null;
-	}
-
-	const manualSlotError = manualSlot
-		? manualSlotErrorFor(manualSlot.start, manualSlot.end)
-		: null;
-
 	// Snaps a click/drop position to the nearest half hour and resolves it to a
 	// true UTC instant on the given business-local calendar day.
 	function snappedTimeFromMinutes(
@@ -1207,20 +1193,14 @@ function SchedulingHelperGrid({
 	}
 
 	// Clicking directly on the evaluator's calendar preview picks that time,
-	// snapped to the nearest half hour, as long as it doesn't overlap an
-	// existing appointment - same rule as the manual time input.
+	// snapped to the nearest half hour. Overlapping an existing appointment is
+	// allowed.
 	function handleCalendarSlotClick(minutesFromMidnight: number) {
 		if (!selectedCell) return;
 		const { start, hh, mm } = snappedTimeFromMinutes(
 			selectedCell.date,
 			minutesFromMidnight,
 		);
-		const end = new Date(start.getTime() + durationMinutes * 60000);
-		const error = manualSlotErrorFor(start, end);
-		if (error) {
-			toast.error(error);
-			return;
-		}
 		setManualTime(`${hh}:${mm}`);
 		setSelectedSlot({ start, durationMinutes });
 	}
@@ -1383,16 +1363,6 @@ function SchedulingHelperGrid({
 			minutesFromMidnight,
 		);
 		const newEnd = new Date(newStart.getTime() + durationMs);
-		const overlapsExisting = (dayAppointments ?? []).some(
-			(appt) =>
-				appt.id !== appointmentId &&
-				newStart.getTime() < new Date(appt.endTime).getTime() &&
-				newEnd.getTime() > new Date(appt.startTime).getTime(),
-		);
-		if (overlapsExisting) {
-			toast.error("Overlaps an existing appointment");
-			return;
-		}
 		setPendingMove({
 			appointmentId,
 			clientName: moved.clientName,
@@ -1538,20 +1508,6 @@ function SchedulingHelperGrid({
 		if (resolved) setOfficeFilter(resolved);
 	}
 
-	function overlapsBooking(
-		npi: number,
-		start: Date,
-		end: Date,
-		ignoreId?: string,
-	) {
-		return (appointmentsByNpi?.[npi] ?? []).some(
-			(a) =>
-				a.id !== ignoreId &&
-				start.getTime() < a.endTime.getTime() &&
-				end.getTime() > a.startTime.getTime(),
-		);
-	}
-
 	// Drag (or click) on empty calendar space stages a new slot for the sidebar
 	// confirm button.
 	function handleCalendarCreate(
@@ -1563,10 +1519,6 @@ function SchedulingHelperGrid({
 		// A placeholder needs a client, so without one an empty-space click does
 		// nothing. The day header still opens the panel for planning an office.
 		if (!effectiveClient) return;
-		if (overlapsBooking(npi, start, end)) {
-			toast.error("Overlaps an existing appointment");
-			return;
-		}
 		handleCalendarSelect(npi, day);
 		setManualTime(formatInBusinessTime(start, "HH:mm"));
 		setSelectedSlot({
@@ -1592,10 +1544,6 @@ function SchedulingHelperGrid({
 			(changes?.daEval ?? appt.daEval) === appt.daEval &&
 			appointmentsByNpi?.[npi]?.some((a) => a.id === appt.id);
 		if (unchanged) return;
-		if (overlapsBooking(npi, newStart, newEnd, appt.id)) {
-			toast.error("Overlaps an existing appointment");
-			return;
-		}
 		setPendingMove({
 			appointmentId: appt.id,
 			clientName: appt.clientName,
@@ -2338,7 +2286,7 @@ function SchedulingHelperGrid({
 												value={manualTime}
 											/>
 											<Button
-												disabled={!manualSlot || !!manualSlotError}
+												disabled={!manualSlot}
 												onClick={() =>
 													manualSlot &&
 													setSelectedSlot({
@@ -2351,11 +2299,6 @@ function SchedulingHelperGrid({
 												Use this time
 											</Button>
 										</div>
-										{manualSlotError && (
-											<p className="text-xs text-destructive">
-												{manualSlotError}
-											</p>
-										)}
 									</div>
 								))}
 

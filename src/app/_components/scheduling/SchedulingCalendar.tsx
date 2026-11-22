@@ -116,6 +116,39 @@ function minutesOfDay(instant: Date) {
 	return hh * 60 + mm;
 }
 
+// Splits appointments that overlap in time into side-by-side lanes. Each
+// cluster of connected overlaps shares one lane count, so its blocks split the
+// column width evenly; an appointment with no overlap keeps the full width.
+function withLanes<T extends { startTime: Date; endTime: Date }>(appts: T[]) {
+	const sorted = [...appts].sort(
+		(a, b) => a.startTime.getTime() - b.startTime.getTime(),
+	);
+	const result: { appt: T; lane: number; lanes: number }[] = [];
+	let cluster: typeof result = [];
+	let laneEnds: number[] = [];
+	let clusterEnd = 0;
+
+	function closeCluster() {
+		for (const item of cluster) item.lanes = laneEnds.length;
+		cluster = [];
+		laneEnds = [];
+	}
+
+	for (const appt of sorted) {
+		const start = appt.startTime.getTime();
+		if (cluster.length > 0 && start >= clusterEnd) closeCluster();
+		let lane = laneEnds.findIndex((end) => end <= start);
+		if (lane === -1) lane = laneEnds.length;
+		laneEnds[lane] = appt.endTime.getTime();
+		clusterEnd = Math.max(clusterEnd, appt.endTime.getTime());
+		const item = { appt, lane, lanes: 1 };
+		cluster.push(item);
+		result.push(item);
+	}
+	closeCluster();
+	return result;
+}
+
 function timeRangeLabel(start: Date, end: Date) {
 	return `${formatInBusinessTime(start, "h:mm")}–${formatInBusinessTime(end, "h:mm a")}`;
 }
@@ -596,7 +629,7 @@ export function SchedulingCalendar({
 												{note.kind === "ooo" ? "OOO" : note.label}
 											</div>
 										)}
-										{booked.map((appt) => {
+										{withLanes(booked).map(({ appt, lane, lanes }) => {
 											const isPlaceholder = appt.placeholder;
 											const beingDragged =
 												(drag?.appt?.id === appt.id && drag.moved) ||
@@ -611,7 +644,7 @@ export function SchedulingCalendar({
 													<PopoverAnchor asChild>
 														<div
 															className={cn(
-																"group absolute inset-x-0.5 overflow-hidden rounded-sm border px-1 py-0.5 text-[11px] leading-tight shadow-sm",
+																"group absolute overflow-hidden rounded-sm border px-1 py-0.5 text-[11px] leading-tight shadow-sm",
 																isPlaceholder
 																	? "cursor-grab border-2 border-dashed border-warning bg-warning/15 active:cursor-grabbing dark:bg-warning/25"
 																	: `border-l-4 ${colorByNpi.get(ev.npi) ?? ""}`,
@@ -627,7 +660,12 @@ export function SchedulingCalendar({
 															onPointerUp={() =>
 																!isPlaceholder && setDetailId(appt.id)
 															}
-															style={{ top: blockTop(appt.startTime), height }}
+															style={{
+																top: blockTop(appt.startTime),
+																height,
+																left: `calc(${(lane / lanes) * 100}% + 2px)`,
+																width: `calc(${100 / lanes}% - 4px)`,
+															}}
 														>
 															<div className="truncate font-medium">
 																{appt.clientHash ? (
