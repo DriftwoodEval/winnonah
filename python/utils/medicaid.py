@@ -350,33 +350,35 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
         driver, By.XPATH, "//li[label[text()='Payment Category:']]/p"
     )
     # The page has loaded by now, so optional fields are read without waiting.
-    beneficiary_status = driver.find_elements(
-        By.XPATH, "//li[label[text()='Beneficiary is:']]/p"
-    )
-    organization = driver.find_elements(
-        By.XPATH, "//td[normalize-space()='Organization:']/following-sibling::td[1]"
-    )
-    # The page has a second, unrelated "Provider ID:" row outside the response
-    # table (our own requesting provider), so scope to the response table.
-    provider_id = driver.find_elements(
-        By.XPATH,
-        "//table[@id='rspTbl']//td[normalize-space()='Provider ID:']/following-sibling::td[1]",
-    )
-    carriers = driver.find_elements(
-        By.XPATH,
-        "//td[contains(normalize-space(), 'Carrier')]/following-sibling::td[1]",
-    )
-    limited_benefit = driver.find_elements(
-        By.XPATH, "//li[label[text()='Limited Benefit:']]/p"
-    )
-    special_program = driver.find_elements(
-        By.XPATH,
-        "//table[@id='rspTbl']//td[normalize-space()='Description:']/following-sibling::td[1]",
-    )
-    special_program_message = driver.find_elements(
-        By.XPATH,
-        "//table[@id='rspTbl']//td[normalize-space()='Message:']/following-sibling::td[1]",
-    )
+    with w.no_implicit_wait(driver):
+        beneficiary_status = driver.find_elements(
+            By.XPATH, "//li[label[text()='Beneficiary is:']]/p"
+        )
+        organization = driver.find_elements(
+            By.XPATH,
+            "//td[normalize-space()='Organization:']/following-sibling::td[1]",
+        )
+        # The page has a second, unrelated "Provider ID:" row outside the response
+        # table (our own requesting provider), so scope to the response table.
+        provider_id = driver.find_elements(
+            By.XPATH,
+            "//table[@id='rspTbl']//td[normalize-space()='Provider ID:']/following-sibling::td[1]",
+        )
+        carriers = driver.find_elements(
+            By.XPATH,
+            "//td[contains(normalize-space(), 'Carrier')]/following-sibling::td[1]",
+        )
+        limited_benefit = driver.find_elements(
+            By.XPATH, "//li[label[text()='Limited Benefit:']]/p"
+        )
+        special_program = driver.find_elements(
+            By.XPATH,
+            "//table[@id='rspTbl']//td[normalize-space()='Description:']/following-sibling::td[1]",
+        )
+        special_program_message = driver.find_elements(
+            By.XPATH,
+            "//table[@id='rspTbl']//td[normalize-space()='Message:']/following-sibling::td[1]",
+        )
     return {
         "qualCategory": qual_category.text,
         "paymentCategory": payment_category.text,

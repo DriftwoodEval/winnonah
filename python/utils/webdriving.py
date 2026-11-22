@@ -1,4 +1,6 @@
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from time import sleep
 
@@ -17,6 +19,8 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
+
+IMPLICIT_WAIT_SECONDS = 5
 
 
 ### UTILS ###
@@ -43,9 +47,23 @@ def initialize_selenium() -> tuple[WebDriver, ActionChains]:
     service = Service(executable_path=os.getenv("CHROMEDRIVER_PATH"))
     driver = webdriver.Chrome(options=chrome_options, service=service)
     actions = ActionChains(driver)
-    driver.implicitly_wait(5)
+    driver.implicitly_wait(IMPLICIT_WAIT_SECONDS)
     driver.set_window_size(1920, 1080)
     return driver, actions
+
+
+@contextmanager
+def no_implicit_wait(driver: WebDriver) -> Iterator[None]:
+    """Make find_elements return at once, for fields that may be absent.
+
+    With the implicit wait on, every lookup that finds nothing blocks for the
+    full wait before returning an empty list.
+    """
+    driver.implicitly_wait(0)
+    try:
+        yield
+    finally:
+        driver.implicitly_wait(IMPLICIT_WAIT_SECONDS)
 
 
 def click_element(
