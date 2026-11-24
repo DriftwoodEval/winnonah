@@ -103,6 +103,7 @@ docker exec driftwood-db mysqldump \
   --routines \
   --triggers \
   --events \
+  --hex-blob \
   --set-gtid-purged=ON \
   | tee "$BACKUP_FILE"
 
@@ -114,11 +115,24 @@ slack "Standby dumped and backed up on standby. Restoring onto primary..."
 
 log "Restoring primary from standby's dump..."
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS;
+  -e "STOP REPLICA; RESET REPLICA ALL;
       SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
-docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  < /tmp/standby_dump.sql
+# The GTID reset runs in the same stream as the load so nothing can add a
+# transaction between them: the dump sets GTID_PURGED, which fails if the
+# primary's executed GTID set is not empty. --binary-mode lets mysql accept
+# NUL bytes, which the dump contains in some mysql system tables.
+RESTORE_LOG=/tmp/standby_restore.log
+if ! { echo "RESET BINARY LOGS AND GTIDS;"; cat /tmp/standby_dump.sql; } \
+  | docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --binary-mode \
+    > "$RESTORE_LOG" 2>&1; then
+  restore_error=$(grep -a "ERROR" "$RESTORE_LOG" | head -3 | cut -c1-300)
+  log "Restore failed: ${restore_error}"
+  msg="🚨 Failback restore onto primary failed: \`${restore_error}\`. Primary data is incomplete. Standby is untouched. Full output: ${RESTORE_LOG} on primary."
+  slack "$msg"
+  slack_alert "$msg"
+  exit 1
+fi
 log "Primary restored from standby."
 slack "Primary restored from standby's data."
 
