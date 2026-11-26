@@ -1013,7 +1013,7 @@ def client_eligibility_debug(
 
 
 @app.get("/evaluators/availability")
-async def evaluators_availability(
+def evaluators_availability(
     npis: str,
     start: datetime,
     end: datetime,
@@ -1033,7 +1033,7 @@ async def evaluators_availability(
 
 
 @app.post("/appointments/placeholder")
-async def create_placeholder_appointment(
+def create_placeholder_appointment(
     request: CreatePlaceholderAppointmentRequest,
     current_user: dict = Depends(get_current_user),
 ):
@@ -1109,7 +1109,7 @@ async def create_placeholder_appointment(
 
 
 @app.post("/appointments/shadow")
-async def create_shadow_event(
+def create_shadow_event(
     request: CreateShadowEventRequest,
     current_user: dict = Depends(get_current_user),
 ):
@@ -1144,7 +1144,7 @@ async def create_shadow_event(
 
 
 @app.delete("/appointments/placeholder/{appointment_id}")
-async def delete_placeholder_appointment(
+def delete_placeholder_appointment(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
     if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
@@ -1169,7 +1169,7 @@ async def delete_placeholder_appointment(
 
 
 @app.post("/appointments/placeholder/{appointment_id}/booked")
-async def confirm_placeholder_booked(
+def confirm_placeholder_booked(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
     """Staff confirmed this placeholder is solidly booked. It becomes a regular
@@ -1233,7 +1233,7 @@ async def confirm_placeholder_booked(
 
 
 @app.patch("/appointments/placeholder/{appointment_id}")
-async def move_placeholder_appointment(
+def move_placeholder_appointment(
     appointment_id: str,
     request: MovePlaceholderAppointmentRequest,
     current_user: dict = Depends(get_current_user),
@@ -1324,7 +1324,7 @@ async def move_placeholder_appointment(
 
 
 @app.post("/evaluators/planned-office")
-async def plan_evaluator_office(
+def plan_evaluator_office(
     request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
     if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
@@ -1344,7 +1344,7 @@ async def plan_evaluator_office(
 
 
 @app.delete("/evaluators/planned-office")
-async def unplan_evaluator_office(
+def unplan_evaluator_office(
     request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
     if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
