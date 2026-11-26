@@ -1112,7 +1112,10 @@ async def reminder_cron():
     while True:
         logger.info("Starting reminder dispatch cycle...")
         try:
-            await process_reminders()
+            # process_reminders makes blocking database and Google Calendar
+            # calls, so it runs on its own thread and event loop to keep the
+            # API's main loop free to answer requests.
+            await asyncio.to_thread(asyncio.run, process_reminders())
         except Exception as e:
             logger.error(f"Failed to process reminders: {e}")
 
