@@ -1207,15 +1207,21 @@ function SchedulingHelperGrid({
 
 	const utils = api.useUtils();
 
+	// Everything the helper's calendars, availability and booked panel read, so
+	// any change to an appointment shows up right away.
+	const refreshHelperData = () => {
+		void utils.appointments.getByClientId.invalidate();
+		void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+		void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+		void utils.schedulingHelper.getOfficeCalendar.invalidate();
+		void utils.schedulingHelper.getAvailability.invalidate();
+	};
+
 	const createPlaceholder = api.schedulingHelper.createPlaceholder.useMutation({
 		onSuccess: () => {
 			toast.success("Placeholder appointment created");
 			setSelectedSlot(null);
-			void utils.appointments.getByClientId.invalidate();
-			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
-			void utils.schedulingHelper.getOfficeCalendar.invalidate();
-			void utils.schedulingHelper.getAvailability.invalidate();
+			refreshHelperData();
 		},
 		onError: (error) => {
 			toast.error("Failed to create placeholder appointment", {
@@ -1241,10 +1247,7 @@ function SchedulingHelperGrid({
 		onSuccess: () => {
 			toast.success("Placeholder moved");
 			setPendingMove(null);
-			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
-			void utils.schedulingHelper.getOfficeCalendar.invalidate();
-			void utils.schedulingHelper.getAvailability.invalidate();
+			refreshHelperData();
 		},
 		onError: (error) => {
 			toast.error("Failed to move placeholder appointment", {
@@ -1268,8 +1271,7 @@ function SchedulingHelperGrid({
 			toast.success("Shadowing event added");
 			setShadowAppt(null);
 			setShadowNpi("");
-			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-			void utils.schedulingHelper.getAvailability.invalidate();
+			refreshHelperData();
 		},
 		onError: (error) => {
 			toast.error("Failed to add shadowing event", {
@@ -1282,11 +1284,7 @@ function SchedulingHelperGrid({
 		onSuccess: () => {
 			toast.success("Placeholder deleted");
 			setPendingDeleteId(null);
-			void utils.appointments.getByClientId.invalidate();
-			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
-			void utils.schedulingHelper.getOfficeCalendar.invalidate();
-			void utils.schedulingHelper.getAvailability.invalidate();
+			refreshHelperData();
 		},
 		onError: (error) => {
 			toast.error("Failed to delete placeholder appointment", {
@@ -1302,11 +1300,7 @@ function SchedulingHelperGrid({
 					? `Marked as booked, removed ${deleted} other placeholder${deleted === 1 ? "" : "s"}`
 					: "Marked as booked, no other placeholders to remove",
 			);
-			void utils.appointments.getByClientId.invalidate();
-			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
-			void utils.schedulingHelper.getOfficeCalendar.invalidate();
-			void utils.schedulingHelper.getAvailability.invalidate();
+			refreshHelperData();
 		},
 		onError: (error) => {
 			toast.error("Failed to mark placeholder as booked", {
@@ -1333,11 +1327,7 @@ function SchedulingHelperGrid({
 					if (appt.locationKey) params.set("office", appt.locationKey);
 					router.push(`/scheduling/helper?${params.toString()}`);
 				}
-				void utils.appointments.getByClientId.invalidate();
-				void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
-				void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
-				void utils.schedulingHelper.getOfficeCalendar.invalidate();
-				void utils.schedulingHelper.getAvailability.invalidate();
+				refreshHelperData();
 			},
 			onError: (error) => {
 				toast.error("Failed to mark appointment cancelled", {
@@ -1592,7 +1582,11 @@ function SchedulingHelperGrid({
 	});
 
 	const handleConfirm = () => {
-		if (!selectedCell || !selectedSlot || !office || !effectiveClient) return;
+		if (!selectedCell || !selectedSlot || !effectiveClient) return;
+		if (!office) {
+			toast.error("Pick an office in the filter at the top of the page first");
+			return;
+		}
 		const end = new Date(
 			selectedSlot.start.getTime() + selectedSlot.durationMinutes * 60000,
 		);
