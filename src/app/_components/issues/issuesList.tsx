@@ -1993,7 +1993,7 @@ export function IssuesList() {
 				{specialAccommodations && specialAccommodations.length !== 0 && (
 					<IssueList
 						clients={specialAccommodations}
-						description="Non-English Medicaid or BabyNet clients with a new appointment. Approve to email SCDHHS Special Accommodations so an interpreter can be arranged, or deny to skip it."
+						description="Non-English BabyNet clients with Medicaid and a new appointment. Approve to email SCDHHS Special Accommodations so an interpreter can be arranged, or deny to skip it."
 						rowAction={(client) => (
 							<SpecialAccommodationsActions clientId={client.id} />
 						)}

@@ -273,7 +273,7 @@ export async function getMissingAppointmentsList(
 }
 
 /**
- * Non-English Medicaid/BabyNet clients with a newly scheduled appointment whose
+ * Non-English BabyNet clients with Medicaid and a newly scheduled appointment whose
  * SCDHHS Special Accommodations notice is waiting for staff to approve or deny.
  * The appointment sync creates the pending rows.
  */

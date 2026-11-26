@@ -1019,7 +1019,7 @@ export const inPersonAssessmentHistoryRelations = relations(
 	}),
 );
 
-// One row per non-English Medicaid or BabyNet client with a newly scheduled
+// One row per non-English BabyNet client with Medicaid with a newly scheduled
 // appointment. The row starts "pending" and shows on the Issues page, where
 // staff approve (queues the SCDHHS Special Accommodations email) or deny it.
 // The appointment sync sends "approved" rows and marks them "sent". Any row,

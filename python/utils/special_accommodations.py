@@ -1,7 +1,7 @@
 """SCDHHS Special Accommodations notices.
 
-When the appointment sync schedules a new appointment for an active Medicaid
-(SCM) or BabyNet client who does not speak English, a pending notice is queued
+When the appointment sync schedules a new appointment for an active BabyNet
+client with Medicaid (SCM) insurance who does not speak English, a pending notice is queued
 for staff to approve or deny on the Issues page. Approved notices are emailed to
 SCDHHS (the client's name, Medicaid number, and language) so they can arrange an
 interpreter. Each client is queued once.
@@ -41,8 +41,8 @@ def build_accommodation_email(
 
 
 def queue_special_accommodations(client_ids: Iterable[int]) -> None:
-    """Queue a pending notice for each newly scheduled non-English Medicaid or
-    BabyNet client in client_ids that has no notice yet. Staff approve or deny
+    """Queue a pending notice for each newly scheduled non-English BabyNet client
+    with Medicaid in client_ids that has no notice yet. Staff approve or deny
     them on the Issues page; nothing is emailed until approval."""
     for client in get_non_english_medicaid_clients_for_notice(client_ids):
         queue_special_accommodations_notice(

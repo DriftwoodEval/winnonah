@@ -1449,35 +1449,33 @@ def get_medicaid_clients_with_ids(
     return new_clients + stale[:MEDICAID_RECHECK_BATCH_SIZE]
 
 
-# Insurances whose non-English clients get a Special Accommodations notice.
-SPECIAL_ACCOMMODATIONS_INSURANCES = [SCM_ALIAS, "BabyNet"]
+BABYNET_SHORT_NAME = "BabyNet"
 
 
-def _resolve_accommodation_insurance_names(cursor: DictCursor) -> list[str]:
-    """All insurance names (shortNames + aliases) that map to SCM (Medicaid) or
-    BabyNet."""
-    alias_placeholders = ", ".join(["%s"] * len(SPECIAL_ACCOMMODATIONS_INSURANCES))
+def _resolve_insurance_names(cursor: DictCursor, short_name: str) -> list[str]:
+    """All insurance names (shortName + aliases) of the insurance with this
+    short name or alias."""
     cursor.execute(
         f"""
         SELECT i.id
         FROM `{TABLE_INSURANCE}` i
         LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
-        WHERE i.shortName IN ({alias_placeholders}) OR a.name IN ({alias_placeholders})
+        WHERE i.shortName = %s OR a.name = %s
         """,
-        SPECIAL_ACCOMMODATIONS_INSURANCES * 2,
+        (short_name, short_name),
     )
-    scm_ids = list({row["id"] for row in cursor.fetchall()})
-    if not scm_ids:
+    insurance_ids = list({row["id"] for row in cursor.fetchall()})
+    if not insurance_ids:
         return []
 
-    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+    id_placeholders = ", ".join(["%s"] * len(insurance_ids))
     cursor.execute(
         f"""
         SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
         UNION
         SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
         """,
-        scm_ids + scm_ids,
+        insurance_ids + insurance_ids,
     )
     return [row["name"] for row in cursor.fetchall()]
 
@@ -1487,11 +1485,14 @@ def get_non_english_medicaid_clients_for_notice(
     client_ids: Iterable[int],
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
-    """Active, non-English-speaking clients among client_ids who have an SCM
-    (Medicaid) or BabyNet policy, primary or secondary, with a policy number and
-    no Special Accommodations notice row yet (pending, approved, denied or sent).
+    """Active, non-English-speaking BabyNet clients among client_ids who also
+    have an SCM (Medicaid) policy, with no Special Accommodations notice row yet
+    (pending, approved, denied or sent). A client counts as BabyNet when the
+    BabyNet flag is set or they have a current BabyNet policy. The SCM policy
+    can be primary or secondary and needs a policy number.
 
-    A client matching on both policies gets their primary policy's number.
+    A client with both a primary and a secondary SCM policy gets the primary
+    policy's number.
     Returns id, firstName, lastName, language, insuranceNumber.
     """
     assert connection is not None
@@ -1500,12 +1501,24 @@ def get_non_english_medicaid_clients_for_notice(
         return []
 
     with connection.cursor() as cursor:
-        insurance_names = _resolve_accommodation_insurance_names(cursor)
-        if not insurance_names:
+        scm_names = _resolve_insurance_names(cursor, SCM_ALIAS)
+        if not scm_names:
             return []
+        babynet_names = _resolve_insurance_names(cursor, BABYNET_SHORT_NAME)
 
         id_placeholders = ", ".join(["%s"] * len(ids))
-        name_placeholders = ", ".join(["%s"] * len(insurance_names))
+        scm_placeholders = ", ".join(["%s"] * len(scm_names))
+        # With no BabyNet insurance configured, only the flag qualifies.
+        babynet_policy_clause = ""
+        if babynet_names:
+            babynet_placeholders = ", ".join(["%s"] * len(babynet_names))
+            babynet_policy_clause = f"""
+                OR EXISTS (
+                    SELECT 1 FROM `{TABLE_CLIENT_INSURANCE_POLICY}` bp
+                    WHERE bp.clientId = c.id
+                      AND COALESCE(bp.insuranceCompanyName, bp.policyCompanyName) IN ({babynet_placeholders})
+                      AND (bp.policyEndDate IS NULL OR bp.policyEndDate >= CURDATE())
+                )"""
         cursor.execute(
             f"""
             SELECT c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
@@ -1513,9 +1526,10 @@ def get_non_english_medicaid_clients_for_notice(
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
             WHERE c.id IN ({id_placeholders})
               AND c.status = 1
+              AND (c.babyNet = 1{babynet_policy_clause})
               AND c.language IS NOT NULL
               AND LOWER(c.language) NOT IN ('', 'english')
-              AND COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN ({name_placeholders})
+              AND COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN ({scm_placeholders})
               AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND p.insuranceNumber IS NOT NULL
@@ -1526,7 +1540,7 @@ def get_non_english_medicaid_clients_for_notice(
               )
             ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            ids + insurance_names,
+            ids + babynet_names + scm_names,
         )
         rows = cursor.fetchall()
 
