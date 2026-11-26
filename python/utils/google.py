@@ -4,6 +4,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 
@@ -1269,47 +1270,95 @@ def find_gcal_event_by_client_and_time(
     return None
 
 
+# Calendar events per (calendar, time range), kept briefly so the scheduling
+# helper's repeated availability requests don't each hit Google. Cleared
+# whenever this API changes a calendar, so its own edits show up immediately.
+CALENDAR_EVENTS_CACHE_SECONDS = 30
+CALENDAR_FETCH_WORKERS = 8
+_calendar_events_cache: dict[tuple[str, str, str], tuple[float, list[dict]]] = {}
+_calendar_events_cache_lock = threading.Lock()
+
+
+def clear_calendar_events_cache() -> None:
+    with _calendar_events_cache_lock:
+        _calendar_events_cache.clear()
+
+
+def _list_calendar_events(
+    creds, calendar_id: str, time_min_str: str, time_max_str: str
+) -> list[dict] | None:
+    """All events for one calendar, or None if Google refused the request.
+
+    Builds its own service because the underlying httplib2 connection is not
+    thread-safe, and this runs on a worker thread.
+    """
+    service = build_google_service("calendar", "v3", creds)
+    events: list[dict] = []
+    page_token = None
+    try:
+        while True:
+            page = (
+                service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=time_min_str,
+                    timeMax=time_max_str,
+                    singleEvents=True,
+                    orderBy="startTime",
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            events.extend(page.get("items", []))
+            page_token = page.get("nextPageToken")
+            if not page_token:
+                return events
+    except HttpError as e:
+        logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
+        return None
+
+
 def list_calendar_events_batch(
     calendar_ids: list[str], time_min: datetime, time_max: datetime
 ) -> dict[str, list[dict]]:
     """Fetch events (expanded recurrences) for each given calendar id in a time range.
 
     Returns {calendar_id: [event, ...]}. Calendars that error out (e.g. no access) are
-    returned with an empty list rather than raising.
+    returned with an empty list rather than raising. Calendars are fetched in
+    parallel, and successful results are cached for CALENDAR_EVENTS_CACHE_SECONDS.
     """
-    creds = google_authenticate()
-    service = build_google_service("calendar", "v3", creds)
-
     time_min_str = time_min.isoformat() + ("Z" if time_min.tzinfo is None else "")
     time_max_str = time_max.isoformat() + ("Z" if time_max.tzinfo is None else "")
 
+    now = time.monotonic()
     results: dict[str, list[dict]] = {}
-    for calendar_id in calendar_ids:
-        events: list[dict] = []
-        page_token = None
-        try:
-            while True:
-                page = (
-                    service.events()
-                    .list(
-                        calendarId=calendar_id,
-                        timeMin=time_min_str,
-                        timeMax=time_max_str,
-                        singleEvents=True,
-                        orderBy="startTime",
-                        pageToken=page_token,
-                    )
-                    .execute()
-                )
-                events.extend(page.get("items", []))
-                page_token = page.get("nextPageToken")
-                if not page_token:
-                    break
-        except HttpError as e:
-            logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
-            events = []
+    missing: list[str] = []
+    with _calendar_events_cache_lock:
+        for calendar_id in calendar_ids:
+            cached = _calendar_events_cache.get(
+                (calendar_id, time_min_str, time_max_str)
+            )
+            if cached and now - cached[0] < CALENDAR_EVENTS_CACHE_SECONDS:
+                results[calendar_id] = cached[1]
+            else:
+                missing.append(calendar_id)
 
-        results[calendar_id] = events
+    if missing:
+        creds = google_authenticate()
+        with ThreadPoolExecutor(max_workers=CALENDAR_FETCH_WORKERS) as pool:
+            fetched = pool.map(
+                lambda cid: _list_calendar_events(
+                    creds, cid, time_min_str, time_max_str
+                ),
+                missing,
+            )
+            for calendar_id, events in zip(missing, fetched, strict=True):
+                results[calendar_id] = events or []
+                if events is not None:
+                    with _calendar_events_cache_lock:
+                        _calendar_events_cache[
+                            (calendar_id, time_min_str, time_max_str)
+                        ] = (time.monotonic(), events)
 
     return results
 

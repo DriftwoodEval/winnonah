@@ -62,6 +62,7 @@ from utils.database import (
 from utils.dds_fax import build_request_fax_pdf, get_dds_request
 from utils.forms import fill_select_health_form
 from utils.google import (
+    clear_calendar_events_cache,
     clear_planned_office_events,
     create_all_day_event,
     create_placeholder_event,
@@ -209,6 +210,13 @@ def get_google_services():
 def _audit_actor(current_user: dict) -> tuple[str, str]:
     """The (user id, email) recorded as the actor on audit entries."""
     return current_user["user_id"], current_user["email"]
+
+
+def clear_calendar_cache_after():
+    """Route dependency for endpoints that change a calendar: once the route
+    has finished, drop the cached availability so the next read is fresh."""
+    yield
+    clear_calendar_events_cache()
 
 
 def get_current_user(request: Request):
@@ -1032,7 +1040,9 @@ def evaluators_availability(
     return {npi: events_by_email.get(email, []) for npi, email in email_by_npi.items()}
 
 
-@app.post("/appointments/placeholder")
+@app.post(
+    "/appointments/placeholder", dependencies=[Depends(clear_calendar_cache_after)]
+)
 def create_placeholder_appointment(
     request: CreatePlaceholderAppointmentRequest,
     current_user: dict = Depends(get_current_user),
@@ -1108,7 +1118,7 @@ def create_placeholder_appointment(
     }
 
 
-@app.post("/appointments/shadow")
+@app.post("/appointments/shadow", dependencies=[Depends(clear_calendar_cache_after)])
 def create_shadow_event(
     request: CreateShadowEventRequest,
     current_user: dict = Depends(get_current_user),
@@ -1143,7 +1153,10 @@ def create_shadow_event(
     return {"calendarEventId": event_id}
 
 
-@app.delete("/appointments/placeholder/{appointment_id}")
+@app.delete(
+    "/appointments/placeholder/{appointment_id}",
+    dependencies=[Depends(clear_calendar_cache_after)],
+)
 def delete_placeholder_appointment(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
@@ -1168,7 +1181,10 @@ def delete_placeholder_appointment(
     return {"status": "ok"}
 
 
-@app.post("/appointments/placeholder/{appointment_id}/booked")
+@app.post(
+    "/appointments/placeholder/{appointment_id}/booked",
+    dependencies=[Depends(clear_calendar_cache_after)],
+)
 def confirm_placeholder_booked(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
@@ -1232,7 +1248,10 @@ def confirm_placeholder_booked(
     return {"status": "ok", "deleted": len(others)}
 
 
-@app.patch("/appointments/placeholder/{appointment_id}")
+@app.patch(
+    "/appointments/placeholder/{appointment_id}",
+    dependencies=[Depends(clear_calendar_cache_after)],
+)
 def move_placeholder_appointment(
     appointment_id: str,
     request: MovePlaceholderAppointmentRequest,
@@ -1323,7 +1342,9 @@ def move_placeholder_appointment(
     }
 
 
-@app.post("/evaluators/planned-office")
+@app.post(
+    "/evaluators/planned-office", dependencies=[Depends(clear_calendar_cache_after)]
+)
 def plan_evaluator_office(
     request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
@@ -1343,7 +1364,9 @@ def plan_evaluator_office(
     return {"calendarEventId": calendar_event_id}
 
 
-@app.delete("/evaluators/planned-office")
+@app.delete(
+    "/evaluators/planned-office", dependencies=[Depends(clear_calendar_cache_after)]
+)
 def unplan_evaluator_office(
     request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
@@ -1380,7 +1403,10 @@ def _apply_confirmed_marker(title: str, confirmed: bool) -> str | None:
     return None
 
 
-@app.post("/appointments/{appointment_id}/confirm-calendar")
+@app.post(
+    "/appointments/{appointment_id}/confirm-calendar",
+    dependencies=[Depends(clear_calendar_cache_after)],
+)
 def confirm_appointment_calendar(
     appointment_id: str,
     confirmed: bool = True,

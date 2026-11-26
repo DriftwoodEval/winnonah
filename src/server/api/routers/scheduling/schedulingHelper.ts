@@ -121,7 +121,11 @@ export const schedulingHelperRouter = createTRPCRouter({
 
 			const response = await fetch(
 				`${env.PY_API}/evaluators/availability?${params.toString()}`,
-				{ headers: { Cookie: cookieHeader } },
+				{
+					headers: { Cookie: cookieHeader },
+					// Fail fast with a clear error instead of waiting out undici's 5 minute headers timeout.
+					signal: AbortSignal.timeout(20_000),
+				},
 			);
 
 			if (!response.ok) {
