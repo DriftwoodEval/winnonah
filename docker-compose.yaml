@@ -1,5 +1,8 @@
 x-winnonah-base: &winnonah-base
   restart: no
+  # Next stops accepting connections on SIGTERM and waits for in-flight
+  # requests. This gives slow ones time to finish before Docker kills it.
+  stop_grace_period: 60s
   image: ghcr.io/driftwoodeval/winnonah:latest
   # Rolling deploys (scripts/deploy.sh) update one slot at a time, so
   # watchtower must never touch these on its own poll cycle.

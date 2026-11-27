@@ -10,6 +10,16 @@
 		health_interval 5s
 		health_timeout 3s
 
+		# When a slot stops, its listener closes at once but the health check
+		# only notices within health_interval. Retry a failed connection on the
+		# other slot meanwhile, and skip the stopped slot after one failure.
+		# Caddy only retries when the request was never sent upstream, so a
+		# mutation can't run twice.
+		lb_try_duration 5s
+		lb_try_interval 250ms
+		max_fails 1
+		fail_duration 30s
+
 		# Read each request body in full before opening the upstream request, so
 		# an upload finishes on the tunnel connection regardless of upstream pace.
 		request_buffers 25MB
