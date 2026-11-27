@@ -233,16 +233,15 @@ export const IssueList = ({
 					{clients.map((client, index) => (
 						<div
 							className="scroll-mt-12"
-							key={client.hash}
+							key={`${client.hash}-${client.ddsRequestId ?? ""}`}
 							ref={isSavedClient(client.hash) ? savedClientRef : null}
 						>
 							<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
 								<Link
 									className="min-w-40 flex-1"
 									href={`/clients/${client.hash}`}
-									key={client.hash}
 								>
-									<div className="text-sm break-words" key={client.hash}>
+									<div className="text-sm break-words">
 										<ClientHoverCard clientHash={client.hash}>
 											<Redact>{client.fullName}</Redact>{" "}
 										</ClientHoverCard>
