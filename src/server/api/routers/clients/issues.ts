@@ -3,6 +3,7 @@ import {
 	buildIssueCounts,
 	type IssueListData,
 } from "~/lib/issues/issue-counts";
+import { logger } from "~/lib/logger";
 import type { PermissionId } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { googleRouter } from "~/server/api/routers/admin/google";
@@ -13,6 +14,9 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+
+const log = logger.child({ module: "issues" });
+const LIST_TIMEOUT_MS = 10_000;
 
 // A caller over just the routers that hold issue lists. Importing the full
 // app router here would be a circular import.
@@ -41,9 +45,25 @@ export const issuesRouter = createTRPCRouter({
 
 		return fetchIssueList(ctx, `total:${permissionKey}`, async () => {
 			const caller = createListCaller(ctx);
-			// Lists the user may not see stay undefined and count as zero.
-			const load = <T>(allowed: boolean, run: () => Promise<T>) =>
-				allowed ? run() : Promise.resolve(undefined);
+			// Lists the user may not see stay undefined and count as zero. A list
+			// that fails or takes longer than LIST_TIMEOUT_MS also counts as zero,
+			// so one slow list can't hang the whole badge.
+			const load = <T>(allowed: boolean, run: () => Promise<T>) => {
+				if (!allowed) return Promise.resolve(undefined);
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				const timeout = new Promise<undefined>((resolve) => {
+					timer = setTimeout(() => {
+						log.warn("Issue list timed out while counting the header total");
+						resolve(undefined);
+					}, LIST_TIMEOUT_MS);
+				});
+				return Promise.race([run(), timeout])
+					.catch((error) => {
+						log.error({ error }, "Issue list failed in the header total");
+						return undefined;
+					})
+					.finally(() => clearTimeout(timer));
+			};
 
 			const [
 				districtErrors,
