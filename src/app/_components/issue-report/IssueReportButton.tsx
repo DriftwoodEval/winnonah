@@ -14,148 +14,55 @@ import type { DraftImage, Shape } from "./ScreenshotEditor";
 // Screenshots are scaled down to this width so the email stays small.
 const MAX_SCREENSHOT_WIDTH = 1600;
 
-// A 1x1 transparent GIF drawn in place of an image that cannot be fetched.
-const BLANK_IMAGE =
-	"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
 /**
- * Runs `capture` with every scrolled inner container (such as the scheduling
- * calendar) reset to its top and its children translated by the same amount.
- * The renderer clones nodes without their scroll position, so without this a
- * scrolled container would be captured from its top. Sticky elements would be
- * pushed out of view by that shift, so each one is moved back to where it was
- * on screen. The page looks identical while this runs, and the scroll
- * positions and inline transforms are restored afterwards.
- */
-async function withScrollFlattened<T>(capture: () => Promise<T>): Promise<T> {
-	const all = Array.from(document.body.querySelectorAll<HTMLElement>("*"));
-	const scrolled = all.filter(
-		(el) => el.scrollTop !== 0 || el.scrollLeft !== 0,
-	);
-	if (scrolled.length === 0) return capture();
-
-	const sticky = all.filter((el) => getComputedStyle(el).position === "sticky");
-	const stickyRects = sticky.map((el) => el.getBoundingClientRect());
-
-	const originalTransforms = new Map<HTMLElement, string>();
-	const shift = (el: HTMLElement, dx: number, dy: number) => {
-		if (!originalTransforms.has(el)) {
-			originalTransforms.set(el, el.style.transform);
-		}
-		el.style.transform = `translate(${dx}px, ${dy}px) ${el.style.transform}`;
-	};
-	const originalScrolls = scrolled.map((el) => ({
-		el,
-		top: el.scrollTop,
-		left: el.scrollLeft,
-	}));
-
-	for (const { el, top, left } of originalScrolls) {
-		for (const child of Array.from(el.children)) {
-			if (child instanceof HTMLElement) shift(child, -left, -top);
-		}
-		el.scrollTop = 0;
-		el.scrollLeft = 0;
-	}
-	sticky.forEach((el, i) => {
-		const before = stickyRects[i];
-		if (!before) return;
-		const after = el.getBoundingClientRect();
-		shift(el, before.left - after.left, before.top - after.top);
-	});
-
-	try {
-		return await capture();
-	} finally {
-		for (const [el, transform] of originalTransforms) {
-			el.style.transform = transform;
-		}
-		for (const { el, top, left } of originalScrolls) {
-			el.scrollTop = top;
-			el.scrollLeft = left;
-		}
-	}
-}
-
-/**
- * Runs `capture` with every element forced to a system sans-serif font. Used
- * when web fonts are skipped: the renderer copies each element's computed font
- * family, which names the page's web font. That font is not embedded in the
- * screenshot, so the text would otherwise fall back to the browser's default
- * serif font.
- */
-async function withSystemFont<T>(capture: () => Promise<T>): Promise<T> {
-	const style = document.createElement("style");
-	style.textContent =
-		"*, *::before, *::after { font-family: system-ui, sans-serif !important; }";
-	document.head.appendChild(style);
-	try {
-		return await capture();
-	} finally {
-		style.remove();
-	}
-}
-
-/**
- * Renders the current page to a PNG data URL, or null if it cannot be captured.
- * A failed first attempt is retried without web fonts and with a placeholder for
- * images that fail to load, which are the usual causes of a failed render.
+ * Takes a real screenshot of the current tab with the browser's screen capture,
+ * so nothing on the page has to be copied or re-rendered. The browser asks the
+ * user to allow sharing the tab each time. Returns a PNG data URL, or null if
+ * the user declines or the browser cannot capture.
  */
 async function capturePage(): Promise<string | null> {
-	const { toPng } = await import("html-to-image");
-	const width = window.innerWidth;
-	const height = window.innerHeight;
-	const canvasWidth = Math.min(width, MAX_SCREENSHOT_WIDTH);
-	const options = {
-		width,
-		height,
-		canvasWidth,
-		canvasHeight: Math.round(height * (canvasWidth / width)),
-		pixelRatio: 1,
-		backgroundColor: getComputedStyle(document.body).backgroundColor,
-		// The whole body is rendered from its top, so offset it by the scroll
-		// position to capture what the user currently sees. A relative offset is
-		// used instead of a transform because a transform would make the body the
-		// containing block of fixed elements, and open dialogs and their overlays
-		// would be positioned against the page instead of the viewport.
-		style: {
-			position: "relative",
-			top: `${-window.scrollY}px`,
-			left: `${-window.scrollX}px`,
-		},
-		// The draft bar is not part of the page being reported.
-		filter: (node: HTMLElement) =>
-			!("issueReportIgnore" in (node.dataset ?? {})),
-	};
+	let stream: MediaStream | null = null;
+	const hidden = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-issue-report-ignore]"),
+	);
+	try {
+		stream = await navigator.mediaDevices.getDisplayMedia({
+			video: true,
+			preferCurrentTab: true,
+		} as DisplayMediaStreamOptions);
 
-	const attempts = [
-		{ ...options, cacheBust: true },
-		{ ...options, skipFonts: true, imagePlaceholder: BLANK_IMAGE },
-		// Last resort: leave out <img> elements, whose failure to load is what
-		// html-to-image reports as a bare Event.
-		{
-			...options,
-			skipFonts: true,
-			imagePlaceholder: BLANK_IMAGE,
-			filter: (node: HTMLElement) =>
-				options.filter(node) && node.tagName !== "IMG",
-		},
-	];
-	for (const attempt of attempts) {
-		try {
-			return await withScrollFlattened(() =>
-				"skipFonts" in attempt
-					? withSystemFont(() => toPng(document.body, attempt))
-					: toPng(document.body, attempt),
-			);
-		} catch (error) {
-			// html-to-image rejects with the failing image's error Event, so log its
-			// target to show which element could not be loaded.
-			const target = error instanceof Event ? error.target : null;
-			console.error("Issue report screenshot failed", error, target);
+		// The draft bar is not part of the page being reported.
+		for (const el of hidden) el.style.visibility = "hidden";
+
+		const video = document.createElement("video");
+		video.muted = true;
+		video.srcObject = stream;
+		// The play() promise can stay pending while frames are already flowing, so
+		// it is not awaited.
+		void video.play();
+		// Tab capture only sends frames when the page changes, so wait for the
+		// first one, then give the hidden draft bar a moment to leave the picture.
+		await new Promise((resolve) => video.requestVideoFrameCallback(resolve));
+		await new Promise((resolve) => setTimeout(resolve, 250));
+
+		const scale = Math.min(1, MAX_SCREENSHOT_WIDTH / video.videoWidth);
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.round(video.videoWidth * scale);
+		canvas.height = Math.round(video.videoHeight * scale);
+		canvas
+			.getContext("2d")
+			?.drawImage(video, 0, 0, canvas.width, canvas.height);
+		return canvas.toDataURL("image/png");
+	} catch (error) {
+		// NotAllowedError means the user closed the share prompt.
+		if (!(error instanceof DOMException && error.name === "NotAllowedError")) {
+			console.error("Issue report screenshot failed", error);
 		}
+		return null;
+	} finally {
+		for (const el of hidden) el.style.visibility = "";
+		for (const track of stream?.getTracks() ?? []) track.stop();
 	}
-	return null;
 }
 
 const EMPTY_FORM: IssueReportForm = {
@@ -256,7 +163,7 @@ export function IssueReportButton() {
 		} else {
 			toast.warning("Could not capture a screenshot", {
 				description:
-					"Bug reports need a screenshot. Try again, or check the browser console for details.",
+					"Bug reports need a screenshot. Try again and allow sharing this tab, or add an image file instead.",
 			});
 		}
 		setOpen(true);
