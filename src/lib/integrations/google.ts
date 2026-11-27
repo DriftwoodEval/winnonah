@@ -26,6 +26,7 @@ import {
 } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import type { Client, FullClientInfo } from "~/lib/models";
+import { formatInBusinessTime } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import {
@@ -936,11 +937,21 @@ const punchCellIsChecked = (val: string | undefined) =>
 // Redis key per client holding the PA Expiration date the sync last acted on.
 const PA_DATE_SEEN_PREFIX = "punchlist:pa-date-seen:";
 
-// Checks "EVAL Qs Needed" once per client and PA date. A date already seen is
+type NewPaDate = {
+	id: number;
+	date: string;
+	// The date came from the database (TherapyAppointment), not the sheet, so it
+	// still has to be written to the sheet's "PA Expiration" cell.
+	writeDate: boolean;
+	checkBox: boolean;
+};
+
+// Acts once per client and PA date: writes the date to the sheet when it only
+// exists in the database, and checks "EVAL Qs Needed". A date already seen is
 // skipped, so a box staff later uncheck stays unchecked until a new date lands.
 const checkEvalQsForNewPaDates = async (
 	ctx: Context & { session: Session },
-	paDates: { id: number; date: string; checkBox: boolean }[],
+	paDates: NewPaDate[],
 ) => {
 	if (paDates.length === 0) return;
 	const keys = paDates.map((p) => `${PA_DATE_SEEN_PREFIX}${p.id}`);
@@ -950,8 +961,11 @@ const checkEvalQsForNewPaDates = async (
 	// Sequential: each write re-reads the sheet to find the client's row.
 	for (const [i, p] of paDates.entries()) {
 		if (seen[i] === p.date) continue;
-		if (p.checkBox) {
-			await updatePunchData(ctx.session, String(p.id), { evalQsNeeded: true });
+		if (p.writeDate || p.checkBox) {
+			await updatePunchData(ctx.session, String(p.id), {
+				...(p.writeDate && { paExpiration: p.date }),
+				...(p.checkBox && { evalQsNeeded: true }),
+			});
 			wroteSheet = true;
 		}
 		await ctx.redis.set(keys[i] as string, p.date);
@@ -989,9 +1003,10 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const secondReviewColors = await getSecondReviewColors(ctx.session);
 
 	const updatePromises: Promise<unknown>[] = [];
-	// Clients whose sheet date is new since the last sync, and which of those
-	// also need the "EVAL Qs Needed" box checked.
-	const newPaDates: { id: number; date: string; checkBox: boolean }[] = [];
+	// Clients with a PA date (from the sheet or TherapyAppointment) to act on, and
+	// which of those need the "EVAL Qs Needed" box checked.
+	const newPaDates: NewPaDate[] = [];
+	const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 
 	// Current billing/review state of every open report, to skip no-op writes.
 	const openReports = await db
@@ -1044,12 +1059,22 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 		// A PA expiration date means the authorization came through, so the eval
 		// questionnaires are now needed (unless already needed, sent, or done).
 		// Each date is acted on once (see PA_DATE_SEEN_PREFIX), so unchecking the
-		// box by hand sticks.
-		const paDate = client["PA Expiration"];
-		if (client.id && isPunchDate(paDate)) {
+		// box by hand sticks. The date normally comes from the sheet. When the
+		// sheet cell has none (blank or a status), a current date from
+		// TherapyAppointment is used and written to the sheet. Past dates are
+		// ignored: they are old authorizations, not a new one.
+		const sheetPaDate = client["PA Expiration"];
+		const taPaDate =
+			client.precertExpires && client.precertExpires >= today
+				? client.precertExpires
+				: undefined;
+		const writeDate = !isPunchDate(sheetPaDate) && taPaDate !== undefined;
+		const paDate = isPunchDate(sheetPaDate) ? sheetPaDate : taPaDate;
+		if (client.id && paDate) {
 			newPaDates.push({
 				id: client.id,
 				date: paDate,
+				writeDate,
 				checkBox:
 					!punchCellIsChecked(client["EVAL Qs Needed"]) &&
 					!punchCellIsChecked(client["EVAL Qs Sent"]) &&
