@@ -1290,15 +1290,11 @@ def move_placeholder_appointment(
         start_time_business.date(),
     )
 
-    if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
-        delete_calendar_event(
-            appointment["evaluatorEmail"],
-            appointment["calendarEventId"],
-            client_id=appointment["clientId"],
-            reason="placeholder_moved",
-            appointment_id=appointment_id,
-            actor=_audit_actor(current_user),
-        )
+    # Create the new event first and delete the old one last, so a failure or a
+    # dropped connection part way through never leaves the placeholder without a
+    # calendar event. Repeating the same request ends in the same state: it
+    # replaces whatever event the database currently points at.
+    actor = _audit_actor(current_user)
     calendar_event_id = create_placeholder_event(
         evaluator_email,
         title,
@@ -1308,22 +1304,52 @@ def move_placeholder_appointment(
         client_id=appointment["clientId"],
         reason="placeholder_moved",
         appointment_id=appointment_id,
-        actor=_audit_actor(current_user),
+        actor=actor,
     )
 
-    put_appointment_in_db(
-        appointment_id=appointment_id,
-        client_id=appointment["clientId"],
-        evaluator_npi=request.evaluator_npi,
-        cpt="",
-        start_time=start_time,
-        end_time=end_time,
-        da_eval=da_eval,
-        location=request.location_key,
-        gcal_event_id=calendar_event_id,
-        gcal_event_title=title,
-        placeholder=True,
-    )
+    try:
+        put_appointment_in_db(
+            appointment_id=appointment_id,
+            client_id=appointment["clientId"],
+            evaluator_npi=request.evaluator_npi,
+            cpt="",
+            start_time=start_time,
+            end_time=end_time,
+            da_eval=da_eval,
+            location=request.location_key,
+            gcal_event_id=calendar_event_id,
+            gcal_event_title=title,
+            placeholder=True,
+        )
+    except Exception:
+        # The move did not save, so the new event would be an orphan hold.
+        delete_calendar_event(
+            evaluator_email,
+            calendar_event_id,
+            client_id=appointment["clientId"],
+            reason="placeholder_move_failed",
+            appointment_id=appointment_id,
+            actor=actor,
+        )
+        raise
+
+    if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
+        try:
+            delete_calendar_event(
+                appointment["evaluatorEmail"],
+                appointment["calendarEventId"],
+                client_id=appointment["clientId"],
+                reason="placeholder_moved",
+                appointment_id=appointment_id,
+                actor=actor,
+            )
+        except Exception:
+            # The move is saved. Failing now would make a retry skip this old
+            # event for good, so log it for manual cleanup instead.
+            logger.exception(
+                f"Moved placeholder {appointment_id} but could not delete old "
+                f"event {appointment['calendarEventId']}"
+            )
     clear_planned_office_events(
         evaluator_email,
         start_time_business.date(),

@@ -88,6 +88,7 @@ import { useEvaluatorColors } from "~/hooks/use-evaluator-colors";
 import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/integrations/google";
+import { retryNetworkError } from "~/lib/retry-network-error";
 import {
 	countOpenSlots,
 	freeIntervals,
@@ -1244,6 +1245,7 @@ function SchedulingHelperGrid({
 	} | null>(null);
 
 	const movePlaceholder = api.schedulingHelper.movePlaceholder.useMutation({
+		...retryNetworkError,
 		onSuccess: () => {
 			toast.success("Placeholder moved");
 			setPendingMove(null);
@@ -1572,6 +1574,7 @@ function SchedulingHelperGrid({
 	});
 
 	const unplanOffice = api.schedulingHelper.unplanOffice.useMutation({
+		...retryNetworkError,
 		onSuccess: () => {
 			toast.success("Plan removed");
 			void utils.schedulingHelper.getAvailability.invalidate();

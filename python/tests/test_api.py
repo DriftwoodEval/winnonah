@@ -1,13 +1,16 @@
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 from pywaze.route_calculator import CalcRoutesResponse
 
+from api import app as api_app
 from api.app import (
+    MovePlaceholderAppointmentRequest,
     _apply_confirmed_marker,
     _find_duplicates,
     col_num_to_letter,
@@ -561,3 +564,70 @@ class TestOfficeDriveTimes:
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))
         assert exc_info.value.status_code == 422
+
+
+class TestMovePlaceholderOrder:
+    """The new calendar event is created before the old one is deleted."""
+
+    APPT: ClassVar[dict] = {
+        "clientId": 1,
+        "daEval": "EVAL",
+        "calendarEventId": "old-event",
+        "evaluatorEmail": "old@example.com",
+    }
+
+    def _move(self, calls, db_error=None, delete_error=None):
+        def record(name, result=None, error=None):
+            def fn(*args, **_kwargs):
+                calls.append((name, args[1] if len(args) > 1 else None))
+                if error:
+                    raise error
+                return result
+
+            return fn
+
+        request = MovePlaceholderAppointmentRequest(
+            evaluator_npi=1,
+            start_time=datetime(2026, 12, 1, 9, 0),
+            end_time=datetime(2026, 12, 1, 10, 0),
+            location_key="office",
+        )
+        user = {
+            "user_id": "u",
+            "email": "e@example.com",
+            "permissions": {"pages:scheduling-helper": True},
+        }
+        patches = {
+            "has_permission": lambda *_: True,
+            "get_placeholder_appointment": lambda _id: self.APPT,
+            "get_client_name": lambda _id: "Client",
+            "get_client_dob": lambda _id: None,
+            "get_client_drive_id": lambda _id: None,
+            "get_evaluator_email": lambda _npi: "new@example.com",
+            "build_placeholder_title": lambda *_: "title",
+            "build_placeholder_description": lambda *_: "desc",
+            "create_placeholder_event": record("create", "new-event"),
+            "put_appointment_in_db": record("save", error=db_error),
+            "delete_calendar_event": record("delete", error=delete_error),
+            "clear_planned_office_events": lambda *_, **__: None,
+        }
+        with patch.multiple(api_app, **patches):
+            return api_app.move_placeholder_appointment("a1", request, user)
+
+    def test_creates_new_event_then_saves_then_deletes_old(self):
+        calls = []
+        self._move(calls)
+        assert [c[0] for c in calls] == ["create", "save", "delete"]
+        assert calls[2][1] == "old-event"
+
+    def test_failed_save_deletes_the_new_event_and_keeps_the_old(self):
+        calls = []
+        with pytest.raises(RuntimeError):
+            self._move(calls, db_error=RuntimeError("db down"))
+        assert [c[0] for c in calls] == ["create", "save", "delete"]
+        assert calls[2][1] == "new-event"
+
+    def test_failed_old_delete_does_not_fail_the_move(self):
+        calls = []
+        result = self._move(calls, delete_error=RuntimeError("google down"))
+        assert result["calendarEventId"] == "new-event"

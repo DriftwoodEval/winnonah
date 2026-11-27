@@ -103,6 +103,7 @@ import type {
 	Office,
 	SchoolDistrict,
 } from "~/lib/models";
+import { retryNetworkError } from "~/lib/retry-network-error";
 import {
 	cn,
 	dateOnlyToLocalDate,
@@ -255,6 +256,7 @@ function useSchedulingFilterState(type: "active" | "archived") {
 	);
 
 	const saveFiltersMutation = api.sessions.saveSchedulingFilters.useMutation({
+		...retryNetworkError,
 		onSuccess: (_data, variables) => {
 			utils.sessions.getSchedulingFilters.setData(
 				{ type: variables.type },
@@ -2290,6 +2292,7 @@ function SchedulingTableView({
 	}, [facetCountsQuery.data]);
 
 	const updateMutation = api.scheduling.update.useMutation({
+		...retryNetworkError,
 		onMutate: async (newUpdate) => {
 			await utils.scheduling.get.cancel(queryFilters);
 			const previousData = utils.scheduling.get.getData(queryFilters);
@@ -2347,6 +2350,7 @@ function SchedulingTableView({
 	});
 
 	const reorderMutation = api.scheduling.reorder.useMutation({
+		...retryNetworkError,
 		// On success, the optimistic reorder already matches what the server
 		// computed, so mark the cache stale without forcing an immediate
 		// active refetch (refetchType: "none") - an active refetch flips
